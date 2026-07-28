@@ -1,0 +1,177 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "SFMono-Regular", "Menlo", "Consolas", monospace;
+  --font-display: "Space Grotesk", "Inter", -apple-system, sans-serif;
+}
+
+:root {
+  --bg: #0a0b0e;
+  --bg-2: #0d0f13;
+  --surface: #15171c;
+  --surface-2: #1c1f26;
+  --surface-3: #24272f;
+  --stroke: rgba(255, 255, 255, 0.07);
+  --stroke-soft: rgba(255, 255, 255, 0.045);
+  --text: #f2f3f5;
+  --text-dim: #9a9ea7;
+  --text-faint: #5c6068;
+
+  --focus: #4c8dff;
+  --focus-2: #7c6bff;
+  --rest: #ff9d5c;
+  --rest-2: #ffc15e;
+  --lunch: #4fd4c4;
+  --lunch-2: #7fe8b8;
+  --off: #4a4d55;
+
+  --success: rgba(120, 200, 120, 0.6);
+  --danger: rgba(255, 100, 100, 0.6);
+
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg);
+  background: radial-gradient(circle at 20% -10%, #14161d 0%, transparent 55%),
+              radial-gradient(circle at 90% 10%, #14181e 0%, transparent 45%),
+              var(--bg);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--text);
+  overflow: hidden;
+  background: transparent;
+}
+
+#root {
+  min-height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
+#root::-webkit-scrollbar { width: 6px; }
+#root::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 10px; }
+
+::selection { background: rgba(76, 141, 255, 0.3); }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+[data-tauri-drag-region] {
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  opacity: 0.02;
+  z-index: 999;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.glass-surface {
+  background: rgba(255, 255, 255, 0.015);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-md);
+}
+
+.card-sm {
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-sm);
+}
+
+.card-hover {
+  transition: background 0.15s ease;
+}
+
+.card-hover:hover {
+  background: var(--surface-2);
+}
+
+.btn {
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 12px;
+  border-radius: 11px;
+  padding: 9px 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.12s ease, filter 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn:active { transform: scale(0.96); }
+
+.btn-primary {
+  color: #0a0b0e;
+  background: linear-gradient(135deg, var(--focus), var(--focus-2));
+}
+
+.btn-primary:hover { filter: brightness(1.08); }
+
+.btn-ghost {
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--stroke);
+}
+
+.btn-ghost:hover { color: var(--text); background: var(--surface-3); }
+
+.btn-icon {
+  width: 36px; height: 36px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  background: transparent;
+  border: none;
+}
+
+.btn-icon:hover { background: var(--surface-2); color: var(--text-dim); }
+.btn-icon.active { background: var(--surface-2); color: var(--text); }
+
+.input-base {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+.input-base::placeholder { color: var(--text-faint); }

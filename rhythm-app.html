@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rhythm — ритм работы и отдыха</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a0b0e;
+    --bg-2: #0d0f13;
+    --surface: #15171c;
+    --surface-2: #1c1f26;
+    --surface-3: #24272f;
+    --stroke: rgba(255,255,255,0.07);
+    --stroke-soft: rgba(255,255,255,0.045);
+    --text: #f2f3f5;
+    --text-dim: #9a9ea7;
+    --text-faint: #5c6068;
+
+    --focus: #4c8dff;
+    --focus-2: #7c6bff;
+    --rest: #ff9d5c;
+    --rest-2: #ffc15e;
+    --lunch: #4fd4c4;
+    --lunch-2: #7fe8b8;
+    --off: #4a4d55;
+
+    --radius-lg: 28px;
+    --radius-md: 18px;
+    --radius-sm: 12px;
+    --shadow-lift: 0 20px 60px -20px rgba(0,0,0,0.6);
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+
+  html,body{
+    height:100%;
+    background: radial-gradient(circle at 20% -10%, #14161d 0%, transparent 55%),
+                radial-gradient(circle at 90% 10%, #14181e 0%, transparent 45%),
+                var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  ::selection{ background: rgba(76,141,255,0.35); }
+
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    pointer-events:none;
+    opacity:0.025;
+    z-index: 999;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .app-window{ width: 100vw; height: 100vh; display:flex; flex-direction: column; }
+
+  /* ---------- Title bar ---------- */
+  .titlebar{
+    height: 52px; flex-shrink:0;
+    display:flex; align-items:center; justify-content: space-between;
+    padding: 0 18px 0 20px;
+    border-bottom: 1px solid var(--stroke-soft);
+    background: rgba(255,255,255,0.012);
+  }
+  .traffic{ display:flex; gap:8px; }
+  .traffic span{ width:12px; height:12px; border-radius:50%; display:inline-block; }
+  .traffic .r{ background:#ff5f57; } .traffic .y{ background:#febc2e; } .traffic .g{ background:#28c840; }
+  .titlebar-center{ display:flex; align-items:center; gap:8px; font-size: 13px; color: var(--text-dim); font-weight:500; }
+  .titlebar-center .status-dot{ width:6px; height:6px; border-radius:50%; background: var(--focus); box-shadow: 0 0 0 3px rgba(76,141,255,0.18); transition: background .3s, box-shadow .3s; }
+  .titlebar-center.resting .status-dot{ background: var(--rest); box-shadow: 0 0 0 3px rgba(255,157,92,0.18); }
+  .titlebar-right{ width: 68px; }
+
+  .body-row{ flex:1; display:flex; min-height:0; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{ width: 76px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding: 22px 0; gap: 6px; border-right: 1px solid var(--stroke-soft); }
+  .sb-item{ width: 44px; height:44px; border-radius: 13px; display:flex; align-items:center; justify-content:center; color: var(--text-faint); cursor:pointer; transition: background .18s ease, color .18s ease; position:relative; }
+  .sb-item svg{ width:20px; height:20px; }
+  .sb-item:hover{ background: var(--surface-2); color: var(--text-dim); }
+  .sb-item.active{ background: var(--surface-2); color: var(--text); }
+  .sb-item.active::before{ content:""; position:absolute; left:-14px; top:50%; transform: translateY(-50%); width:3px; height:18px; border-radius:3px; background: linear-gradient(var(--focus), var(--focus-2)); }
+  .sb-spacer{ flex:1; }
+
+  /* ---------- Main ---------- */
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; padding: 26px 40px 30px; overflow-y:auto; gap: 22px; }
+  .main-head{ display:flex; align-items:flex-end; justify-content: space-between; }
+  .main-head h1{ font-family:'Space Grotesk', sans-serif; font-size: 24px; font-weight:600; letter-spacing: -0.02em; }
+  .main-head p{ color: var(--text-dim); font-size: 13px; margin-top:3px; }
+  .date-pill{ font-size:12.5px; color: var(--text-dim); background: var(--surface); border: 1px solid var(--stroke); padding: 7px 14px; border-radius: 100px; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Next up card ---------- */
+  .nextup{
+    display:flex; align-items:center; gap:22px;
+    background: linear-gradient(155deg, var(--surface) 0%, var(--bg-2) 100%);
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius-lg);
+    padding: 20px 26px;
+    box-shadow: var(--shadow-lift);
+    position:relative; overflow:hidden;
+  }
+  .nextup::after{
+    content:""; position:absolute; width:360px; height:360px; right:-140px; top:-160px;
+    background: radial-gradient(circle, rgba(76,141,255,0.10), transparent 65%);
+    pointer-events:none; transition: background .6s ease;
+  }
+  .nextup.resting::after{ background: radial-gradient(circle, rgba(255,157,92,0.12), transparent 65%); }
+
+  .nu-ring{ position:relative; width:78px; height:78px; flex-shrink:0; }
+  .nu-ring svg{ width:100%; height:100%; transform: rotate(-90deg); }
+  .nu-track{ fill:none; stroke: var(--surface-3); stroke-width: 7; }
+  .nu-progress{ fill:none; stroke-width:7; stroke-linecap:round; stroke: url(#nuGrad); transition: stroke-dashoffset .3s linear; }
+  .nu-icon{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  .nu-icon svg{ width:22px; height:22px; color: var(--focus); transition: color .4s; }
+  .nextup.resting .nu-icon svg{ color: var(--rest); }
+
+  .nu-body{ flex:1; min-width:0; }
+  .nu-eyebrow{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-faint); font-weight:600; margin-bottom:4px; }
+  .nu-title{ font-family:'Space Grotesk', sans-serif; font-size:19px; font-weight:600; letter-spacing:-0.01em; }
+  .nu-sub{ font-size:13px; color:var(--text-dim); margin-top:3px; }
+
+  .nu-time{ text-align:right; flex-shrink:0; }
+  .nu-time .big{ font-family:'Space Grotesk', sans-serif; font-size:32px; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+  .nu-time .lab{ font-size:11px; color:var(--text-faint); margin-top:2px; }
+
+  .nu-actions{ display:flex; gap:8px; flex-shrink:0; }
+  .btn{ border:none; cursor:pointer; font-family:'Inter', sans-serif; font-weight:600; font-size:12.5px; border-radius:11px; padding:10px 16px; display:flex; align-items:center; gap:6px; transition: transform .15s ease, filter .15s ease, background .15s ease; white-space:nowrap; }
+  .btn:active{ transform: scale(0.96); }
+  .btn-primary{ color:#0a0b0e; background: linear-gradient(135deg, var(--focus), var(--focus-2)); }
+  .nextup.resting .btn-primary{ background: linear-gradient(135deg, var(--rest), var(--rest-2)); }
+  .btn-primary:hover{ filter: brightness(1.08); }
+  .btn-ghost{ color: var(--text-dim); background: var(--surface-2); border: 1px solid var(--stroke); }
+  .btn-ghost:hover{ color:var(--text); background: var(--surface-3); }
+  .btn svg{ width:14px; height:14px; }
+
+  /* ---------- Timeline — the showpiece ---------- */
+  .panel{ background: var(--surface); border:1px solid var(--stroke); border-radius: var(--radius-lg); padding: 24px 0 20px; flex:1; display:flex; flex-direction:column; min-height: 0; }
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 4px; padding: 0 30px; }
+  .panel-head h3{ font-family:'Space Grotesk', sans-serif; font-size: 15.5px; font-weight:600; }
+  .panel-head .hint{ font-size:12px; color:var(--text-faint); display:flex; align-items:center; gap:6px; }
+  .panel-head .hint svg{ width:13px; height:13px; }
+  .now-btn{ font-size:11.5px; color: var(--focus); background: rgba(76,141,255,0.1); border:1px solid rgba(76,141,255,0.25); padding:5px 11px; border-radius:100px; cursor:pointer; font-weight:600; opacity:0; transform: translateY(-4px); pointer-events:none; transition: opacity .2s, transform .2s; }
+  .now-btn.show{ opacity:1; transform:none; pointer-events:auto; }
+
+  .timeline-viewport{
+    position:relative;
+    flex:1;
+    min-height: 190px;
+    margin-top: 14px;
+    overflow: hidden;
+    perspective: 1000px;
+    cursor: grab;
+  }
+  .timeline-viewport::before, .timeline-viewport::after{
+    content:""; position:absolute; top:0; bottom:0; width:120px; z-index:6; pointer-events:none;
+  }
+  .timeline-viewport::before{ left:0; background: linear-gradient(90deg, var(--surface), transparent); }
+  .timeline-viewport::after{ right:0; background: linear-gradient(270deg, var(--surface), transparent); }
+
+  .bars-layer{
+    position:absolute; left:0; top:0; height:100%; width:0;
+    display:flex; align-items:flex-end;
+    will-change: transform;
+    transform-style: preserve-3d;
+  }
+  .bars-layer.base{ top: 30px; bottom: 40px; height:auto; align-items:flex-end; }
+
+  .bar{
+    width:4px; margin-right:3px; flex-shrink:0;
+    border-radius: 3px 3px 1px 1px;
+    align-self:flex-end;
+    transition: filter .15s ease;
+  }
+  .bar.focus{ background: linear-gradient(180deg, var(--focus-2), var(--focus)); }
+  .bar.rest{ background: linear-gradient(180deg, var(--rest-2), var(--rest)); }
+  .bar.lunch{ background: linear-gradient(180deg, var(--lunch-2), var(--lunch)); }
+  .bar.off{ background: var(--off); opacity:.55; }
+
+  .lens-wrap{
+    position:absolute; top:30px; bottom:40px; left:50%; transform: translateX(-50%);
+    width: 170px;
+    overflow:hidden;
+    pointer-events:none;
+    z-index:4;
+    border-radius: 14px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 0 40px rgba(76,141,255,0.18), inset 0 0 30px rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.025);
+    backdrop-filter: blur(0.3px);
+  }
+  .lens-wrap .bars-layer{ margin-left:-1000px; }
+  .lens-wrap .bar{ filter: saturate(1.4) brightness(1.2); transform: scaleY(1.32); transform-origin: bottom; }
+
+  .playhead{
+    position:absolute; top:22px; bottom:34px; left:50%; width:2px; z-index:5;
+    background: linear-gradient(180deg, transparent, #fff 15%, #fff 85%, transparent);
+    box-shadow: 0 0 12px rgba(255,255,255,0.6);
+    pointer-events:none;
+  }
+  .playhead-time{
+    position:absolute; top:0; left:50%; transform: translate(-50%,-100%);
+    font-family:'JetBrains Mono', monospace; font-size:12px; color:#fff;
+    background: var(--surface-3); border:1px solid var(--stroke); padding:3px 9px; border-radius:8px;
+    white-space:nowrap; margin-top:-8px;
+  }
+
+  .markers-layer{ position:absolute; left:0; top:2px; height:20px; will-change: transform; z-index:3; }
+  .marker-pill{
+    position:absolute; transform: translateX(-50%);
+    font-size:10px; font-weight:600; white-space:nowrap;
+    padding: 3px 8px; border-radius:100px;
+    color: var(--text-dim); background: var(--surface-2); border:1px solid var(--stroke);
+    opacity:.55; transition: opacity .2s;
+  }
+  .marker-pill.rest-m{ color:#ffd7b0; }
+  .marker-pill.lunch-m{ color:#bff2e6; }
+
+  .ruler-layer{ position:absolute; left:0; bottom:6px; height:26px; will-change: transform; }
+  .tick{ position:absolute; bottom:0; font-family:'JetBrains Mono', monospace; font-size:10.5px; color: var(--text-faint); transform: translateX(-50%); }
+  .tick::before{ content:""; position:absolute; bottom:16px; left:50%; width:1px; height:6px; background: var(--stroke); }
+
+  .legend{ display:flex; gap:18px; padding: 14px 30px 0; }
+  .legend-item{ display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--text-dim); }
+  .legend-dot{ width:8px; height:8px; border-radius:3px; }
+  .legend-dot.focus{ background: linear-gradient(135deg, var(--focus-2), var(--focus)); }
+  .legend-dot.rest{ background: linear-gradient(135deg, var(--rest-2), var(--rest)); }
+  .legend-dot.lunch{ background: linear-gradient(135deg, var(--lunch-2), var(--lunch)); }
+  .legend-dot.off{ background: var(--off); }
+
+  /* ---------- Rule chips ---------- */
+  .chips-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .chip{ display:flex; align-items:center; gap:10px; background: var(--surface); border:1px solid var(--stroke); border-radius: 100px; padding: 8px 8px 8px 16px; }
+  .chip .name{ font-size:12.5px; font-weight:600; }
+  .chip .time{ font-size:11.5px; color:var(--text-faint); font-family:'JetBrains Mono', monospace; }
+  .chip .badge{ width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .chip .badge.blue{ background: rgba(76,141,255,0.18); }
+  .chip .badge.amber{ background: rgba(255,157,92,0.18); }
+  .chip .badge svg{ width:11px; height:11px; }
+  .chip-add{ color:var(--text-faint); cursor:pointer; border-style:dashed; }
+  .chip-add:hover{ color:var(--focus); border-color: var(--focus); }
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position: fixed; top: 66px; right: 22px; width: 340px;
+    background: rgba(28,31,38,0.85); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.09); border-radius: 18px; padding: 16px 18px;
+    display:flex; gap:14px; box-shadow: 0 24px 60px -12px rgba(0,0,0,0.55);
+    transform: translateX(400px); opacity:0;
+    transition: transform .45s cubic-bezier(.2,.9,.25,1), opacity .35s ease; z-index: 200;
+  }
+  .toast.show{ transform: translateX(0); opacity:1; }
+  .toast-icon{ width:38px; height:38px; border-radius:11px; background: linear-gradient(135deg, var(--rest), var(--rest-2)); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .toast-icon svg{ width:19px; height:19px; color:#0a0b0e; }
+  .toast-body{ flex:1; min-width:0; }
+  .toast-title{ font-size:13.5px; font-weight:600; margin-bottom:2px; }
+  .toast-text{ font-size:12.5px; color: var(--text-dim); line-height:1.4; }
+  .toast-app{ font-size:10.5px; color:var(--text-faint); margin-top:6px; letter-spacing:.03em; }
+
+  .main::-webkit-scrollbar{ width:8px; }
+  .main::-webkit-scrollbar-thumb{ background: var(--surface-3); border-radius:10px; }
+</style>
+</head>
+<body>
+
+<div class="app-window">
+
+  <div class="titlebar">
+    <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+    <div class="titlebar-center" id="titlebarStatus">
+      <span class="status-dot"></span>
+      <span id="titlebarText">Rhythm — фокус, ещё 46:00</span>
+    </div>
+    <div class="titlebar-right"></div>
+  </div>
+
+  <div class="body-row">
+
+    <div class="sidebar">
+      <div class="sb-item active" title="Сегодня">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+      </div>
+      <div class="sb-item" title="Расписание">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      </div>
+      <div class="sb-item" title="Статистика">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V9M12 19V5M19 19v-7"/></svg>
+      </div>
+      <div class="sb-spacer"></div>
+      <div class="sb-item" title="Настройки">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.04-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.04 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.04Z"/></svg>
+      </div>
+    </div>
+
+    <div class="main">
+
+      <div class="main-head">
+        <div>
+          <h1>Сегодня</h1>
+          <p>Ближайшее событие и ритм всего дня в одном месте</p>
+        </div>
+        <div class="date-pill" id="clock">10:24 · вт, 28 июля</div>
+      </div>
+
+      <!-- NEXT UP -->
+      <div class="nextup" id="nextup">
+        <div class="nu-ring">
+          <svg viewBox="0 0 100 100">
+            <defs>
+              <linearGradient id="nuGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--focus)"/><stop offset="100%" stop-color="var(--focus-2)"/>
+              </linearGradient>
+            </defs>
+            <circle class="nu-track" cx="50" cy="50" r="43"/>
+            <circle class="nu-progress" id="nuProgress" cx="50" cy="50" r="43" stroke-dasharray="270.2" stroke-dashoffset="0"/>
+          </svg>
+          <div class="nu-icon" id="nuIcon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z"/></svg>
+          </div>
+        </div>
+
+        <div class="nu-body">
+          <div class="nu-eyebrow" id="nuEyebrow">Дальше по плану</div>
+          <div class="nu-title" id="nuTitle">Перерыв · 10 минут</div>
+          <div class="nu-sub" id="nuSub">в 11:10, правило «До обеда»</div>
+        </div>
+
+        <div class="nu-time">
+          <div class="big" id="nuTime">46:00</div>
+          <div class="lab">осталось</div>
+        </div>
+
+        <div class="nu-actions">
+          <button class="btn btn-ghost" id="snoozeBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M9 3h6"/></svg>
+            +5 мин
+          </button>
+          <button class="btn btn-primary" id="nowBtn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Начать сейчас
+          </button>
+        </div>
+      </div>
+
+      <!-- TIMELINE -->
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Ритм дня</h3>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="now-btn" id="jumpNow">К текущему моменту</button>
+            <div class="hint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V5M12 5l-5 5M12 5l5 5"/><path d="M5 21h14"/></svg>
+              крутите колесо мыши
+            </div>
+          </div>
+        </div>
+
+        <div class="timeline-viewport" id="viewport">
+          <div class="bars-layer base" id="barsBase"></div>
+          <div class="markers-layer" id="markersLayer"></div>
+          <div class="ruler-layer" id="rulerLayer"></div>
+          <div class="lens-wrap" id="lensWrap"><div class="bars-layer" id="barsLens"></div></div>
+          <div class="playhead"><div class="playhead-time" id="playheadTime">10:24</div></div>
+        </div>
+
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dot focus"></span>Фокус</div>
+          <div class="legend-item"><span class="legend-dot rest"></span>Отдых</div>
+          <div class="legend-item"><span class="legend-dot lunch"></span>Обед</div>
+          <div class="legend-item"><span class="legend-dot off"></span>Вне графика</div>
+        </div>
+      </div>
+
+      <!-- RULE CHIPS -->
+      <div class="chips-row">
+        <div class="chip">
+          <div class="badge blue"><svg viewBox="0 0 24 24" fill="none" stroke="#bcd4ff" stroke-width="2.2"><circle cx="12" cy="12" r="9"/></svg></div>
+          <div><div class="name">До обеда</div><div class="time">09:00–13:00 · 60 / 10 мин</div></div>
+        </div>
+        <div class="chip">
+          <div class="badge amber"><svg viewBox="0 0 24 24" fill="none" stroke="#ffd7b0" stroke-width="2.2"><circle cx="12" cy="12" r="9"/></svg></div>
+          <div><div class="name">После обеда</div><div class="time">14:00–18:00 · 90 / 15 мин</div></div>
+        </div>
+        <div class="chip">
+          <div class="badge blue"><svg viewBox="0 0 24 24" fill="none" stroke="#bcd4ff" stroke-width="2.2"><circle cx="12" cy="12" r="9"/></svg></div>
+          <div><div class="name">Вечер</div><div class="time">18:00–20:00 · 45 / 10 мин</div></div>
+        </div>
+        <div class="chip chip-add" id="addRule">
+          <div class="badge" style="background:transparent;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+          <div class="name">Добавить правило</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <div class="toast-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z"/></svg>
+  </div>
+  <div class="toast-body">
+    <div class="toast-title" id="toastTitle">Время отдохнуть</div>
+    <div class="toast-text" id="toastText">Встань, разомнись, посмотри вдаль — 10 минут перерыва</div>
+    <div class="toast-app">RHYTHM · СЕЙЧАС</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  /* ---------------- schedule model ---------------- */
+  const DAY_START = 480;   // 08:00
+  const DAY_END   = 1260;  // 21:00
+  const PITCH     = 7;     // px per bar slot
+  const STEP_MIN  = 2;     // minutes represented per bar
+
+  function buildSegments(){
+    const segs = [];
+    segs.push({start:480,end:540,type:'off'});
+    let t=540;
+    while(t<780){ const e=Math.min(t+60,780); segs.push({start:t,end:e,type:'focus'}); t=e; if(t<780){const e2=Math.min(t+10,780); segs.push({start:t,end:e2,type:'rest'}); t=e2;} }
+    segs.push({start:780,end:840,type:'lunch'});
+    t=840;
+    while(t<1080){ const e=Math.min(t+90,1080); segs.push({start:t,end:e,type:'focus'}); t=e; if(t<1080){const e2=Math.min(t+15,1080); segs.push({start:t,end:e2,type:'rest'}); t=e2;} }
+    t=1080;
+    while(t<1200){ const e=Math.min(t+45,1200); segs.push({start:t,end:e,type:'focus'}); t=e; if(t<1200){const e2=Math.min(t+10,1200); segs.push({start:t,end:e2,type:'rest'}); t=e2;} }
+    segs.push({start:1200,end:1260,type:'off'});
+    return segs;
+  }
+  const segments = buildSegments();
+  function segAt(min){ for(const s of segments){ if(min>=s.start && min<s.end) return s; } return segments[segments.length-1]; }
+
+  function fmtHM(min){
+    min = Math.max(0, Math.round(min));
+    const h = Math.floor(min/60), m = min%60;
+    return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  }
+
+  /* ---------------- bar generation ---------------- */
+  const barsBase = document.getElementById('barsBase');
+  const barsLens = document.getElementById('barsLens');
+  const markersLayer = document.getElementById('markersLayer');
+  const rulerLayer = document.getElementById('rulerLayer');
+  let idx = 0;
+  let html1='', html2='';
+  for(let m=DAY_START; m<DAY_END; m+=STEP_MIN, idx++){
+    const s = segAt(m);
+    const local = (m-s.start)/Math.max(1,(s.end-s.start));
+    let intensity;
+    const noise = Math.sin(idx*12.9898)*43758.5453; const frac = noise-Math.floor(noise);
+    if(s.type==='focus'){ intensity = 0.32+0.55*local + 0.10*Math.sin(idx*0.85)*local; }
+    else if(s.type==='rest'){ intensity = 0.42+0.22*Math.sin(idx*0.6); }
+    else if(s.type==='lunch'){ intensity = 0.28+0.08*Math.sin(idx*0.4); }
+    else { intensity = 0.10+0.06*frac; }
+    intensity = Math.max(0.08, Math.min(1, intensity));
+    const h = Math.round(8 + intensity*70);
+    html1 += '<div class="bar '+s.type+'" style="height:'+h+'px"></div>';
+    html2 += '<div class="bar '+s.type+'" style="height:'+h+'px"></div>';
+  }
+  barsBase.innerHTML = html1;
+  barsLens.innerHTML = html2;
+  const totalBars = idx;
+  const rowWidth = totalBars * PITCH;
+  barsBase.style.width = rowWidth+'px';
+  barsLens.style.width = rowWidth+'px';
+
+  /* markers: start of every rest + lunch segment */
+  segments.forEach(s=>{
+    if(s.type==='rest' || s.type==='lunch'){
+      const x = ((s.start-DAY_START)/STEP_MIN)*PITCH;
+      const pill = document.createElement('div');
+      pill.className = 'marker-pill ' + (s.type==='lunch' ? 'lunch-m' : 'rest-m');
+      pill.style.left = x+'px';
+      pill.textContent = s.type==='lunch' ? 'Обед · '+fmtHM(s.start) : 'Перерыв · '+fmtHM(s.start);
+      markersLayer.appendChild(pill);
+    }
+  });
+  markersLayer.style.width = rowWidth+'px';
+
+  /* ruler: hour ticks */
+  for(let m=DAY_START; m<=DAY_END; m+=60){
+    const x = ((m-DAY_START)/STEP_MIN)*PITCH;
+    const tick = document.createElement('div');
+    tick.className='tick'; tick.style.left=x+'px'; tick.textContent = fmtHM(m);
+    rulerLayer.appendChild(tick);
+  }
+  rulerLayer.style.width = rowWidth+'px';
+
+  /* ---------------- scroll physics ---------------- */
+  const viewport = document.getElementById('viewport');
+  const lensWrap = document.getElementById('lensWrap');
+  const playheadTime = document.getElementById('playheadTime');
+  const jumpNow = document.getElementById('jumpNow');
+
+  let nowMinutes = 10*60+24; // simulated "now"
+  let userOffset = 0;   // manual scrub, in px, added on top of home position
+  let velocity = 0;
+  let scrubbing = false;
+  let idleTimer = null;
+
+  function viewportCenterPx(){ return viewport.clientWidth/2; }
+  function homeOffsetPx(){ return (nowMinutes-DAY_START)/STEP_MIN*PITCH; }
+
+  function applyTransform(){
+    const total = homeOffsetPx() + userOffset;
+    const tx = viewportCenterPx() - total;
+    const tilt = Math.max(-8, Math.min(8, velocity*0.12));
+    const blur = Math.min(3, Math.abs(velocity)*0.05);
+    const style = 'translateX('+tx+'px) rotateX('+tilt+'deg)';
+    barsBase.style.transform = style;
+    barsLens.style.transform = 'translateX('+tx+'px)';
+    markersLayer.style.transform = 'translateX('+tx+'px)';
+    rulerLayer.style.transform = 'translateX('+tx+'px)';
+    barsBase.style.filter = blur>0.15 ? 'blur('+blur+'px)' : 'none';
+
+    const minuteAtCenter = DAY_START + total/PITCH*STEP_MIN;
+    playheadTime.textContent = fmtHM(minuteAtCenter);
+
+    jumpNow.classList.toggle('show', Math.abs(userOffset) > 4);
+  }
+
+  function physicsLoop(){
+    if(Math.abs(velocity) > 0.02){
+      userOffset += velocity;
+      velocity *= 0.90;
+      applyTransform();
+      requestAnimationFrame(physicsLoop);
+    } else {
+      velocity = 0;
+    }
+  }
+
+  viewport.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY)) ? e.deltaX : e.deltaY;
+    velocity += delta * 0.9;
+    velocity = Math.max(-40, Math.min(40, velocity));
+    scrubbing = true;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(()=>{ scrubbing=false; }, 900);
+    requestAnimationFrame(physicsLoop);
+  }, {passive:false});
+
+  // drag support
+  let dragging=false, dragStartX=0, dragStartOffset=0;
+  viewport.addEventListener('mousedown', (e)=>{ dragging=true; dragStartX=e.clientX; dragStartOffset=userOffset; viewport.style.cursor='grabbing'; velocity=0; });
+  window.addEventListener('mousemove', (e)=>{ if(!dragging) return; userOffset = dragStartOffset - (e.clientX - dragStartX); applyTransform(); });
+  window.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; viewport.style.cursor='grab'; } });
+
+  jumpNow.addEventListener('click', ()=>{
+    barsBase.style.transition = barsLens.style.transition = markersLayer.style.transition = rulerLayer.style.transition = 'transform .6s cubic-bezier(.2,.9,.25,1)';
+    userOffset = 0; velocity = 0;
+    applyTransform();
+    setTimeout(()=>{ barsBase.style.transition = barsLens.style.transition = markersLayer.style.transition = rulerLayer.style.transition = 'none'; }, 620);
+  });
+
+  window.addEventListener('resize', applyTransform);
+  applyTransform();
+
+  /* ---------------- next-up card + simulated clock ---------------- */
+  const nextup = document.getElementById('nextup');
+  const titlebarStatus = document.getElementById('titlebarStatus');
+  const titlebarText = document.getElementById('titlebarText');
+  const nuProgress = document.getElementById('nuProgress');
+  const nuTitle = document.getElementById('nuTitle');
+  const nuSub = document.getElementById('nuSub');
+  const nuEyebrow = document.getElementById('nuEyebrow');
+  const nuTime = document.getElementById('nuTime');
+  const nuIcon = document.getElementById('nuIcon');
+  const nowBtn = document.getElementById('nowBtn');
+  const toast = document.getElementById('toast');
+  const toastTitle = document.getElementById('toastTitle');
+  const toastText = document.getElementById('toastText');
+
+  const CIRC_NU = 2*Math.PI*43;
+  nuProgress.setAttribute('stroke-dasharray', CIRC_NU.toFixed(1));
+
+  const SIM_SPEED = 6; // simulated minutes per real second
+
+  function ruleLabelAt(min){
+    if(min<780) return 'До обеда';
+    if(min<840) return 'Обед';
+    if(min<1080) return 'После обеда';
+    return 'Вечер';
+  }
+
+  function refreshNextUp(){
+    const cur = segAt(nowMinutes);
+    const resting = cur.type === 'rest' || cur.type === 'lunch';
+    nextup.classList.toggle('resting', resting);
+    titlebarStatus.classList.toggle('resting', resting);
+
+    const remain = Math.max(0, cur.end - nowMinutes);
+    const total = Math.max(1, cur.end - cur.start);
+    const offset = CIRC_NU * (1 - remain/total);
+    nuProgress.style.strokeDashoffset = offset.toFixed(1);
+
+    const mm = Math.floor(remain), ss = Math.floor((remain-mm)*60);
+    nuTime.textContent = String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');
+    titlebarText.textContent = 'Rhythm — ' + (resting ? 'отдых' : 'фокус') + ', ещё ' + nuTime.textContent;
+
+    if(resting){
+      nuEyebrow.textContent = 'Сейчас';
+      nuTitle.textContent = (cur.type==='lunch' ? 'Обеденный перерыв' : 'Перерыв') + ' · до ' + fmtHM(cur.end);
+      nuSub.textContent = 'следующий фокус начнётся в ' + fmtHM(cur.end);
+      nuIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z"/></svg>';
+      nowBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Закончить';
+    } else {
+      nuEyebrow.textContent = 'Дальше по плану';
+      const nextRest = segments.find(s => s.start === cur.end);
+      const restLen = nextRest ? (nextRest.end-nextRest.start) : 10;
+      nuTitle.textContent = (cur.type==='lunch' ? 'Обед' : 'Перерыв') + ' · ' + restLen + ' минут';
+      nuSub.textContent = 'в ' + fmtHM(cur.end) + ', правило «' + ruleLabelAt(nowMinutes) + '»';
+      nuIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>';
+      nowBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Начать сейчас';
+    }
+  }
+
+  function showToast(resting){
+    toastTitle.textContent = resting ? 'Время отдохнуть' : 'Возвращаемся к работе';
+    toastText.textContent = resting ? 'Встань, разомнись, посмотри вдаль' : 'Перерыв закончен — фокус до ' + fmtHM(segAt(nowMinutes).end);
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toast.classList.remove('show'), 4200);
+  }
+
+  let lastSegType = segAt(nowMinutes).type;
+  let lastTs = null;
+  function clockLoop(ts){
+    if(!lastTs) lastTs = ts;
+    const dt = (ts-lastTs)/1000; lastTs = ts;
+    nowMinutes += dt * (SIM_SPEED/60) * 60 / 60; // dt seconds * sim-min-per-sec
+    nowMinutes = nowMinutes % (DAY_END-40) < DAY_START ? DAY_START : nowMinutes;
+    if(nowMinutes >= DAY_END-5) nowMinutes = DAY_START + 90;
+
+    const cur = segAt(nowMinutes);
+    if(cur.type !== lastSegType){
+      showToast(cur.type==='rest' || cur.type==='lunch');
+      lastSegType = cur.type;
+    }
+    refreshNextUp();
+    if(!scrubbing && !dragging) applyTransform();
+    requestAnimationFrame(clockLoop);
+  }
+  requestAnimationFrame(clockLoop);
+
+  nowBtn.addEventListener('click', ()=>{
+    const cur = segAt(nowMinutes);
+    nowMinutes = cur.end + 0.05;
+    refreshNextUp();
+  });
+  document.getElementById('snoozeBtn').addEventListener('click', ()=>{
+    nowMinutes = Math.max(DAY_START, nowMinutes-5);
+    refreshNextUp();
+  });
+
+  refreshNextUp();
+
+  /* ---------------- live wall clock pill ---------------- */
+  const clockEl = document.getElementById('clock');
+  const days = ['вс','пн','вт','ср','чт','пт','сб'];
+  const months = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  function updateClock(){
+    const d = new Date();
+    const hh = d.getHours().toString().padStart(2,'0'), mm = d.getMinutes().toString().padStart(2,'0');
+    clockEl.textContent = hh+':'+mm+' · '+days[d.getDay()]+', '+d.getDate()+' '+months[d.getMonth()];
+  }
+  updateClock(); setInterval(updateClock, 30000);
+
+  document.getElementById('addRule').addEventListener('click', ()=>{
+    alert('Здесь открывалась бы форма нового правила: время начала, длительность фокуса и отдыха.');
+  });
+})();
+</script>
+
+</body>
+</html>
