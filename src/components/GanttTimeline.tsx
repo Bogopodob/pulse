@@ -3,10 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Dropdown } from '@heroui/react/dropdown'
 import type { GanttTask } from '../types'
 
-const HOUR_W = 160
+const BASE_HOUR_W = 160
+const BASE_PX_MIN = BASE_HOUR_W / 60
+const TARGET_SMALL_W = 260
+const SMALL_MIN = 40
+const MAX_SCALE = 60
 const BUFFER_HOURS = 3
 const MIN_W = 220
-const MIN_SPAN_MIN = MIN_W / HOUR_W * 60
 const VIS_GAP_MIN = 3
 const MIN_TAG_W = 280
 const MAX_TAG_TITLE = 20
@@ -193,10 +196,87 @@ export function GanttTimeline() {
 
   const hasPrevTasks = tasksForDay(prevDay).length > 0
   const hasNextTasks = tasksForDay(nextDay).length > 0
-  const prevW = hasPrevTasks ? 24 * HOUR_W : BUFFER_HOURS * HOUR_W
-  const nextW = hasNextTasks ? 24 * HOUR_W : BUFFER_HOURS * HOUR_W
+
+  const buildScale = (day: Date, winStart: number, winLen: number) => {
+    const winEnd = winStart + winLen
+
+    const smalls: { l: number; r: number; minDur: number }[] = []
+    for (const t of tasksForDay(day)) {
+      const l = isSameDay(day, t.startDate) ? t.startMinute : 0
+      const r = isSameDay(day, t.endDate) ? t.endMinute : 24 * 60
+      const cl = Math.max(l, winStart)
+      const cr = Math.min(r, winEnd)
+      if (cr <= cl) continue
+      const dur = cr - cl
+      if (dur < SMALL_MIN) smalls.push({ l: cl, r: cr, minDur: dur })
+    }
+
+    const xOf = (min: number) => Math.max(0, min - winStart) * BASE_PX_MIN
+    if (smalls.length === 0) {
+      return { xOf, width: winLen * BASE_PX_MIN, invert: (x: number) => winStart + x / BASE_PX_MIN, segs: [{ start: winStart, end: winEnd, pxPerMin: BASE_PX_MIN }] }
+    }
+
+    smalls.sort((a, b) => a.l - b.l)
+    const groups: { l: number; r: number; minDur: number }[] = []
+    for (const s of smalls) {
+      const last = groups[groups.length - 1]
+      if (last && s.l <= last.r) {
+        last.r = Math.max(last.r, s.r)
+        last.minDur = Math.min(last.minDur, s.minDur)
+      } else {
+        groups.push({ l: s.l, r: s.r, minDur: s.minDur })
+      }
+    }
+
+    const segs: { start: number; end: number; pxPerMin: number }[] = []
+    let cursor = winStart
+    for (const g of groups) {
+      if (g.l > cursor) segs.push({ start: cursor, end: g.l, pxPerMin: BASE_PX_MIN })
+      const pxPerMin = Math.min(MAX_SCALE, Math.max(BASE_PX_MIN, TARGET_SMALL_W / g.minDur))
+      segs.push({ start: g.l, end: g.r, pxPerMin })
+      cursor = g.r
+    }
+    if (cursor < winEnd) segs.push({ start: cursor, end: winEnd, pxPerMin: BASE_PX_MIN })
+
+    const offsets: number[] = [0]
+    for (let i = 0; i < segs.length; i++) offsets.push(offsets[i] + (segs[i].end - segs[i].start) * segs[i].pxPerMin)
+    const width = offsets[offsets.length - 1]
+
+    const xOfB = (min: number) => {
+      const m = Math.max(winStart, Math.min(winEnd, min))
+      let lo = 0
+      let hi = segs.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1
+        if (segs[mid].end < m) lo = mid + 1
+        else hi = mid
+      }
+      return offsets[lo] + (m - segs[lo].start) * segs[lo].pxPerMin
+    }
+
+    const invert = (x: number) => {
+      let lo = 0
+      let hi = segs.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1
+        if (offsets[mid] <= x) lo = mid
+        else hi = mid - 1
+      }
+      return winStart + segs[lo].start + (x - offsets[lo]) / segs[lo].pxPerMin
+    }
+
+    return { xOf: xOfB, width, invert, segs }
+  }
+
+  const mainScale = buildScale(currentDay, 0, 24 * 60)
+  const prevScale = buildScale(prevDay, hasPrevTasks ? 0 : (24 - BUFFER_HOURS) * 60, hasPrevTasks ? 24 * 60 : BUFFER_HOURS * 60)
+  const nextScale = buildScale(nextDay, 0, hasNextTasks ? 24 * 60 : BUFFER_HOURS * 60)
+
+  const mainW = mainScale.width
+  const prevW = prevScale.width
+  const nextW = nextScale.width
   const offset = prevW
-  const totalW = prevW + 24 * HOUR_W + nextW
+  const totalW = prevW + mainW + nextW
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -206,11 +286,13 @@ export function GanttTimeline() {
     return () => clearInterval(id)
   }, [])
 
+  const centerX = offset + mainScale.xOf(8 * 60)
+
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    el.scrollLeft = offset + 8 * HOUR_W - el.clientWidth / 2
-  }, [currentDay, offset])
+    el.scrollLeft = centerX - el.clientWidth / 2
+  }, [currentDay, centerX])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -229,9 +311,9 @@ export function GanttTimeline() {
   const scrollToHour = useCallback((hour: number) => {
     const el = scrollRef.current
     if (!el) return
-    const target = offset + hour * HOUR_W - el.clientWidth / 2
+    const target = offset + mainScale.xOf(hour * 60) - el.clientWidth / 2
     el.scrollTo({ left: target, behavior: 'smooth' })
-  }, [offset])
+  }, [offset, mainScale])
 
   const handleMiniClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const el = scrollRef.current
@@ -244,14 +326,14 @@ export function GanttTimeline() {
   const handleTickHover = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const absX = e.clientX - rect.left
-    const minute = (absX - offset) / HOUR_W * 60
+    const minute = mainScale.invert(absX - offset)
     if (minute >= -30 && minute <= 24 * 60 + 30) {
       setHoverMin(Math.round(Math.max(0, Math.min(24 * 60, minute))))
       setHoverX(absX)
     } else {
       setHoverMin(null)
     }
-  }, [offset])
+  }, [offset, mainScale])
 
   const handleTickLeave = useCallback(() => {
     setHoverMin(null)
@@ -302,6 +384,26 @@ export function GanttTimeline() {
 
   const isToday = isSameDay(currentDay, TODAY)
 
+  const viewStart = scrollLeft
+  const viewEnd = scrollLeft + (viewportW || 0)
+  const overlapOf = (rs: number, re: number) => Math.max(0, Math.min(re, viewEnd) - Math.max(rs, viewStart))
+  const ovPrev = overlapOf(0, offset)
+  const ovMain = overlapOf(offset, offset + mainW)
+  const ovNext = overlapOf(offset + mainW, totalW)
+  const viewDay = ovNext >= ovMain && ovNext >= ovPrev ? nextDay : ovPrev > ovMain ? prevDay : currentDay
+  const viewToday = isSameDay(viewDay, TODAY)
+
+  const dayRelName = (d: Date) => {
+    if (isSameDay(d, TODAY)) return 'Сегодня'
+    const tm = new Date(TODAY)
+    tm.setDate(tm.getDate() + 1)
+    if (isSameDay(d, tm)) return 'Завтра'
+    const yd = new Date(TODAY)
+    yd.setDate(yd.getDate() - 1)
+    if (isSameDay(d, yd)) return 'Вчера'
+    return `${d.getDate()} ${MONTHS_RU[d.getMonth()]}`
+  }
+
   const toggleProject = (key: ProjectKey) => {
     setHiddenProjects((prev) => {
       const next = new Set(prev)
@@ -312,21 +414,38 @@ export function GanttTimeline() {
   }
 
   const hourSlots: { x: number; hour: number; isBuffer: boolean }[] = []
+  const addHours = (scale: ReturnType<typeof buildScale>, xOffset: number, isBuffer: boolean) => {
+    for (let h = 0; h < 24; h++) hourSlots.push({ x: xOffset + scale.xOf(h * 60), hour: h, isBuffer })
+  }
   if (hasPrevTasks) {
-    for (let h = 0; h < 24; h++) hourSlots.push({ x: h * HOUR_W, hour: h, isBuffer: true })
+    addHours(prevScale, 0, true)
   } else {
-    for (let h = 24 - BUFFER_HOURS; h < 24; h++) hourSlots.push({ x: (h - (24 - BUFFER_HOURS)) * HOUR_W, hour: h, isBuffer: true })
+    for (let h = 24 - BUFFER_HOURS; h < 24; h++) hourSlots.push({ x: prevScale.xOf(h * 60), hour: h, isBuffer: true })
   }
-  for (let h = 0; h < 24; h++) hourSlots.push({ x: offset + h * HOUR_W, hour: h, isBuffer: false })
+  addHours(mainScale, offset, false)
   if (hasNextTasks) {
-    for (let h = 0; h < 24; h++) hourSlots.push({ x: offset + 24 * HOUR_W + h * HOUR_W, hour: h, isBuffer: true })
+    addHours(nextScale, offset + mainW, true)
   } else {
-    for (let h = 0; h < BUFFER_HOURS; h++) hourSlots.push({ x: offset + 24 * HOUR_W + h * HOUR_W, hour: h, isBuffer: true })
+    for (let h = 0; h < BUFFER_HOURS; h++) hourSlots.push({ x: offset + mainW + nextScale.xOf(h * 60), hour: h, isBuffer: true })
   }
+
+  const minTicks: { x: number; isBuffer: boolean }[] = []
+  const collectTicks = (scale: ReturnType<typeof buildScale>, xOffset: number, isBuffer: boolean) => {
+    for (const seg of scale.segs) {
+      if (seg.pxPerMin <= BASE_PX_MIN * 1.5) continue
+      const step = Math.max(1, Math.round(40 / seg.pxPerMin))
+      for (let m = Math.ceil(seg.start / step) * step; m < seg.end; m += step) {
+        minTicks.push({ x: xOffset + scale.xOf(m), isBuffer })
+      }
+    }
+  }
+  collectTicks(prevScale, 0, true)
+  collectTicks(mainScale, offset, false)
+  collectTicks(nextScale, offset + mainW, true)
 
   type RenderedTask = { task: GanttTaskEx; x: number; y: number; width: number; leftMin: number; rightMin: number; l0: number; r0: number; w0: number; w1: number; day: Date }
 
-  const layoutDay = (day: Date, xOrigin: number, windowStartMin: number, windowLenMin: number): RenderedTask[] => {
+  const layoutDay = (day: Date, xOrigin: number, windowStartMin: number, windowLenMin: number, scale: ReturnType<typeof buildScale>): RenderedTask[] => {
     const windowEndMin = windowStartMin + windowLenMin
     const withBounds = tasksForDay(day)
       .map((t) => {
@@ -334,7 +453,8 @@ export function GanttTimeline() {
         const r = isSameDay(day, t.endDate) ? t.endMinute : 24 * 60
         const leftMin = Math.max(l, windowStartMin)
         const rightMin = Math.min(r, windowEndMin)
-        const visEnd = leftMin + Math.max(rightMin - leftMin, MIN_SPAN_MIN)
+        const pxSpan = scale.xOf(rightMin) - scale.xOf(leftMin)
+        const visEnd = pxSpan >= MIN_W ? rightMin : Math.ceil(leftMin + (rightMin - leftMin) * MIN_W / pxSpan)
         return { task: t, l, r, leftMin, rightMin, visEnd }
       })
       .filter((i) => i.rightMin > i.leftMin)
@@ -355,11 +475,11 @@ export function GanttTimeline() {
     }
 
     const result: RenderedTask[] = []
-    const regionRight = xOrigin + windowLenMin / 60 * HOUR_W
+    const regionRight = xOrigin + scale.width
     rows.forEach((row, ri) => {
       row.items.forEach((item) => {
-        const x = xOrigin + (item.leftMin - windowStartMin) / 60 * HOUR_W
-        const rawWidth = Math.max((item.rightMin - item.leftMin) / 60 * HOUR_W, MIN_W)
+        const x = xOrigin + scale.xOf(item.leftMin)
+        const rawWidth = Math.max(scale.xOf(item.rightMin) - scale.xOf(item.leftMin), MIN_W)
         result.push({
           task: item.task,
           x,
@@ -378,9 +498,9 @@ export function GanttTimeline() {
     return result
   }
 
-  const mainDayTasks = layoutDay(currentDay, offset, 0, 24 * 60)
-  const prevDayTasks = layoutDay(prevDay, 0, hasPrevTasks ? 0 : (24 - BUFFER_HOURS) * 60, hasPrevTasks ? 24 * 60 : BUFFER_HOURS * 60)
-  const nextDayTasks = layoutDay(nextDay, offset + 24 * HOUR_W, 0, hasNextTasks ? 24 * 60 : BUFFER_HOURS * 60)
+  const mainDayTasks = layoutDay(currentDay, offset, 0, 24 * 60, mainScale)
+  const prevDayTasks = layoutDay(prevDay, 0, hasPrevTasks ? 0 : (24 - BUFFER_HOURS) * 60, hasPrevTasks ? 24 * 60 : BUFFER_HOURS * 60, prevScale)
+  const nextDayTasks = layoutDay(nextDay, offset + mainW, 0, hasNextTasks ? 24 * 60 : BUFFER_HOURS * 60, nextScale)
 
   const renderTasks = [...prevDayTasks, ...mainDayTasks, ...nextDayTasks]
 
@@ -461,22 +581,22 @@ export function GanttTimeline() {
           style={{ height: MINI_H, background: 'rgba(255,255,255,0.03)' }}
           onClick={handleMiniClick}
         >
-          {Array.from({ length: totalW / HOUR_W + 1 }, (_, i) => (
+          {hourSlots.map((s) => (
             <div
-              key={`mt-${i}`}
+              key={`mt-${s.x}`}
               className="absolute top-0 rounded-full"
               style={{
-                left: `${(i / (totalW / HOUR_W)) * 100}%`,
-                width: i % 6 === 0 ? 1.5 : 0.5,
-                height: i % 6 === 0 ? MINI_H : 8,
-                top: i % 6 === 0 ? 0 : (MINI_H - 8) / 2,
-                background: i % 6 === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)',
+                left: `${(s.x / totalW) * 100}%`,
+                width: s.hour % 6 === 0 ? 1.5 : 0.5,
+                height: s.hour % 6 === 0 ? MINI_H : 8,
+                top: s.hour % 6 === 0 ? 0 : (MINI_H - 8) / 2,
+                background: s.hour % 6 === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)',
                 transform: 'translateX(-50%)',
               }}
             />
           ))}
           <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${(offset / totalW) * 100}%`, width: 1, background: 'rgba(255,255,255,0.1)' }} />
-          <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${((offset + 24 * HOUR_W) / totalW) * 100}%`, width: 1, background: 'rgba(255,255,255,0.1)' }} />
+          <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${((offset + mainW) / totalW) * 100}%`, width: 1, background: 'rgba(255,255,255,0.1)' }} />
           <div
             className="absolute top-0 h-full rounded-sm pointer-events-none"
             style={{
@@ -489,7 +609,7 @@ export function GanttTimeline() {
           {isToday && (
             <div
               className="absolute top-1/2 -translate-y-1/2 rounded-full pointer-events-none z-10"
-              style={{ left: `${((offset + nowMinute / 60 * HOUR_W) / totalW) * 100}%`, width: 5, height: 5, background: '#ff3b30', boxShadow: '0 0 8px rgba(255,59,48,0.8)' }}
+              style={{ left: `${((offset + mainScale.xOf(nowMinute)) / totalW) * 100}%`, width: 5, height: 5, background: '#ff3b30', boxShadow: '0 0 8px rgba(255,59,48,0.8)' }}
             />
           )}
         </div>
@@ -550,9 +670,21 @@ export function GanttTimeline() {
                   />
                 )
               })}
+              {minTicks.map((t) => (
+                <div
+                  key={`mt-${t.x}`}
+                  className="absolute bottom-0"
+                  style={{
+                    left: t.x,
+                    width: 0.5,
+                    height: 6,
+                    background: t.isBuffer ? 'rgba(255,255,255,0.015)' : 'rgba(255,255,255,0.03)',
+                  }}
+                />
+              ))}
               <div className="absolute bottom-0" style={{ left: totalW, width: 1, height: 10, background: 'rgba(255,255,255,0.03)' }} />
               <div className="absolute bottom-0 rounded-full" style={{ left: offset, width: 2, height: 26, transform: 'translateX(-1px)', background: 'rgba(255,255,255,0.18)' }} />
-              <div className="absolute bottom-0 rounded-full" style={{ left: offset + 24 * HOUR_W, width: 2, height: 26, transform: 'translateX(-1px)', background: 'rgba(255,255,255,0.18)' }} />
+              <div className="absolute bottom-0 rounded-full" style={{ left: offset + mainW, width: 2, height: 26, transform: 'translateX(-1px)', background: 'rgba(255,255,255,0.18)' }} />
               {hoverMin !== null && (
                 <div
                   className="absolute z-20 pointer-events-none"
@@ -578,21 +710,21 @@ export function GanttTimeline() {
             <div className="absolute top-[44px] left-0 right-0 z-[1] pointer-events-none" style={{ height: 1, background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 10%, rgba(255,255,255,0.06) 90%, transparent 100%)' }} />
 
             <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: 0, width: prevW, background: 'linear-gradient(90deg, rgba(0,0,0,0.22), rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.1))' }} />
-            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: offset + 24 * HOUR_W, width: nextW, background: 'linear-gradient(270deg, rgba(0,0,0,0.22), rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.1))' }} />
+            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: offset + mainW, width: nextW, background: 'linear-gradient(270deg, rgba(0,0,0,0.22), rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.1))' }} />
 
             <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: 0, width: prevW, top: 0, height: 14 }}>
               <span className="text-[11px] font-semibold tracking-[0.02em]" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 {hasPrevTasks ? `← вчера · ${fmtDate(prevDay)}` : '← вчера'}
               </span>
             </div>
-            <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: offset + 24 * HOUR_W, width: nextW, top: 0, height: 14 }}>
+            <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: offset + mainW, width: nextW, top: 0, height: 14 }}>
               <span className="text-[11px] font-semibold tracking-[0.02em]" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 {hasNextTasks ? `завтра · ${fmtDate(nextDay)} →` : 'завтра →'}
               </span>
             </div>
 
             {isToday && (
-              <div className="absolute top-0 bottom-0 pointer-events-none z-10" style={{ left: offset + nowMinute / 60 * HOUR_W }}>
+              <div className="absolute top-0 bottom-0 pointer-events-none z-10" style={{ left: offset + mainScale.xOf(nowMinute) }}>
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
