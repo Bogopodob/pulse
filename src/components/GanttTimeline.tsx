@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Dropdown } from '@heroui/react/dropdown'
 import type { GanttTask } from '../types'
@@ -13,6 +13,8 @@ const MIN_W = 220
 const VIS_GAP_MIN = 3
 const MIN_TAG_W = 280
 const MAX_TAG_TITLE = 20
+const SUPPORTS_SCROLL_TIMELINE =
+  typeof CSS !== 'undefined' && typeof ScrollTimeline === 'function' && typeof Element.prototype.animate === 'function'
 const TODAY = new Date(2026, 7, 21)
 
 const TASK_H = 58
@@ -176,9 +178,16 @@ function NavBtn({ dir, onClick }: { dir: 'prev' | 'next'; onClick: () => void })
 
 export function GanttTimeline() {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const indicatorRef = useRef<HTMLDivElement>(null)
+  const scrollLeftRef = useRef(0)
+  const miniWRef = useRef(1)
+  const centeredRef = useRef(false)
+  const rafRef = useRef(0)
+  const scrollAnimRef = useRef<Animation | null>(null)
+  const layoutRef = useRef({ offset: 0, mainW: 0, totalW: 0, viewportW: 0, prevDay: new Date(TODAY), nextDay: new Date(TODAY), currentDay: new Date(TODAY) })
+  const [viewDay, setViewDay] = useState<Date>(new Date(TODAY))
   const [currentDay, setCurrentDay] = useState(new Date(TODAY))
   const [nowMinute, setNowMinute] = useState(() => new Date().getHours() * 60 + new Date().getMinutes())
-  const [scrollLeft, setScrollLeft] = useState(0)
   const [viewportW, setViewportW] = useState(0)
   const [hoverMin, setHoverMin] = useState<number | null>(null)
   const [hoverX, setHoverX] = useState(0)
@@ -187,17 +196,27 @@ export function GanttTimeline() {
   const [ctxMenu, setCtxMenu] = useState<{ key: number; x: number; y: number; task: GanttTaskEx } | null>(null)
   const ctxAnchorRef = useRef<HTMLDivElement>(null)
 
-  const prevDay = new Date(currentDay)
-  prevDay.setDate(prevDay.getDate() - 1)
-  const nextDay = new Date(currentDay)
-  nextDay.setDate(nextDay.getDate() + 1)
+  const prevDay = useMemo(() => {
+    const d = new Date(currentDay)
+    d.setDate(d.getDate() - 1)
+    return d
+  }, [currentDay])
+  const nextDay = useMemo(() => {
+    const d = new Date(currentDay)
+    d.setDate(d.getDate() + 1)
+    return d
+  }, [currentDay])
 
-  const tasksForDay = (day: Date) => mockTasks.filter((t) => day >= t.startDate && day <= t.endDate && t.tags.some((tag) => !hiddenProjects.has(tag)))
+  const tasksForDay = useCallback(
+    (day: Date) => mockTasks.filter((t) => day >= t.startDate && day <= t.endDate && t.tags.some((tag) => !hiddenProjects.has(tag))),
+    [mockTasks, hiddenProjects]
+  )
 
   const hasPrevTasks = tasksForDay(prevDay).length > 0
   const hasNextTasks = tasksForDay(nextDay).length > 0
 
-  const buildScale = (day: Date, winStart: number, winLen: number) => {
+  const buildScale = useCallback(
+    (day: Date, winStart: number, winLen: number) => {
     const winEnd = winStart + winLen
 
     const smalls: { l: number; r: number; minDur: number }[] = []
@@ -266,17 +285,19 @@ export function GanttTimeline() {
     }
 
     return { xOf: xOfB, width, invert, segs }
-  }
+  }, [tasksForDay])
 
-  const mainScale = buildScale(currentDay, 0, 24 * 60)
-  const prevScale = buildScale(prevDay, hasPrevTasks ? 0 : (24 - BUFFER_HOURS) * 60, hasPrevTasks ? 24 * 60 : BUFFER_HOURS * 60)
-  const nextScale = buildScale(nextDay, 0, hasNextTasks ? 24 * 60 : BUFFER_HOURS * 60)
+  const mainScale = useMemo(() => buildScale(currentDay, 0, 24 * 60), [buildScale, currentDay])
+  const prevScale = useMemo(() => buildScale(prevDay, hasPrevTasks ? 0 : (24 - BUFFER_HOURS) * 60, hasPrevTasks ? 24 * 60 : BUFFER_HOURS * 60), [buildScale, prevDay, hasPrevTasks])
+  const nextScale = useMemo(() => buildScale(nextDay, 0, hasNextTasks ? 24 * 60 : BUFFER_HOURS * 60), [buildScale, nextDay, hasNextTasks])
 
   const mainW = mainScale.width
   const prevW = prevScale.width
   const nextW = nextScale.width
   const offset = prevW
   const totalW = prevW + mainW + nextW
+
+  layoutRef.current = { offset, mainW, totalW, viewportW, prevDay, nextDay, currentDay }
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -286,27 +307,103 @@ export function GanttTimeline() {
     return () => clearInterval(id)
   }, [])
 
-  const centerX = offset + mainScale.xOf(8 * 60)
+  const centerXRef = useRef(0)
+  centerXRef.current = offset + mainScale.xOf(8 * 60)
+
+  const syncIndicator = useCallback(() => {
+    const ind = indicatorRef.current
+    if (!ind) return
+    ind.style.transform = `translateX(${(scrollLeftRef.current / layoutRef.current.totalW) * miniWRef.current}px)`
+  }, [])
+
+  const updateViewDay = useCallback(() => {
+    const L = layoutRef.current
+    const start = scrollLeftRef.current
+    const end = start + (L.viewportW || 0)
+    const overlap = (rs: number, re: number) => Math.max(0, Math.min(re, end) - Math.max(rs, start))
+    const ovPrev = overlap(0, L.offset)
+    const ovMain = overlap(L.offset, L.offset + L.mainW)
+    const ovNext = overlap(L.offset + L.mainW, L.totalW)
+    const next = ovNext > ovMain && ovNext > ovPrev ? L.nextDay : ovPrev > ovMain && ovPrev > ovNext ? L.prevDay : L.currentDay
+    setViewDay((prev) => (prev.getTime() === next.getTime() ? prev : next))
+  }, [])
+
+  const applyCenter = useCallback(() => {
+    const el = scrollRef.current
+    if (!el || el.clientWidth <= 0) return false
+    el.scrollLeft = centerXRef.current - el.clientWidth / 2
+    scrollLeftRef.current = el.scrollLeft
+    if (!SUPPORTS_SCROLL_TIMELINE) syncIndicator()
+    return true
+  }, [syncIndicator])
+
+  useEffect(() => {
+    centeredRef.current = false
+    applyCenter()
+    updateViewDay()
+  }, [currentDay, applyCenter, updateViewDay])
+
+  useLayoutEffect(() => {
+    const ind = indicatorRef.current
+    if (!ind) return
+    const p = ind.parentElement
+    if (!p) return
+    miniWRef.current = p.clientWidth
+    const indW = (layoutRef.current.viewportW / layoutRef.current.totalW) * miniWRef.current
+    const end = Math.max(0, miniWRef.current - indW)
+    if (SUPPORTS_SCROLL_TIMELINE) {
+      const el = scrollRef.current
+      if (!el) return
+      scrollAnimRef.current?.cancel()
+      scrollAnimRef.current = ind.animate(
+        [{ transform: 'translateX(0px)' }, { transform: `translateX(${end}px)` }],
+        { timeline: new ScrollTimeline({ source: el, axis: 'inline' }), duration: 1, fill: 'both' }
+      )
+    } else {
+      syncIndicator()
+    }
+  })
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    el.scrollLeft = centerX - el.clientWidth / 2
-  }, [currentDay, centerX])
-
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => setViewportW(el.clientWidth))
+    const ro = new ResizeObserver(() => {
+      const cw = el.clientWidth
+      setViewportW(cw)
+      if (cw > 0 && !centeredRef.current) applyCenter()
+      updateViewDay()
+    })
     ro.observe(el)
     setViewportW(el.clientWidth)
     return () => ro.disconnect()
-  }, [])
+  }, [applyCenter, updateViewDay])
 
-  const handleGanttScroll = useCallback(() => {
+  const handleScroll = useCallback(() => {
     const el = scrollRef.current
-    if (el) setScrollLeft(el.scrollLeft)
-  }, [])
+    if (!el) return
+    scrollLeftRef.current = el.scrollLeft
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0
+        updateViewDay()
+      })
+    }
+  }, [updateViewDay])
+
+  useEffect(() => {
+    if (SUPPORTS_SCROLL_TIMELINE) return
+    let raf = 0
+    const tick = () => {
+      const el = scrollRef.current
+      if (el && el.scrollLeft !== scrollLeftRef.current) {
+        scrollLeftRef.current = el.scrollLeft
+        syncIndicator()
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [syncIndicator])
 
   const scrollToHour = useCallback((hour: number) => {
     const el = scrollRef.current
@@ -384,13 +481,6 @@ export function GanttTimeline() {
 
   const isToday = isSameDay(currentDay, TODAY)
 
-  const viewStart = scrollLeft
-  const viewEnd = scrollLeft + (viewportW || 0)
-  const overlapOf = (rs: number, re: number) => Math.max(0, Math.min(re, viewEnd) - Math.max(rs, viewStart))
-  const ovPrev = overlapOf(0, offset)
-  const ovMain = overlapOf(offset, offset + mainW)
-  const ovNext = overlapOf(offset + mainW, totalW)
-  const viewDay = ovNext > ovMain && ovNext > ovPrev ? nextDay : ovPrev > ovMain && ovPrev > ovNext ? prevDay : currentDay
   const viewToday = isSameDay(viewDay, TODAY)
 
   const dayRelName = (d: Date) => {
@@ -598,12 +688,14 @@ export function GanttTimeline() {
           <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${(offset / totalW) * 100}%`, width: 1, background: 'rgba(255,255,255,0.1)' }} />
           <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${((offset + mainW) / totalW) * 100}%`, width: 1, background: 'rgba(255,255,255,0.1)' }} />
           <div
+            ref={indicatorRef}
             className="absolute top-0 h-full rounded-sm pointer-events-none"
             style={{
-              left: `${(scrollLeft / totalW) * 100}%`,
+              left: 0,
               width: `${(viewportW / totalW) * 100}%`,
               border: '1px solid rgba(255,255,255,0.15)',
               background: 'rgba(255,255,255,0.04)',
+              willChange: 'transform',
             }}
           />
           {isToday && (
@@ -617,11 +709,12 @@ export function GanttTimeline() {
 
       <div
         ref={scrollRef}
-        onScroll={handleGanttScroll}
+        onScroll={handleScroll}
         className="flex-1 overflow-x-auto overflow-y-auto"
         style={{
           scrollbarWidth: 'thin',
           scrollbarColor: 'var(--surface-3) transparent',
+          overscrollBehavior: 'none',
         }}
       >
         <AnimatePresence mode="wait">
@@ -709,8 +802,8 @@ export function GanttTimeline() {
 
             <div className="absolute top-[44px] left-0 right-0 z-[1] pointer-events-none" style={{ height: 1, background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 10%, rgba(255,255,255,0.06) 90%, transparent 100%)' }} />
 
-            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: 0, width: prevW, background: 'linear-gradient(90deg, rgba(0,0,0,0.22), rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.1))' }} />
-            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: offset + mainW, width: nextW, background: 'linear-gradient(270deg, rgba(0,0,0,0.22), rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.1))' }} />
+            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: 0, width: prevW, background: 'linear-gradient(90deg, rgba(0,0,0,0.10), rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.04))' }} />
+            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: offset + mainW, width: nextW, background: 'linear-gradient(270deg, rgba(0,0,0,0.10), rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.04))' }} />
 
             <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: 0, width: prevW, top: 0, height: 14 }}>
               <span className="text-[11px] font-semibold tracking-[0.02em]" style={{ color: 'rgba(255,255,255,0.4)' }}>
