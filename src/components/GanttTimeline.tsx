@@ -567,6 +567,25 @@ export function GanttTimeline() {
   collectTicks(mainScale, offset, false)
   collectTicks(nextScale, offset + mainW, true)
 
+  const minLabels: { x: number; text: string; isBuffer: boolean }[] = []
+  const collectLabels = (scale: ReturnType<typeof buildScale>, xOffset: number, isBuffer: boolean) => {
+    for (const seg of scale.segs) {
+      if (seg.pxPerMin <= BASE_PX_MIN * 1.5) continue
+      const step = Math.max(5, Math.round(50 / seg.pxPerMin / 5) * 5)
+      for (let m = Math.ceil(seg.start / step) * step; m < seg.end; m += step) {
+        if (m % 60 === 0) continue
+        minLabels.push({
+          x: xOffset + scale.xOf(m),
+          text: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`,
+          isBuffer,
+        })
+      }
+    }
+  }
+  collectLabels(prevScale, 0, true)
+  collectLabels(mainScale, offset, false)
+  collectLabels(nextScale, offset + mainW, true)
+
   type RenderedTask = { task: GanttTaskEx; x: number; y: number; width: number; leftMin: number; rightMin: number; l0: number; r0: number; w0: number; w1: number; day: Date }
 
   const layoutDay = (day: Date, xOrigin: number, windowStartMin: number, windowLenMin: number, scale: ReturnType<typeof buildScale>): RenderedTask[] => {
@@ -808,6 +827,20 @@ export function GanttTimeline() {
                     background: t.isBuffer ? 'rgba(255,255,255,0.015)' : 'rgba(255,255,255,0.03)',
                   }}
                 />
+              ))}
+              {minLabels.map((l) => (
+                <div
+                  key={`ml-${l.x}`}
+                  className="absolute top-0 pointer-events-none select-none"
+                  style={{ left: l.x, transform: 'translateX(-50%)' }}
+                >
+                  <span
+                    className="text-[9px] font-medium tabular-nums leading-none"
+                    style={{ color: l.isBuffer ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.28)' }}
+                  >
+                    {l.text}
+                  </span>
+                </div>
               ))}
               <div className="absolute bottom-0" style={{ left: totalW, width: 1, height: 10, background: 'rgba(255,255,255,0.03)' }} />
               <div className="absolute bottom-0 rounded-full" style={{ left: offset, width: 2, height: 26, transform: 'translateX(-1px)', background: 'rgba(255,255,255,0.18)' }} />
