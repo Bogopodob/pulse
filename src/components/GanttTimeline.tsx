@@ -8,6 +8,8 @@ const BUFFER_HOURS = 3
 const MIN_W = 220
 const MIN_SPAN_MIN = MIN_W / HOUR_W * 60
 const VIS_GAP_MIN = 3
+const MIN_TAG_W = 280
+const MAX_TAG_TITLE = 20
 const TODAY = new Date(2026, 7, 21)
 
 const TASK_H = 58
@@ -29,63 +31,63 @@ const PROJECTS: Record<ProjectKey, { label: string; color: string }> = {
   ritual: { label: 'Команда', color: '#ffd43b' },
 }
 
-type GanttTaskEx = GanttTask & { project: ProjectKey }
+type GanttTaskEx = GanttTask & { tags: ProjectKey[] }
 
 const MOCK_TASKS: GanttTaskEx[] = [
-  { id: '1', title: 'Send a summary to email.', startDate: new Date(2026, 7, 1), endDate: new Date(2026, 8, 21), progress: 0.35, assignees: ['JD', 'RK', 'ML'], startMinute: 9 * 60, endMinute: 18 * 60, project: 'report' },
-  { id: '2', title: 'Is status "MQL"?', startDate: new Date(2026, 7, 5), endDate: new Date(2026, 8, 3), progress: 0.70, assignees: ['AN'], startMinute: 10 * 60, endMinute: 16 * 60, project: 'sales' },
-  { id: '3', title: 'Design system audit', startDate: new Date(2026, 7, 14), endDate: new Date(2026, 7, 28), progress: 0.90, assignees: ['SP', 'LJ'], startMinute: 8 * 60, endMinute: 17 * 60, project: 'design' },
-  { id: '4', title: 'API integration — phase 1', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 8, 7), progress: 0.15, assignees: ['MK', 'VR'], startMinute: 7 * 60, endMinute: 15 * 60, project: 'backend' },
-  { id: '5', title: 'User testing results review', startDate: new Date(2026, 7, 24), endDate: new Date(2026, 8, 14), progress: 0.45, assignees: ['JD', 'SP', 'AN', 'RK'], startMinute: 11 * 60, endMinute: 13 * 60, project: 'research' },
-  { id: '6', title: 'Daily stand-up', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['JD', 'AN', 'MK', 'SP', 'VR'], startMinute: 9 * 60 + 30, endMinute: 9 * 60 + 45, project: 'ritual' },
-  { id: '7', title: 'Design review', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.6, assignees: ['SP', 'LJ'], startMinute: 11 * 60, endMinute: 12 * 60 + 30, project: 'design' },
-  { id: '8', title: 'Lunch', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 13 * 60, endMinute: 14 * 60, project: 'ritual' },
-  { id: '9', title: 'Sprint planning', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0, assignees: ['JD', 'AN', 'MK', 'SP', 'VR', 'RK', 'LJ'], startMinute: 15 * 60, endMinute: 16 * 60 + 30, project: 'ritual' },
-  { id: '10', title: 'Client demo prep', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.3, assignees: ['RK', 'MK'], startMinute: 15 * 60, endMinute: 18 * 60, project: 'sales' },
-  { id: '11', title: 'Дочитать книгу', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.85, assignees: ['AN'], startMinute: 10 * 60, endMinute: 24 * 60, project: 'research' },
-  { id: '12', title: 'Планирование недели', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: ['JD', 'AN', 'MK'], startMinute: 9 * 60, endMinute: 9 * 60 + 30, project: 'ritual' },
-  { id: '13', title: 'Тренировка', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: [], startMinute: 18 * 60, endMinute: 19 * 60, project: 'ritual' },
-  { id: '14', title: 'Ночная пробежка', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['MK'], startMinute: 0, endMinute: 2 * 60 + 30, project: 'ritual' },
-  { id: '15', title: 'Проверить почту', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['AN'], startMinute: 9 * 60, endMinute: 9 * 60 + 5, project: 'report' },
-  { id: '16', title: 'Ответить в чате', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['RK'], startMinute: 9 * 60 + 6, endMinute: 9 * 60 + 7, project: 'sales' },
-  { id: '17', title: 'Созвон с командой', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['JD', 'AN', 'MK', 'SP'], startMinute: 9 * 60 + 10, endMinute: 9 * 60 + 40, project: 'ritual' },
-  { id: '18', title: 'Разбор бэклога', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.5, assignees: ['MK', 'VR'], startMinute: 9 * 60 + 45, endMinute: 10 * 60 + 15, project: 'backend' },
-  { id: '19', title: 'Ретроспектива', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.8, assignees: ['JD', 'AN', 'MK', 'SP', 'VR'], startMinute: 10 * 60 + 20, endMinute: 10 * 60 + 50, project: 'ritual' },
-  { id: '20', title: 'Код-ревью пулл-реквеста', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.9, assignees: ['VR'], startMinute: 11 * 60, endMinute: 11 * 60 + 20, project: 'backend' },
-  { id: '21', title: 'Короткая медитация', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 12 * 60 + 35, endMinute: 12 * 60 + 40, project: 'ritual' },
-  { id: '22', title: 'Ответить клиентам', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.6, assignees: ['RK', 'ML'], startMinute: 14 * 60 + 15, endMinute: 14 * 60 + 30, project: 'sales' },
-  { id: '23', title: 'Правки макета', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.4, assignees: ['SP', 'LJ'], startMinute: 14 * 60 + 40, endMinute: 15 * 60 + 10, project: 'design' },
-  { id: '24', title: 'Проверка метрик', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.7, assignees: ['AN', 'JD'], startMinute: 16 * 60 + 35, endMinute: 16 * 60 + 55, project: 'research' },
-  { id: '25', title: 'Чтение статей', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.2, assignees: [], startMinute: 19 * 60, endMinute: 20 * 60, project: 'research' },
-  { id: '26', title: 'Утренний забег', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 1, assignees: ['MK'], startMinute: 7 * 60, endMinute: 8 * 60, project: 'ritual' },
-  { id: '27', title: 'Подготовка к встрече', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.5, assignees: ['RK'], startMinute: 14 * 60, endMinute: 14 * 60 + 30, project: 'sales' },
-  { id: '28', title: 'Анализ результатов теста', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.1, assignees: ['JD', 'AN'], startMinute: 11 * 60, endMinute: 12 * 60 + 30, project: 'research' },
-  { id: '29', title: 'Вечерний созвон', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.7, assignees: ['JD', 'AN', 'MK'], startMinute: 20 * 60 + 30, endMinute: 21 * 60 + 30, project: 'ritual' },
-  { id: '30', title: 'Итоги дня', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.9, assignees: ['AN'], startMinute: 20 * 60 + 40, endMinute: 21 * 60 + 10, project: 'report' },
-  { id: '31', title: 'Чек почты перед сном', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 20 * 60 + 45, endMinute: 20 * 60 + 55, project: 'report' },
-  { id: '32', title: 'Дайджест комьюнити', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.4, assignees: [], startMinute: 21 * 60 + 40, endMinute: 22 * 60 + 15, project: 'research' },
-  { id: '33', title: 'Чтение главы книги', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.5, assignees: [], startMinute: 21 * 60 + 45, endMinute: 22 * 60 + 30, project: 'research' },
-  { id: '34', title: 'Слушаю подкаст', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.6, assignees: [], startMinute: 22 * 60, endMinute: 22 * 60 + 50, project: 'research' },
-  { id: '35', title: 'Короткая медитация', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 22 * 60 + 55, endMinute: 23 * 60 + 5, project: 'ritual' },
-  { id: '36', title: 'План на завтра', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.3, assignees: ['JD'], startMinute: 23 * 60, endMinute: 23 * 60 + 30, project: 'ritual' },
-  { id: '37', title: 'Спокойная музыка', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.8, assignees: [], startMinute: 23 * 60 + 30, endMinute: 23 * 60 + 45, project: 'ritual' },
-  { id: '38', title: 'Последний чай', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 23 * 60 + 50, endMinute: 23 * 60 + 55, project: 'ritual' },
-  { id: '39', title: 'Совещание по продукту', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.5, assignees: ['MK', 'VR'], startMinute: 17 * 60 + 30, endMinute: 18 * 60 + 30, project: 'backend' },
-  { id: '40', title: 'Тренировка', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 1, assignees: ['MK'], startMinute: 19 * 60, endMinute: 20 * 60, project: 'ritual' },
-  { id: '41', title: 'Ужин с командой', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.7, assignees: ['JD', 'SP', 'VR'], startMinute: 20 * 60 + 30, endMinute: 21 * 60 + 30, project: 'ritual' },
-  { id: '42', title: 'Встреча с ментором', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.4, assignees: ['AN'], startMinute: 20 * 60 + 45, endMinute: 21 * 60 + 15, project: 'report' },
-  { id: '43', title: 'Разбор кода', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.6, assignees: ['VR'], startMinute: 22 * 60, endMinute: 23 * 60, project: 'backend' },
-  { id: '44', title: 'Чтение документации', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.3, assignees: [], startMinute: 23 * 60, endMinute: 23 * 60 + 30, project: 'research' },
-  { id: '45', title: 'Итоги дня', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.8, assignees: ['AN'], startMinute: 20 * 60 + 30, endMinute: 21 * 60 + 15, project: 'report' },
-  { id: '46', title: 'Лёгкая прогулка', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: ['MK'], startMinute: 20 * 60 + 45, endMinute: 21 * 60 + 30, project: 'ritual' },
-  { id: '47', title: 'Чтение', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.4, assignees: [], startMinute: 21 * 60 + 45, endMinute: 22 * 60 + 30, project: 'research' },
-  { id: '48', title: 'Подготовка ко сну', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.9, assignees: [], startMinute: 22 * 60 + 45, endMinute: 23 * 60 + 10, project: 'ritual' },
-  { id: '49', title: 'Внедрение фичи', startDate: new Date(2026, 7, 15), endDate: new Date(2026, 8, 5), progress: 0.55, assignees: ['MK', 'VR'], startMinute: 9 * 60, endMinute: 18 * 60, project: 'backend' },
-  { id: '50', title: 'Подготовка релиза', startDate: new Date(2026, 7, 18), endDate: new Date(2026, 7, 30), progress: 0.4, assignees: ['JD', 'AN', 'MK'], startMinute: 10 * 60, endMinute: 19 * 60, project: 'report' },
-  { id: '51', title: 'Квартальный отчёт', startDate: new Date(2026, 7, 1), endDate: new Date(2026, 8, 25), progress: 0.65, assignees: ['AN', 'JD'], startMinute: 8 * 60, endMinute: 17 * 60, project: 'report' },
-  { id: '52', title: 'Миграция базы данных', startDate: new Date(2026, 7, 19), endDate: new Date(2026, 7, 27), progress: 0.3, assignees: ['VR', 'MK'], startMinute: 7 * 60, endMinute: 16 * 60, project: 'backend' },
-  { id: '53', title: 'Опрос пользователей', startDate: new Date(2026, 7, 10), endDate: new Date(2026, 8, 3), progress: 0.5, assignees: ['SP', 'AN'], startMinute: 11 * 60, endMinute: 14 * 60, project: 'research' },
-  { id: '54', title: 'Документация API', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 8, 4), progress: 0.75, assignees: ['VR'], startMinute: 13 * 60, endMinute: 18 * 60, project: 'backend' },
+  { id: '1', title: 'Send a summary to email.', startDate: new Date(2026, 7, 1), endDate: new Date(2026, 8, 21), progress: 0.35, assignees: ['JD', 'RK', 'ML'], startMinute: 9 * 60, endMinute: 18 * 60, tags: ["report","sales"] },
+  { id: '2', title: 'Is status "MQL"?', startDate: new Date(2026, 7, 5), endDate: new Date(2026, 8, 3), progress: 0.70, assignees: ['AN'], startMinute: 10 * 60, endMinute: 16 * 60, tags: ["sales"] },
+  { id: '3', title: 'Design system audit', startDate: new Date(2026, 7, 14), endDate: new Date(2026, 7, 28), progress: 0.90, assignees: ['SP', 'LJ'], startMinute: 8 * 60, endMinute: 17 * 60, tags: ["design","research"] },
+  { id: '4', title: 'API integration — phase 1', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 8, 7), progress: 0.15, assignees: ['MK', 'VR'], startMinute: 7 * 60, endMinute: 15 * 60, tags: ["backend","report"] },
+  { id: '5', title: 'User testing results review', startDate: new Date(2026, 7, 24), endDate: new Date(2026, 8, 14), progress: 0.45, assignees: ['JD', 'SP', 'AN', 'RK'], startMinute: 11 * 60, endMinute: 13 * 60, tags: ["research","design"] },
+  { id: '6', title: 'Daily stand-up', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['JD', 'AN', 'MK', 'SP', 'VR'], startMinute: 9 * 60 + 30, endMinute: 9 * 60 + 45, tags: ["ritual"] },
+  { id: '7', title: 'Design review', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.6, assignees: ['SP', 'LJ'], startMinute: 11 * 60, endMinute: 12 * 60 + 30, tags: ["design"] },
+  { id: '8', title: 'Lunch', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 13 * 60, endMinute: 14 * 60, tags: ["ritual"] },
+  { id: '9', title: 'Sprint planning', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0, assignees: ['JD', 'AN', 'MK', 'SP', 'VR', 'RK', 'LJ'], startMinute: 15 * 60, endMinute: 16 * 60 + 30, tags: ["ritual","report"] },
+  { id: '10', title: 'Client demo prep', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.3, assignees: ['RK', 'MK'], startMinute: 15 * 60, endMinute: 18 * 60, tags: ["sales","design"] },
+  { id: '11', title: 'Дочитать книгу', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.85, assignees: ['AN'], startMinute: 10 * 60, endMinute: 24 * 60, tags: ["research"] },
+  { id: '12', title: 'Планирование недели', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: ['JD', 'AN', 'MK'], startMinute: 9 * 60, endMinute: 9 * 60 + 30, tags: ["ritual","report"] },
+  { id: '13', title: 'Тренировка', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: [], startMinute: 18 * 60, endMinute: 19 * 60, tags: ["ritual"] },
+  { id: '14', title: 'Ночная пробежка', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['MK'], startMinute: 0, endMinute: 2 * 60 + 30, tags: ["ritual"] },
+  { id: '15', title: 'Проверить почту', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['AN'], startMinute: 9 * 60, endMinute: 9 * 60 + 5, tags: ["report","sales"] },
+  { id: '16', title: 'Ответить в чате', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['RK'], startMinute: 9 * 60 + 6, endMinute: 9 * 60 + 7, tags: ["sales","report"] },
+  { id: '17', title: 'Созвон с командой', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['JD', 'AN', 'MK', 'SP'], startMinute: 9 * 60 + 10, endMinute: 9 * 60 + 40, tags: ["ritual"] },
+  { id: '18', title: 'Разбор бэклога', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.5, assignees: ['MK', 'VR'], startMinute: 9 * 60 + 45, endMinute: 10 * 60 + 15, tags: ["backend","ritual"] },
+  { id: '19', title: 'Ретроспектива', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.8, assignees: ['JD', 'AN', 'MK', 'SP', 'VR'], startMinute: 10 * 60 + 20, endMinute: 10 * 60 + 50, tags: ["ritual","report","backend"] },
+  { id: '20', title: 'Код-ревью пулл-реквеста', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.9, assignees: ['VR'], startMinute: 11 * 60, endMinute: 11 * 60 + 20, tags: ["backend","design"] },
+  { id: '21', title: 'Короткая медитация', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 12 * 60 + 35, endMinute: 12 * 60 + 40, tags: ["ritual"] },
+  { id: '22', title: 'Ответить клиентам', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.6, assignees: ['RK', 'ML'], startMinute: 14 * 60 + 15, endMinute: 14 * 60 + 30, tags: ["sales","report"] },
+  { id: '23', title: 'Правки макета', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.4, assignees: ['SP', 'LJ'], startMinute: 14 * 60 + 40, endMinute: 15 * 60 + 10, tags: ["design","backend"] },
+  { id: '24', title: 'Проверка метрик', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.7, assignees: ['AN', 'JD'], startMinute: 16 * 60 + 35, endMinute: 16 * 60 + 55, tags: ["research","sales"] },
+  { id: '25', title: 'Чтение статей', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.2, assignees: [], startMinute: 19 * 60, endMinute: 20 * 60, tags: ["research"] },
+  { id: '26', title: 'Утренний забег', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 1, assignees: ['MK'], startMinute: 7 * 60, endMinute: 8 * 60, tags: ["ritual","research"] },
+  { id: '27', title: 'Подготовка к встрече', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.5, assignees: ['RK'], startMinute: 14 * 60, endMinute: 14 * 60 + 30, tags: ["sales","report"] },
+  { id: '28', title: 'Анализ результатов теста', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.1, assignees: ['JD', 'AN'], startMinute: 11 * 60, endMinute: 12 * 60 + 30, tags: ["research","backend"] },
+  { id: '29', title: 'Вечерний созвон', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.7, assignees: ['JD', 'AN', 'MK'], startMinute: 20 * 60 + 30, endMinute: 21 * 60 + 30, tags: ["ritual","report"] },
+  { id: '30', title: 'Итоги дня', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.9, assignees: ['AN'], startMinute: 20 * 60 + 40, endMinute: 21 * 60 + 10, tags: ["report","ritual"] },
+  { id: '31', title: 'Чек почты перед сном', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 20 * 60 + 45, endMinute: 20 * 60 + 55, tags: ["report"] },
+  { id: '32', title: 'Дайджест комьюнити', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.4, assignees: [], startMinute: 21 * 60 + 40, endMinute: 22 * 60 + 15, tags: ["research","sales"] },
+  { id: '33', title: 'Чтение главы книги', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.5, assignees: [], startMinute: 21 * 60 + 45, endMinute: 22 * 60 + 30, tags: ["research","ritual"] },
+  { id: '34', title: 'Слушаю подкаст', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.6, assignees: [], startMinute: 22 * 60, endMinute: 22 * 60 + 50, tags: ["research"] },
+  { id: '35', title: 'Короткая медитация', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 22 * 60 + 55, endMinute: 23 * 60 + 5, tags: ["ritual"] },
+  { id: '36', title: 'План на завтра', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.3, assignees: ['JD'], startMinute: 23 * 60, endMinute: 23 * 60 + 30, tags: ["ritual","report"] },
+  { id: '37', title: 'Спокойная музыка', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.8, assignees: [], startMinute: 23 * 60 + 30, endMinute: 23 * 60 + 45, tags: ["ritual"] },
+  { id: '38', title: 'Последний чай', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 23 * 60 + 50, endMinute: 23 * 60 + 55, tags: ["ritual"] },
+  { id: '39', title: 'Совещание по продукту', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.5, assignees: ['MK', 'VR'], startMinute: 17 * 60 + 30, endMinute: 18 * 60 + 30, tags: ["backend","sales","report"] },
+  { id: '40', title: 'Тренировка', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 1, assignees: ['MK'], startMinute: 19 * 60, endMinute: 20 * 60, tags: ["ritual","research"] },
+  { id: '41', title: 'Ужин с командой', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.7, assignees: ['JD', 'SP', 'VR'], startMinute: 20 * 60 + 30, endMinute: 21 * 60 + 30, tags: ["ritual"] },
+  { id: '42', title: 'Встреча с ментором', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.4, assignees: ['AN'], startMinute: 20 * 60 + 45, endMinute: 21 * 60 + 15, tags: ["report","research"] },
+  { id: '43', title: 'Разбор кода', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.6, assignees: ['VR'], startMinute: 22 * 60, endMinute: 23 * 60, tags: ["backend"] },
+  { id: '44', title: 'Чтение документации', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.3, assignees: [], startMinute: 23 * 60, endMinute: 23 * 60 + 30, tags: ["backend","research"] },
+  { id: '45', title: 'Итоги дня', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.8, assignees: ['AN'], startMinute: 20 * 60 + 30, endMinute: 21 * 60 + 15, tags: ["report","ritual"] },
+  { id: '46', title: 'Лёгкая прогулка', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: ['MK'], startMinute: 20 * 60 + 45, endMinute: 21 * 60 + 30, tags: ["ritual"] },
+  { id: '47', title: 'Чтение', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.4, assignees: [], startMinute: 21 * 60 + 45, endMinute: 22 * 60 + 30, tags: ["research","ritual"] },
+  { id: '48', title: 'Подготовка ко сну', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.9, assignees: [], startMinute: 22 * 60 + 45, endMinute: 23 * 60 + 10, tags: ["ritual"] },
+  { id: '49', title: 'Внедрение фичи', startDate: new Date(2026, 7, 15), endDate: new Date(2026, 8, 5), progress: 0.55, assignees: ['MK', 'VR'], startMinute: 9 * 60, endMinute: 18 * 60, tags: ["backend","sales"] },
+  { id: '50', title: 'Подготовка релиза', startDate: new Date(2026, 7, 18), endDate: new Date(2026, 7, 30), progress: 0.4, assignees: ['JD', 'AN', 'MK'], startMinute: 10 * 60, endMinute: 19 * 60, tags: ["report","backend","design"] },
+  { id: '51', title: 'Квартальный отчёт', startDate: new Date(2026, 7, 1), endDate: new Date(2026, 8, 25), progress: 0.65, assignees: ['AN', 'JD'], startMinute: 8 * 60, endMinute: 17 * 60, tags: ["report","sales"] },
+  { id: '52', title: 'Миграция базы данных', startDate: new Date(2026, 7, 19), endDate: new Date(2026, 7, 27), progress: 0.3, assignees: ['VR', 'MK'], startMinute: 7 * 60, endMinute: 16 * 60, tags: ["backend","research"] },
+  { id: '53', title: 'Опрос пользователей', startDate: new Date(2026, 7, 10), endDate: new Date(2026, 8, 3), progress: 0.5, assignees: ['SP', 'AN'], startMinute: 11 * 60, endMinute: 14 * 60, tags: ["research","design"] },
+  { id: '54', title: 'Документация API', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 8, 4), progress: 0.75, assignees: ['VR'], startMinute: 13 * 60, endMinute: 18 * 60, tags: ["backend","research","report"] },
 ]
 
 const C = [
@@ -187,7 +189,7 @@ export function GanttTimeline() {
   const nextDay = new Date(currentDay)
   nextDay.setDate(nextDay.getDate() + 1)
 
-  const tasksForDay = (day: Date) => mockTasks.filter((t) => day >= t.startDate && day <= t.endDate && !hiddenProjects.has(t.project))
+  const tasksForDay = (day: Date) => mockTasks.filter((t) => day >= t.startDate && day <= t.endDate && t.tags.some((tag) => !hiddenProjects.has(tag)))
 
   const hasPrevTasks = tasksForDay(prevDay).length > 0
   const hasNextTasks = tasksForDay(nextDay).length > 0
@@ -643,6 +645,9 @@ export function GanttTimeline() {
               const width = p.width
               const top = p.y
               const cc = C[idx % C.length]
+              const showTags = width >= MIN_TAG_W && task.title.length <= MAX_TAG_TITLE
+              const maxFit = width >= 520 ? 3 : width >= 380 ? 2 : 1
+              const tagsShown = showTags ? task.tags.slice(0, maxFit) : []
 
               const startsBefore = p.leftMin === p.l0 && p.day > task.startDate
               const endsAfter = p.rightMin === p.r0 && p.day < task.endDate
@@ -685,11 +690,23 @@ export function GanttTimeline() {
                     }}
                   />
 
-                  <div className="flex items-center gap-2 relative z-[1] min-h-0 shrink-0">
+                  <div className="flex items-center gap-2 relative z-[1] min-h-0 shrink-0 min-w-0">
                     <div className="rounded-full shrink-0" style={{ width: 6, height: 6, background: cc.base, opacity: 0.7 }} />
                     <span className="text-[13px] font-medium text-[var(--text)] leading-tight truncate tracking-[-0.01em]">
                       {task.title}
                     </span>
+                    {tagsShown.map((tagKey, ti) => {
+                      const p = PROJECTS[tagKey]
+                      return (
+                        <span
+                          key={ti}
+                          className="shrink-0 rounded-full px-1.5 py-px text-[8.5px] font-semibold leading-none tracking-[-0.01em] select-none"
+                          style={{ color: p.color, background: `${p.color}1a`, border: `1px solid ${p.color}30` }}
+                        >
+                          {p.label}
+                        </span>
+                      )
+                    })}
                   </div>
 
                   <div className="flex items-center gap-2 relative z-[1] mt-auto min-w-0" style={{ paddingTop: 4 }}>
