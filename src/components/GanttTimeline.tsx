@@ -189,6 +189,12 @@ export function GanttTimeline() {
   const [hoverX, setHoverX] = useState(0)
   const [hiddenProjects, setHiddenProjects] = useState<Set<ProjectKey>>(new Set())
   const [mockTasks, setMockTasks] = useState<GanttTaskEx[]>(MOCK_TASKS)
+  const [adding, setAdding] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newStartH, setNewStartH] = useState(9)
+  const [newStartMin, setNewStartMin] = useState(0)
+  const [newDur, setNewDur] = useState(30)
+  const pendingScrollMin = useRef<number | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ key: number; x: number; y: number; task: GanttTaskEx } | null>(null)
   const ctxAnchorRef = useRef<HTMLDivElement>(null)
 
@@ -381,6 +387,17 @@ export function GanttTimeline() {
     setViewportW(el.clientWidth)
     return () => ro.disconnect()
   }, [applyCenter, updateViewDay])
+
+  useLayoutEffect(() => {
+    if (pendingScrollMin.current == null) return
+    const min = pendingScrollMin.current
+    pendingScrollMin.current = null
+    const el = scrollRef.current
+    if (!el || el.clientWidth <= 0) return
+    el.scrollLeft = Math.max(0, offset + mainScale.xOf(min) - el.clientWidth * 0.25)
+    scrollLeftRef.current = el.scrollLeft
+    if (!SUPPORTS_SCROLL_TIMELINE) syncIndicator()
+  }, [mockTasks, mainScale, offset, syncIndicator])
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current
@@ -647,6 +664,36 @@ export function GanttTimeline() {
 
   const renderTasks = [...prevDayTasks, ...mainDayTasks, ...nextDayTasks]
 
+  const openAdd = () => {
+    const isToday = isSameDay(currentDay, new Date())
+    const m = isToday ? nowMinute : 9 * 60
+    setNewStartH(Math.floor(m / 60))
+    setNewStartMin(Math.round((m % 60) / 5) * 5 % 60)
+    setNewDur(30)
+    setAdding(true)
+  }
+
+  const addTask = () => {
+    const trimmed = newTitle.trim()
+    if (!trimmed) return
+    const startMin = newStartH * 60 + newStartMin
+    const endMin = Math.min(24 * 60, startMin + newDur)
+    const d = new Date(currentDay)
+    setMockTasks((ts) => [
+      ...ts,
+      { id: `new-${Date.now()}`, title: trimmed, startDate: d, endDate: d, progress: 0, assignees: [], startMinute: startMin, endMinute: endMin, tags: ['ritual'] },
+    ])
+    setHiddenProjects((prev) => {
+      if (!prev.has('ritual')) return prev
+      const next = new Set(prev)
+      next.delete('ritual')
+      return next
+    })
+    pendingScrollMin.current = startMin
+    setNewTitle('')
+    setAdding(false)
+  }
+
   const maxY = renderTasks.reduce((m, p) => Math.max(m, p.y + TASK_H), 0)
   const contentH = maxY > 0 ? maxY + TASK_GAP : '100%'
 
@@ -689,6 +736,21 @@ export function GanttTimeline() {
             {dayRelName(viewDay)}
           </motion.button>
           <NavBtn dir="next" onClick={goNext} />
+          <button
+            onClick={adding ? () => setAdding(false) : openAdd}
+            title={adding ? 'Отменить' : 'Добавить задачу'}
+            className={`flex items-center gap-1 h-[22px] px-2.5 rounded-full cursor-pointer transition-all text-[10px] font-semibold select-none ${adding ? '' : 'hover:brightness-110'}`}
+            style={
+              adding
+                ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }
+                : { background: 'linear-gradient(135deg, var(--focus), var(--focus-2))', color: '#0a0b0e', border: 'none' }
+            }
+          >
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              {adding ? <path d="M6 6l12 12M18 6l-12 12" /> : <path d="M12 5v14M5 12h14" />}
+            </svg>
+            {adding ? 'Отмена' : 'Новая'}
+          </button>
         </div>
 
         <div className="text-[12px] font-semibold tracking-[-0.01em] shrink-0 select-none" style={{ color: viewToday ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)' }}>
@@ -717,6 +779,56 @@ export function GanttTimeline() {
           })}
         </div>
       </div>
+
+      {adding && (
+        <div className="flex items-center gap-2 px-3 pb-2 shrink-0 flex-wrap">
+          <input
+            autoFocus
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addTask()
+              if (e.key === 'Escape') setAdding(false)
+            }}
+            placeholder="Что добавить?"
+            className="input-base flex-1 min-w-[160px] text-[11px]"
+          />
+          <div className="flex items-center gap-1 bg-[var(--surface-2)] rounded-md px-2 py-1 border border-[var(--stroke)]">
+            <select
+              value={newStartH}
+              onChange={(e) => setNewStartH(Number(e.target.value))}
+              className="bg-transparent border-none outline-none text-[10px] text-[var(--text)] font-medium cursor-pointer appearance-none pr-1"
+            >
+              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}</option>)}
+            </select>
+            <span className="text-[8px] text-[var(--text-faint)]">:</span>
+            <select
+              value={newStartMin}
+              onChange={(e) => setNewStartMin(Number(e.target.value))}
+              className="bg-transparent border-none outline-none text-[10px] text-[var(--text)] font-medium cursor-pointer appearance-none pr-1"
+            >
+              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => <option key={m} value={m}>{String(m).padStart(2, '0')}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-1 bg-[var(--surface-2)] rounded-md px-2 py-1 border border-[var(--stroke)]">
+            <select
+              value={newDur}
+              onChange={(e) => setNewDur(Number(e.target.value))}
+              className="bg-transparent border-none outline-none text-[10px] text-[var(--text)] font-medium cursor-pointer appearance-none pr-1"
+            >
+              {[5, 10, 15, 20, 25, 30, 45, 60, 90, 120].map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <span className="text-[8px] text-[var(--text-faint)]">мин</span>
+          </div>
+          <button
+            onClick={addTask}
+            disabled={!newTitle.trim()}
+            className="btn btn-primary text-[10px] h-7 px-3 py-0"
+          >
+            Добавить
+          </button>
+        </div>
+      )}
 
       {viewportW > 0 && (
         <div
