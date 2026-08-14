@@ -135,7 +135,6 @@ const ADD_MODAL_ITEM = {
 const WHEEL_ITEM_H = 36
 const WHEEL_VISIBLE = 5
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
-const DURATIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120]
 const TAG_PALETTE = ['#ff4d4d', '#ff9d5c', '#4fd4c4', '#4c8dff', '#a78bfa', '#ffd43b', '#69db7c', '#f783ac']
 
 function TimeWheel({
@@ -152,6 +151,7 @@ function TimeWheel({
   const ref = useRef<HTMLDivElement>(null)
   const valRef = useRef(value)
   const centeredRef2 = useRef(false)
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null)
   valRef.current = value
 
   useEffect(() => {
@@ -160,7 +160,17 @@ function TimeWheel({
     const idx = options.indexOf(value)
     if (idx < 0) return
     centeredRef2.current = true
-    el.scrollTop = idx * WHEEL_ITEM_H
+    const target = idx * WHEEL_ITEM_H
+    const center = (attempt: number) => {
+      if (attempt > 40) return
+      const max = el.scrollHeight - el.clientHeight
+      if (max < target) {
+        requestAnimationFrame(() => center(attempt + 1))
+        return
+      }
+      el.scrollTop = target
+    }
+    center(0)
   }, [options, value])
 
   const onScroll = () => {
@@ -195,23 +205,31 @@ function TimeWheel({
       >
         {options.map((o, i) => {
           const selected = o === value
+          const hovered = hoverIdx === i
           return (
             <button
               key={o}
               type="button"
               onClick={() => scrollTo(i)}
-              className="w-[64px] text-center transition-all"
+              onMouseEnter={() => setHoverIdx(i)}
+              onMouseLeave={() => setHoverIdx(null)}
+              className="block w-[64px] text-center transition-all leading-none"
               style={{ height: WHEEL_ITEM_H, scrollSnapAlign: 'center' }}
             >
               <span
                 className={`inline-flex items-center justify-center rounded-lg text-[15px] font-semibold tabular-nums transition-all ${
-                  selected ? '' : 'text-[var(--text-faint)]'
+                  selected || hovered ? '' : 'text-[var(--text-faint)]'
                 }`}
                 style={{
                   width: 56,
                   height: 28,
-                  background: selected ? 'linear-gradient(135deg, #ff4d4d, #e11d48)' : 'transparent',
-                  color: selected ? '#fff' : undefined,
+                  background: selected
+                    ? 'linear-gradient(135deg, #ff4d4d, #e11d48)'
+                    : hovered
+                      ? 'rgba(255,77,77,0.12)'
+                      : 'transparent',
+                  color: selected ? '#fff' : hovered ? '#ff9d9d' : undefined,
+                  border: hovered && !selected ? '1px solid rgba(255,77,77,0.35)' : undefined,
                   boxShadow: selected ? '0 2px 14px rgba(255,77,77,0.45)' : undefined,
                 }}
               >
@@ -222,18 +240,6 @@ function TimeWheel({
           )
         })}
       </div>
-      <div
-        className="absolute pointer-events-none rounded-lg"
-        style={{
-          top: (WHEEL_ITEM_H * (WHEEL_VISIBLE - 1)) / 2 + (WHEEL_ITEM_H - 28) / 2,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: 56,
-          height: 28,
-          borderTop: '1px solid rgba(255,77,77,0.35)',
-          borderBottom: '1px solid rgba(255,77,77,0.35)',
-        }}
-      />
     </div>
   )
 }
@@ -392,7 +398,9 @@ export function GanttTimeline() {
   const [newDate, setNewDate] = useState(() => new Date(TODAY))
   const [newStartH, setNewStartH] = useState(9)
   const [newStartMin, setNewStartMin] = useState(0)
-  const [newDur, setNewDur] = useState(30)
+  const [newEndDate, setNewEndDate] = useState(() => new Date(TODAY))
+  const [newEndH, setNewEndH] = useState(9)
+  const [newEndMin, setNewEndMin] = useState(30)
   const [newTags, setNewTags] = useState<string[]>(['ritual'])
   const [newProjOpen, setNewProjOpen] = useState(false)
   const [newProjName, setNewProjName] = useState('')
@@ -871,7 +879,9 @@ export function GanttTimeline() {
     const m = isToday ? nowMinute : 9 * 60
     setNewStartH(Math.floor(m / 60))
     setNewStartMin(Math.round((m % 60) / 5) * 5 % 60)
-    setNewDur(30)
+    setNewEndDate(new Date(currentDay))
+    setNewEndH(Math.floor(Math.min(24 * 60 - 1, m + 30) / 60))
+    setNewEndMin(Math.round(((m + 30) % 60) / 5) * 5 % 60)
     setNewDate(new Date(currentDay))
     setNewTags(['ritual'])
     setAdding(true)
@@ -899,13 +909,30 @@ export function GanttTimeline() {
   const addTask = () => {
     const trimmed = newTitle.trim()
     if (!trimmed) return
-    const startMin = newStartH * 60 + newStartMin
-    const endMin = Math.min(24 * 60, startMin + newDur)
-    const d = new Date(newDate)
+    let startMin = newStartH * 60 + newStartMin
+    let endMin = newEndH * 60 + newEndMin
+    let sd = new Date(newDate)
+    let ed = new Date(newEndDate)
+    if (ed < sd) {
+      ;[sd, ed] = [ed, sd]
+      ;[startMin, endMin] = [endMin, startMin]
+    }
+    const sameDay = isSameDay(sd, ed)
+    const endMinute = sameDay && endMin <= startMin ? Math.min(24 * 60, startMin + 30) : endMin
     const tags: string[] = newTags.length > 0 ? newTags : ['ritual']
     setMockTasks((ts) => [
       ...ts,
-      { id: `new-${Date.now()}`, title: trimmed, startDate: d, endDate: d, progress: 0, assignees: [], startMinute: startMin, endMinute: endMin, tags },
+      {
+        id: `new-${Date.now()}`,
+        title: trimmed,
+        startDate: sd,
+        endDate: ed,
+        progress: 0,
+        assignees: [],
+        startMinute: startMin,
+        endMinute: endMinute,
+        tags,
+      },
     ])
     tags.forEach((tag) => {
       setHiddenProjects((prev) => {
@@ -915,7 +942,7 @@ export function GanttTimeline() {
         return next
       })
     })
-    if (isSameDay(d, currentDay)) pendingScrollMin.current = startMin
+    if (isSameDay(sd, currentDay)) pendingScrollMin.current = startMin
     setNewTitle('')
     setAdding(false)
   }
@@ -1375,7 +1402,7 @@ export function GanttTimeline() {
               animate="show"
               exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
               transition={{ type: 'spring', stiffness: 250, damping: 30 }}
-              className="absolute inset-0 overflow-hidden flex items-center justify-center px-6"
+              className="absolute inset-0 overflow-y-auto px-6 py-8"
               style={{ background: 'linear-gradient(165deg, #171a21 0%, #0d0e13 60%, #101318 100%)' }}
             >
               <motion.div
@@ -1392,7 +1419,7 @@ export function GanttTimeline() {
                   e.preventDefault()
                   addTask()
                 }}
-                className="relative w-full max-w-[680px] flex flex-col gap-5"
+                className="relative w-full max-w-[680px] m-auto flex flex-col gap-5"
               >
                 <motion.div variants={ADD_MODAL_ITEM} className="flex items-start justify-between">
                   <div>
@@ -1400,7 +1427,20 @@ export function GanttTimeline() {
                       Новая задача
                     </h2>
                     <p className="text-[11px] text-[var(--text-dim)] mt-1.5">
-                      {fmtDate(newDate)} · {fmtExact(newStartH * 60 + newStartMin)} – {fmtExact(Math.min(24 * 60, newStartH * 60 + newStartMin + newDur))}
+                      {(() => {
+                        let s = newStartH * 60 + newStartMin
+                        let e = newEndH * 60 + newEndMin
+                        let sd = new Date(newDate)
+                        let ed = new Date(newEndDate)
+                        if (ed < sd) {
+                          ;[sd, ed] = [ed, sd]
+                          ;[s, e] = [e, s]
+                        }
+                        const sameDay = isSameDay(sd, ed)
+                        const e2 = sameDay && e <= s ? Math.min(24 * 60, s + 30) : e
+                        if (sameDay) return `${fmtDate(sd)} · ${fmtExact(s)} – ${fmtExact(e2)}`
+                        return `${fmtDate(sd)} ${fmtExact(s)} – ${fmtDate(ed)} ${fmtExact(e2)}`
+                      })()}
                     </p>
                   </div>
                   <button
@@ -1440,51 +1480,30 @@ export function GanttTimeline() {
                   >
                     <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-3 flex items-center gap-1.5">
                       <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
-                      Дата
+                      Начало
                     </div>
                     <MonthCalendar value={newDate} onChange={setNewDate} />
+                    <div className="flex items-center justify-center gap-3 mt-3">
+                      <TimeWheel options={Array.from({ length: 24 }, (_, h) => h)} value={newStartH} onChange={setNewStartH} suffix="ч" />
+                      <span className="text-[22px] font-bold text-[var(--text-faint)] -mt-5">:</span>
+                      <TimeWheel options={Array.from({ length: 60 }, (_, m) => m)} value={newStartMin} onChange={setNewStartMin} suffix="" />
+                    </div>
                   </motion.div>
 
-                  <motion.div variants={ADD_MODAL_ITEM} className="flex flex-col gap-4">
-                    <div
-                      className="rounded-2xl p-4"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-                    >
-                      <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-1 flex items-center gap-1.5">
-                        <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
-                        Время начала
-                      </div>
-                      <div className="flex items-center justify-center gap-3">
-                        <TimeWheel options={Array.from({ length: 24 }, (_, h) => h)} value={newStartH} onChange={setNewStartH} suffix="ч" />
-                        <span className="text-[22px] font-bold text-[var(--text-faint)] -mt-5">:</span>
-                        <TimeWheel options={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]} value={newStartMin} onChange={setNewStartMin} suffix="" />
-                      </div>
+                  <motion.div
+                    variants={ADD_MODAL_ITEM}
+                    className="rounded-2xl p-4"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+                  >
+                    <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-3 flex items-center gap-1.5">
+                      <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
+                      Конец
                     </div>
-                    <div
-                      className="rounded-2xl p-4"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-                    >
-                      <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-3 flex items-center gap-1.5">
-                        <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
-                        Длительность
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {DURATIONS.map((d) => (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() => setNewDur(d)}
-                            className="h-8 px-2.5 rounded-lg text-[11px] font-semibold transition-all"
-                            style={
-                              d === newDur
-                                ? { background: 'linear-gradient(135deg, #ff4d4d, #e11d48)', color: '#fff', boxShadow: '0 2px 10px rgba(255,77,77,0.4)' }
-                                : { background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)', border: '1px solid rgba(255,255,255,0.08)' }
-                            }
-                          >
-                            {d} <span className="opacity-60 text-[9px]">мин</span>
-                          </button>
-                        ))}
-                      </div>
+                    <MonthCalendar value={newEndDate} onChange={setNewEndDate} />
+                    <div className="flex items-center justify-center gap-3 mt-3">
+                      <TimeWheel options={Array.from({ length: 24 }, (_, h) => h)} value={newEndH} onChange={setNewEndH} suffix="ч" />
+                      <span className="text-[22px] font-bold text-[var(--text-faint)] -mt-5">:</span>
+                      <TimeWheel options={Array.from({ length: 60 }, (_, m) => m)} value={newEndMin} onChange={setNewEndMin} suffix="" />
                     </div>
                   </motion.div>
                 </div>
@@ -1571,9 +1590,12 @@ export function GanttTimeline() {
                   </button>
                   <button
                     type="submit"
-                    disabled={!newTitle.trim()}
-                    className="btn flex-1 h-11 rounded-xl text-[13px] font-semibold justify-center gap-2 disabled:opacity-50 transition-all hover:brightness-110"
-                    style={{ background: 'linear-gradient(135deg, #4ade80, #16a34a)', color: '#06130a', boxShadow: '0 4px 18px rgba(34,197,94,0.35)' }}
+                    className="btn flex-1 h-11 rounded-xl text-[13px] font-semibold justify-center gap-2 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.99]"
+                    style={{
+                      background: 'linear-gradient(135deg, #22c55e, #15803d)',
+                      color: '#fff',
+                      boxShadow: '0 4px 22px rgba(34,197,94,0.45), inset 0 1px 0 rgba(255,255,255,0.2)',
+                    }}
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
                       <path d="M12 5v14M5 12h14" />
