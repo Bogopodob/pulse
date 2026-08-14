@@ -733,7 +733,7 @@ export function GanttTimeline() {
       />
 
       <Dropdown.Root isOpen={ctxMenu !== null} onOpenChange={closeContextMenu}>
-        <Dropdown.Popover key={ctxMenu?.key} triggerRef={ctxAnchorRef} placement="right top" offset={4} isNonModal>
+        <Dropdown.Popover key={ctxMenu?.key} triggerRef={ctxAnchorRef} placement="right top" offset={4}>
           <Dropdown.Menu className="min-w-[200px] max-w-[280px]" onAction={handleCtxAction}>
             <Dropdown.Item
               key="header"
