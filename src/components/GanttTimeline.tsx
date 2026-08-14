@@ -7,9 +7,8 @@ const BASE_HOUR_W = 160
 const BASE_PX_MIN = BASE_HOUR_W / 60
 const TARGET_SMALL_W = 260
 const SMALL_MIN = 40
-const MAX_SCALE = 60
+const MAX_SCALE = 260
 const BUFFER_HOURS = 3
-const MIN_W = 220
 const VIS_GAP_MIN = 3
 const MIN_TAG_W = 280
 const MAX_TAG_TITLE = 20
@@ -216,7 +215,7 @@ export function GanttTimeline() {
     (day: Date, winStart: number, winLen: number) => {
     const winEnd = winStart + winLen
 
-    const smalls: { l: number; r: number; minDur: number }[] = []
+    const smalls: { l: number; r: number; dur: number }[] = []
     for (const t of tasksForDay(day)) {
       const l = isSameDay(day, t.startDate) ? t.startMinute : 0
       const r = isSameDay(day, t.endDate) ? t.endMinute : 24 * 60
@@ -224,7 +223,7 @@ export function GanttTimeline() {
       const cr = Math.min(r, winEnd)
       if (cr <= cl) continue
       const dur = cr - cl
-      if (dur < SMALL_MIN) smalls.push({ l: cl, r: cr, minDur: dur })
+      if (dur < SMALL_MIN) smalls.push({ l: cl, r: cr, dur })
     }
 
     const xOf = (min: number) => Math.max(0, min - winStart) * BASE_PX_MIN
@@ -233,14 +232,14 @@ export function GanttTimeline() {
     }
 
     smalls.sort((a, b) => a.l - b.l)
-    const groups: { l: number; r: number; minDur: number }[] = []
+    const groups: { l: number; r: number; members: { l: number; r: number; dur: number }[] }[] = []
     for (const s of smalls) {
       const last = groups[groups.length - 1]
       if (last && s.l <= last.r) {
         last.r = Math.max(last.r, s.r)
-        last.minDur = Math.min(last.minDur, s.minDur)
+        last.members.push(s)
       } else {
-        groups.push({ l: s.l, r: s.r, minDur: s.minDur })
+        groups.push({ l: s.l, r: s.r, members: [s] })
       }
     }
 
@@ -248,8 +247,16 @@ export function GanttTimeline() {
     let cursor = winStart
     for (const g of groups) {
       if (g.l > cursor) segs.push({ start: cursor, end: g.l, pxPerMin: BASE_PX_MIN })
-      const pxPerMin = Math.min(MAX_SCALE, Math.max(BASE_PX_MIN, TARGET_SMALL_W / g.minDur))
-      segs.push({ start: g.l, end: g.r, pxPerMin })
+      const bounds = Array.from(new Set(g.members.flatMap((m) => [m.l, m.r]))).sort((a, b) => a - b)
+      for (let bi = 0; bi < bounds.length - 1; bi++) {
+        const a = bounds[bi]
+        const b = bounds[bi + 1]
+        let ppm = BASE_PX_MIN
+        for (const m of g.members) {
+          if (m.l <= a && m.r >= b) ppm = Math.max(ppm, Math.min(MAX_SCALE, TARGET_SMALL_W / m.dur))
+        }
+        segs.push({ start: a, end: b, pxPerMin: ppm })
+      }
       cursor = g.r
     }
     if (cursor < winEnd) segs.push({ start: cursor, end: winEnd, pxPerMin: BASE_PX_MIN })
@@ -591,9 +598,7 @@ export function GanttTimeline() {
         const r = isSameDay(day, t.endDate) ? t.endMinute : 24 * 60
         const leftMin = Math.max(l, windowStartMin)
         const rightMin = Math.min(r, windowEndMin)
-        const pxSpan = scale.xOf(rightMin) - scale.xOf(leftMin)
-        const visEnd = pxSpan >= MIN_W ? rightMin : Math.ceil(leftMin + (rightMin - leftMin) * MIN_W / pxSpan)
-        return { task: t, l, r, leftMin, rightMin, visEnd }
+        return { task: t, l, r, leftMin, rightMin }
       })
       .filter((i) => i.rightMin > i.leftMin)
     withBounds.sort((a, b) => a.leftMin - b.leftMin)
@@ -604,12 +609,12 @@ export function GanttTimeline() {
       for (let ri = 0; ri < rows.length; ri++) {
         if (rows[ri].end + VIS_GAP_MIN <= item.leftMin) {
           rows[ri].items.push(item)
-          rows[ri].end = Math.max(rows[ri].end, item.visEnd)
+          rows[ri].end = Math.max(rows[ri].end, item.rightMin)
           placed = true
           break
         }
       }
-      if (!placed) rows.push({ end: item.visEnd, items: [item] })
+      if (!placed) rows.push({ end: item.rightMin, items: [item] })
     }
 
     const result: RenderedTask[] = []
@@ -617,7 +622,7 @@ export function GanttTimeline() {
     rows.forEach((row, ri) => {
       row.items.forEach((item) => {
         const x = xOrigin + scale.xOf(item.leftMin)
-        const rawWidth = Math.max(scale.xOf(item.rightMin) - scale.xOf(item.leftMin), MIN_W)
+        const rawWidth = scale.xOf(item.rightMin) - scale.xOf(item.leftMin)
         result.push({
           task: item.task,
           x,
