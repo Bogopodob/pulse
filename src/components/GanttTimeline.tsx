@@ -390,7 +390,7 @@ export function GanttTimeline() {
   const ovPrev = overlapOf(0, offset)
   const ovMain = overlapOf(offset, offset + mainW)
   const ovNext = overlapOf(offset + mainW, totalW)
-  const viewDay = ovNext >= ovMain && ovNext >= ovPrev ? nextDay : ovPrev > ovMain ? prevDay : currentDay
+  const viewDay = ovNext > ovMain && ovNext > ovPrev ? nextDay : ovPrev > ovMain && ovPrev > ovNext ? prevDay : currentDay
   const viewToday = isSameDay(viewDay, TODAY)
 
   const dayRelName = (d: Date) => {
@@ -523,7 +523,7 @@ export function GanttTimeline() {
             whileTap={{ scale: 0.94 }}
             className="flex items-center gap-1.5 h-[24px] px-2.5 rounded-md cursor-pointer text-[11px] font-semibold shrink-0 transition-colors"
             style={
-              isToday
+              viewToday
                 ? {
                     background: 'linear-gradient(135deg, var(--focus), var(--focus-2))',
                     color: '#0a0b0e',
@@ -535,21 +535,21 @@ export function GanttTimeline() {
                     border: '1px solid rgba(255,255,255,0.06)',
                   }
             }
-            whileHover={isToday ? undefined : { background: 'rgba(255,255,255,0.08)', color: '#fff' }}
+            whileHover={viewToday ? undefined : { background: 'rgba(255,255,255,0.08)', color: '#fff' }}
             onClick={goToday}
-            title="К сегодняшнему дню (Home)"
+            title={viewToday ? 'К сегодняшнему дню (Home)' : 'Вернуться к сегодняшнему дню'}
           >
             <span
               className="size-[6px] rounded-full"
-              style={isToday ? { background: 'rgba(10,11,14,0.7)' } : { background: 'var(--focus)', boxShadow: '0 0 6px var(--focus)' }}
+              style={viewToday ? { background: 'rgba(10,11,14,0.7)' } : { background: 'var(--focus)', boxShadow: '0 0 6px var(--focus)' }}
             />
-            Сегодня
+            {dayRelName(viewDay)}
           </motion.button>
           <NavBtn dir="next" onClick={goNext} />
         </div>
 
-        <div className="text-[12px] font-semibold tracking-[-0.01em] shrink-0 select-none" style={{ color: isToday ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)' }}>
-          {fmtDate(currentDay)}
+        <div className="text-[12px] font-semibold tracking-[-0.01em] shrink-0 select-none" style={{ color: viewToday ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)' }}>
+          {fmtDate(viewDay)}
         </div>
 
         <div className="flex items-center gap-1.5 justify-end shrink-0 min-w-0 flex-wrap">
