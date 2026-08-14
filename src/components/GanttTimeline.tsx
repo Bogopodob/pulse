@@ -37,7 +37,7 @@ const PROJECTS: Record<ProjectKey, { label: string; color: string }> = {
   ritual: { label: 'Команда', color: '#ffd43b' },
 }
 
-type GanttTaskEx = GanttTask & { tags: ProjectKey[] }
+type GanttTaskEx = GanttTask & { tags: string[] }
 
 const MOCK_TASKS: GanttTaskEx[] = [
   { id: '1', title: 'Send a summary to email.', startDate: new Date(2026, 7, 1), endDate: new Date(2026, 8, 21), progress: 0.35, assignees: ['JD', 'RK', 'ML'], startMinute: 9 * 60, endMinute: 18 * 60, tags: ["report","sales"] },
@@ -136,6 +136,7 @@ const WHEEL_ITEM_H = 36
 const WHEEL_VISIBLE = 5
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 const DURATIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120]
+const TAG_PALETTE = ['#ff4d4d', '#ff9d5c', '#4fd4c4', '#4c8dff', '#a78bfa', '#ffd43b', '#69db7c', '#f783ac']
 
 function TimeWheel({
   options,
@@ -222,12 +223,15 @@ function TimeWheel({
         })}
       </div>
       <div
-        className="absolute left-0 right-0 rounded-lg pointer-events-none"
+        className="absolute pointer-events-none rounded-lg"
         style={{
-          top: (WHEEL_ITEM_H * (WHEEL_VISIBLE - 1)) / 2 - 2,
-          height: WHEEL_ITEM_H,
-          borderTop: '1px solid rgba(255,77,77,0.25)',
-          borderBottom: '1px solid rgba(255,77,77,0.25)',
+          top: (WHEEL_ITEM_H * (WHEEL_VISIBLE - 1)) / 2 + (WHEEL_ITEM_H - 28) / 2,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 56,
+          height: 28,
+          borderTop: '1px solid rgba(255,77,77,0.35)',
+          borderBottom: '1px solid rgba(255,77,77,0.35)',
         }}
       />
     </div>
@@ -296,7 +300,7 @@ function MonthCalendar({ value, onChange }: { value: Date; onChange: (d: Date) =
                       boxShadow: '0 2px 12px rgba(255,77,77,0.45)',
                     }
                   : same(d, today)
-                    ? { border: '1px solid rgba(255,77,77,0.45)', color: 'var(--text)', background: 'rgba(255,77,77,0.08)' }
+                    ? { border: '1px solid rgba(255,77,77,0.55)', color: '#ff7a7a', background: 'rgba(255,77,77,0.12)', fontWeight: 700 }
                     : { color: 'var(--text-dim)' }
               }
               onMouseEnter={(e) => {
@@ -380,7 +384,8 @@ export function GanttTimeline() {
   const [viewportW, setViewportW] = useState(0)
   const [hoverMin, setHoverMin] = useState<number | null>(null)
   const [hoverX, setHoverX] = useState(0)
-  const [hiddenProjects, setHiddenProjects] = useState<Set<ProjectKey>>(new Set())
+  const [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set())
+  const [extraProjects, setExtraProjects] = useState<Record<string, { label: string; color: string }>>({})
   const [mockTasks, setMockTasks] = useState<GanttTaskEx[]>(MOCK_TASKS)
   const [adding, setAdding] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -388,7 +393,9 @@ export function GanttTimeline() {
   const [newStartH, setNewStartH] = useState(9)
   const [newStartMin, setNewStartMin] = useState(0)
   const [newDur, setNewDur] = useState(30)
-  const [newTags, setNewTags] = useState<ProjectKey[]>(['ritual'])
+  const [newTags, setNewTags] = useState<string[]>(['ritual'])
+  const [newProjOpen, setNewProjOpen] = useState(false)
+  const [newProjName, setNewProjName] = useState('')
   const pendingScrollMin = useRef<number | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ key: number; x: number; y: number; task: GanttTaskEx } | null>(null)
   const ctxAnchorRef = useRef<HTMLDivElement>(null)
@@ -742,7 +749,7 @@ export function GanttTimeline() {
     return `${d.getDate()} ${MONTHS_RU[d.getMonth()]}`
   }
 
-  const toggleProject = (key: ProjectKey) => {
+  const toggleProject = (key: string) => {
     setHiddenProjects((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
@@ -870,9 +877,24 @@ export function GanttTimeline() {
     setAdding(true)
   }
 
-  const toggleNewTag = (key: ProjectKey) => {
+  const toggleNewTag = (key: string) => {
     setNewTags((prev) => (prev.includes(key) ? prev.filter((t) => t !== key) : [...prev, key]))
   }
+
+  const addProject = (color: string) => {
+    const name = newProjName.trim()
+    if (!name) return
+    const key = `custom-${Date.now()}`
+    setExtraProjects((prev) => ({ ...prev, [key]: { label: name, color } }))
+    setNewTags((prev) => [...prev, key])
+    setNewProjName('')
+    setNewProjOpen(false)
+  }
+
+  const allProjects = useMemo(
+    () => ({ ...PROJECTS, ...extraProjects }) as Record<string, { label: string; color: string }>,
+    [extraProjects]
+  )
 
   const addTask = () => {
     const trimmed = newTitle.trim()
@@ -880,7 +902,7 @@ export function GanttTimeline() {
     const startMin = newStartH * 60 + newStartMin
     const endMin = Math.min(24 * 60, startMin + newDur)
     const d = new Date(newDate)
-    const tags: ProjectKey[] = newTags.length > 0 ? newTags : ['ritual']
+    const tags: string[] = newTags.length > 0 ? newTags : ['ritual']
     setMockTasks((ts) => [
       ...ts,
       { id: `new-${Date.now()}`, title: trimmed, startDate: d, endDate: d, progress: 0, assignees: [], startMinute: startMin, endMinute: endMin, tags },
@@ -969,8 +991,7 @@ export function GanttTimeline() {
         </div>
 
         <div className="flex items-center gap-1.5 justify-end shrink-0 min-w-0 flex-wrap">
-          {(Object.keys(PROJECTS) as ProjectKey[]).map((key) => {
-            const p = PROJECTS[key]
+          {Object.entries(allProjects).map(([key, p]) => {
             const hidden = hiddenProjects.has(key)
             return (
               <button
@@ -1261,7 +1282,7 @@ export function GanttTimeline() {
                       {task.title}
                     </span>
                     {tagsShown.map((tagKey, ti) => {
-                      const p = PROJECTS[tagKey]
+                      const p = allProjects[tagKey] ?? { label: tagKey, color: '#8b93a5' }
                       return (
                         <span
                           key={ti}
@@ -1473,9 +1494,8 @@ export function GanttTimeline() {
                     <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
                     Проекты
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(Object.keys(PROJECTS) as ProjectKey[]).map((key) => {
-                      const p = PROJECTS[key]
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {Object.entries(allProjects).map(([key, p]) => {
                       const on = newTags.includes(key)
                       return (
                         <button
@@ -1498,6 +1518,45 @@ export function GanttTimeline() {
                         </button>
                       )
                     })}
+                    {newProjOpen ? (
+                      <div className="flex items-center gap-1.5 rounded-full pl-2 pr-1.5 py-1 border transition-colors" style={{ borderColor: 'rgba(255,77,77,0.35)', background: 'rgba(255,255,255,0.03)' }}>
+                        <input
+                          autoFocus
+                          value={newProjName}
+                          onChange={(e) => setNewProjName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') addProject(TAG_PALETTE[0])
+                            if (e.key === 'Escape') setNewProjOpen(false)
+                          }}
+                          placeholder="Название проекта"
+                          className="input-base w-[110px] text-[10px] font-semibold"
+                        />
+                        <div className="flex items-center gap-1">
+                          {TAG_PALETTE.map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              title={c}
+                              onClick={() => addProject(c)}
+                              className="size-[14px] rounded-full transition-transform hover:scale-125"
+                              style={{ background: c, boxShadow: `0 0 6px ${c}66`, border: '1px solid rgba(0,0,0,0.3)' }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setNewProjOpen(true)}
+                        className="flex items-center gap-1 h-7 px-2.5 rounded-full text-[10px] font-semibold transition-all select-none"
+                        style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.45)', border: '1px dashed rgba(255,255,255,0.18)' }}
+                      >
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        Новый
+                      </button>
+                    )}
                   </div>
                 </motion.div>
 
@@ -1505,16 +1564,16 @@ export function GanttTimeline() {
                   <button
                     type="button"
                     onClick={() => setAdding(false)}
-                    className="btn-ghost btn h-11 px-5 rounded-xl text-[12px] font-semibold"
-                    style={{ color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    className="btn h-11 px-5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110"
+                    style={{ color: '#ff8f8f', background: 'rgba(255,77,77,0.1)', border: '1px solid rgba(255,77,77,0.35)' }}
                   >
                     Отмена
                   </button>
                   <button
                     type="submit"
                     disabled={!newTitle.trim()}
-                    className="flex-1 h-11 rounded-xl text-[13px] font-semibold justify-center disabled:opacity-40 transition-all hover:brightness-110"
-                    style={{ background: 'linear-gradient(135deg, #ff4d4d, #e11d48)', color: '#fff', boxShadow: '0 4px 18px rgba(255,77,77,0.4)' }}
+                    className="btn flex-1 h-11 rounded-xl text-[13px] font-semibold justify-center gap-2 disabled:opacity-50 transition-all hover:brightness-110"
+                    style={{ background: 'linear-gradient(135deg, #4ade80, #16a34a)', color: '#06130a', boxShadow: '0 4px 18px rgba(34,197,94,0.35)' }}
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
                       <path d="M12 5v14M5 12h14" />
