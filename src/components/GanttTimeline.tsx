@@ -122,6 +122,199 @@ function fmtExact(m: number) {
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
 }
 
+const ADD_MODAL_VARIANTS = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.35, delayChildren: 0.28, staggerChildren: 0.07 } },
+}
+
+const ADD_MODAL_ITEM = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.42, ease: 'easeOut' as const } },
+}
+
+const WHEEL_ITEM_H = 36
+const WHEEL_VISIBLE = 5
+const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+const DURATIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120]
+
+function TimeWheel({
+  options,
+  value,
+  onChange,
+  suffix,
+}: {
+  options: number[]
+  value: number
+  onChange: (v: number) => void
+  suffix: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const valRef = useRef(value)
+  const centeredRef2 = useRef(false)
+  valRef.current = value
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || centeredRef2.current) return
+    const idx = options.indexOf(value)
+    if (idx < 0) return
+    centeredRef2.current = true
+    el.scrollTop = idx * WHEEL_ITEM_H
+  }, [options, value])
+
+  const onScroll = () => {
+    const el = ref.current
+    if (!el) return
+    const idx = Math.round(el.scrollTop / WHEEL_ITEM_H)
+    const v = options[Math.max(0, Math.min(options.length - 1, idx))]
+    if (v !== valRef.current) onChange(v)
+  }
+
+  const scrollTo = (idx: number) => {
+    const el = ref.current
+    if (!el) return
+    el.scrollTo({ top: idx * WHEEL_ITEM_H, behavior: 'smooth' })
+    onChange(options[idx])
+  }
+
+  return (
+    <div className="relative">
+      <div
+        ref={ref}
+        onScroll={onScroll}
+        className="overflow-y-auto no-scrollbar cursor-grab select-none"
+        style={{
+          height: WHEEL_ITEM_H * WHEEL_VISIBLE,
+          scrollSnapType: 'y proximity',
+          paddingTop: (WHEEL_ITEM_H * (WHEEL_VISIBLE - 1)) / 2,
+          paddingBottom: (WHEEL_ITEM_H * (WHEEL_VISIBLE - 1)) / 2,
+          WebkitMaskImage: 'linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent)',
+          maskImage: 'linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent)',
+        }}
+      >
+        {options.map((o, i) => {
+          const selected = o === value
+          return (
+            <button
+              key={o}
+              type="button"
+              onClick={() => scrollTo(i)}
+              className="w-[64px] text-center transition-all"
+              style={{ height: WHEEL_ITEM_H, scrollSnapAlign: 'center' }}
+            >
+              <span
+                className={`inline-flex items-center justify-center rounded-lg text-[15px] font-semibold tabular-nums transition-all ${
+                  selected ? '' : 'text-[var(--text-faint)]'
+                }`}
+                style={{
+                  width: 56,
+                  height: 28,
+                  background: selected ? 'linear-gradient(135deg, #ff4d4d, #e11d48)' : 'transparent',
+                  color: selected ? '#fff' : undefined,
+                  boxShadow: selected ? '0 2px 14px rgba(255,77,77,0.45)' : undefined,
+                }}
+              >
+                {String(o).padStart(2, '0')}
+                {o === value && <span className="ml-0.5 text-[9px] font-medium opacity-70">{suffix}</span>}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <div
+        className="absolute left-0 right-0 rounded-lg pointer-events-none"
+        style={{
+          top: (WHEEL_ITEM_H * (WHEEL_VISIBLE - 1)) / 2 - 2,
+          height: WHEEL_ITEM_H,
+          borderTop: '1px solid rgba(255,77,77,0.25)',
+          borderBottom: '1px solid rgba(255,77,77,0.25)',
+        }}
+      />
+    </div>
+  )
+}
+
+function MonthCalendar({ value, onChange }: { value: Date; onChange: (d: Date) => void }) {
+  const [view, setView] = useState(() => new Date(value.getFullYear(), value.getMonth(), 1))
+  const year = view.getFullYear()
+  const month = view.getMonth()
+  const firstDow = (view.getDay() + 6) % 7
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells: (Date | null)[] = []
+  for (let i = 0; i < firstDow; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d))
+  const today = new Date()
+  const same = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[12px] font-semibold text-[var(--text)] capitalize">
+          {MONTHS_RU[month]} {year}
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setView(new Date(year, month - 1, 1))}
+            className="flex items-center justify-center size-6 rounded-md btn-subtle border border-[var(--stroke)] bg-[var(--surface-2)] text-[var(--text-dim)]"
+          >
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 5l-7 7 7 7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setView(new Date(year, month + 1, 1))}
+            className="flex items-center justify-center size-6 rounded-md btn-subtle border border-[var(--stroke)] bg-[var(--surface-2)] text-[var(--text-dim)]"
+          >
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 gap-y-0.5">
+        {WEEKDAYS.map((w) => (
+          <div key={w} className="h-5 flex items-center justify-center text-[8.5px] uppercase tracking-wider text-[var(--text-faint)]">
+            {w}
+          </div>
+        ))}
+        {cells.map((d, i) =>
+          d === null ? (
+            <div key={`e-${i}`} />
+          ) : (
+            <button
+              key={`d-${i}`}
+              type="button"
+              onClick={() => onChange(d)}
+              className="size-8 rounded-lg text-[11px] font-medium transition-all"
+              style={
+                same(d, value)
+                  ? {
+                      background: 'linear-gradient(135deg, #ff4d4d, #e11d48)',
+                      color: '#fff',
+                      boxShadow: '0 2px 12px rgba(255,77,77,0.45)',
+                    }
+                  : same(d, today)
+                    ? { border: '1px solid rgba(255,77,77,0.45)', color: 'var(--text)', background: 'rgba(255,77,77,0.08)' }
+                    : { color: 'var(--text-dim)' }
+              }
+              onMouseEnter={(e) => {
+                if (!same(d, value)) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+              }}
+              onMouseLeave={(e) => {
+                if (!same(d, value)) e.currentTarget.style.background = ''
+              }}
+            >
+              {d.getDate()}
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  )
+}
+
 function fmtRange(a: Date, b: Date) {
   const f = (d: Date) => `${d.getDate()} ${MONTHS_RU[d.getMonth()]}`
   return `от ${f(a)} до ${f(b)}`
@@ -191,9 +384,11 @@ export function GanttTimeline() {
   const [mockTasks, setMockTasks] = useState<GanttTaskEx[]>(MOCK_TASKS)
   const [adding, setAdding] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [newDate, setNewDate] = useState(() => new Date(TODAY))
   const [newStartH, setNewStartH] = useState(9)
   const [newStartMin, setNewStartMin] = useState(0)
   const [newDur, setNewDur] = useState(30)
+  const [newTags, setNewTags] = useState<ProjectKey[]>(['ritual'])
   const pendingScrollMin = useRef<number | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ key: number; x: number; y: number; task: GanttTaskEx } | null>(null)
   const ctxAnchorRef = useRef<HTMLDivElement>(null)
@@ -670,7 +865,13 @@ export function GanttTimeline() {
     setNewStartH(Math.floor(m / 60))
     setNewStartMin(Math.round((m % 60) / 5) * 5 % 60)
     setNewDur(30)
+    setNewDate(new Date(currentDay))
+    setNewTags(['ritual'])
     setAdding(true)
+  }
+
+  const toggleNewTag = (key: ProjectKey) => {
+    setNewTags((prev) => (prev.includes(key) ? prev.filter((t) => t !== key) : [...prev, key]))
   }
 
   const addTask = () => {
@@ -678,21 +879,33 @@ export function GanttTimeline() {
     if (!trimmed) return
     const startMin = newStartH * 60 + newStartMin
     const endMin = Math.min(24 * 60, startMin + newDur)
-    const d = new Date(currentDay)
+    const d = new Date(newDate)
+    const tags: ProjectKey[] = newTags.length > 0 ? newTags : ['ritual']
     setMockTasks((ts) => [
       ...ts,
-      { id: `new-${Date.now()}`, title: trimmed, startDate: d, endDate: d, progress: 0, assignees: [], startMinute: startMin, endMinute: endMin, tags: ['ritual'] },
+      { id: `new-${Date.now()}`, title: trimmed, startDate: d, endDate: d, progress: 0, assignees: [], startMinute: startMin, endMinute: endMin, tags },
     ])
-    setHiddenProjects((prev) => {
-      if (!prev.has('ritual')) return prev
-      const next = new Set(prev)
-      next.delete('ritual')
-      return next
+    tags.forEach((tag) => {
+      setHiddenProjects((prev) => {
+        if (!prev.has(tag)) return prev
+        const next = new Set(prev)
+        next.delete(tag)
+        return next
+      })
     })
-    pendingScrollMin.current = startMin
+    if (isSameDay(d, currentDay)) pendingScrollMin.current = startMin
     setNewTitle('')
     setAdding(false)
   }
+
+  useEffect(() => {
+    if (!adding) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAdding(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [adding])
 
   const maxY = renderTasks.reduce((m, p) => Math.max(m, p.y + TASK_H), 0)
   const contentH = maxY > 0 ? maxY + TASK_GAP : '100%'
@@ -736,21 +949,19 @@ export function GanttTimeline() {
             {dayRelName(viewDay)}
           </motion.button>
           <NavBtn dir="next" onClick={goNext} />
-          <button
-            onClick={adding ? () => setAdding(false) : openAdd}
-            title={adding ? 'Отменить' : 'Добавить задачу'}
-            className={`flex items-center gap-1 h-[22px] px-2.5 rounded-full cursor-pointer transition-all text-[10px] font-semibold select-none ${adding ? '' : 'hover:brightness-110'}`}
-            style={
-              adding
-                ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }
-                : { background: 'linear-gradient(135deg, var(--focus), var(--focus-2))', color: '#0a0b0e', border: 'none' }
-            }
+          <motion.button
+            layoutId="add-modal"
+            whileTap={{ scale: 0.94 }}
+            onClick={openAdd}
+            title="Добавить задачу"
+            className="flex items-center gap-1 h-[22px] px-2.5 rounded-full cursor-pointer transition-all text-[10px] font-semibold select-none hover:brightness-110"
+            style={{ background: 'linear-gradient(135deg, var(--focus), var(--focus-2))', color: '#0a0b0e', border: 'none' }}
           >
             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-              {adding ? <path d="M6 6l12 12M18 6l-12 12" /> : <path d="M12 5v14M5 12h14" />}
+              <path d="M12 5v14M5 12h14" />
             </svg>
-            {adding ? 'Отмена' : 'Новая'}
-          </button>
+            Новая
+          </motion.button>
         </div>
 
         <div className="text-[12px] font-semibold tracking-[-0.01em] shrink-0 select-none" style={{ color: viewToday ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)' }}>
@@ -779,56 +990,6 @@ export function GanttTimeline() {
           })}
         </div>
       </div>
-
-      {adding && (
-        <div className="flex items-center gap-2 px-3 pb-2 shrink-0 flex-wrap">
-          <input
-            autoFocus
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') addTask()
-              if (e.key === 'Escape') setAdding(false)
-            }}
-            placeholder="Что добавить?"
-            className="input-base flex-1 min-w-[160px] text-[11px]"
-          />
-          <div className="flex items-center gap-1 bg-[var(--surface-2)] rounded-md px-2 py-1 border border-[var(--stroke)]">
-            <select
-              value={newStartH}
-              onChange={(e) => setNewStartH(Number(e.target.value))}
-              className="bg-transparent border-none outline-none text-[10px] text-[var(--text)] font-medium cursor-pointer appearance-none pr-1"
-            >
-              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}</option>)}
-            </select>
-            <span className="text-[8px] text-[var(--text-faint)]">:</span>
-            <select
-              value={newStartMin}
-              onChange={(e) => setNewStartMin(Number(e.target.value))}
-              className="bg-transparent border-none outline-none text-[10px] text-[var(--text)] font-medium cursor-pointer appearance-none pr-1"
-            >
-              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => <option key={m} value={m}>{String(m).padStart(2, '0')}</option>)}
-            </select>
-          </div>
-          <div className="flex items-center gap-1 bg-[var(--surface-2)] rounded-md px-2 py-1 border border-[var(--stroke)]">
-            <select
-              value={newDur}
-              onChange={(e) => setNewDur(Number(e.target.value))}
-              className="bg-transparent border-none outline-none text-[10px] text-[var(--text)] font-medium cursor-pointer appearance-none pr-1"
-            >
-              {[5, 10, 15, 20, 25, 30, 45, 60, 90, 120].map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <span className="text-[8px] text-[var(--text-faint)]">мин</span>
-          </div>
-          <button
-            onClick={addTask}
-            disabled={!newTitle.trim()}
-            className="btn btn-primary text-[10px] h-7 px-3 py-0"
-          >
-            Добавить
-          </button>
-        </div>
-      )}
 
       {viewportW > 0 && (
         <div
@@ -1173,6 +1334,199 @@ export function GanttTimeline() {
           </Dropdown.Menu>
         </Dropdown.Popover>
       </Dropdown.Root>
+
+      <AnimatePresence>
+        {adding && (
+          <motion.div key="add-modal" className="fixed inset-0 z-50">
+            <motion.div
+              className="absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.35 }}
+              style={{ background: 'rgba(4,5,8,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+              onClick={() => setAdding(false)}
+            />
+            <motion.div
+              layoutId="add-modal"
+              variants={ADD_MODAL_VARIANTS}
+              initial="hidden"
+              animate="show"
+              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+              transition={{ type: 'spring', stiffness: 250, damping: 30 }}
+              className="absolute inset-0 overflow-hidden flex items-center justify-center px-6"
+              style={{ background: 'linear-gradient(165deg, #171a21 0%, #0d0e13 60%, #101318 100%)' }}
+            >
+              <motion.div
+                className="absolute w-[460px] h-[460px] rounded-full pointer-events-none"
+                style={{
+                  background: 'radial-gradient(circle, rgba(255,77,77,0.16) 0%, transparent 65%)',
+                  filter: 'blur(28px)',
+                }}
+                animate={{ x: [0, 46, -32, 0], y: [0, -34, 26, 0], scale: [1, 1.16, 0.94, 1] }}
+                transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  addTask()
+                }}
+                className="relative w-full max-w-[680px] flex flex-col gap-5"
+              >
+                <motion.div variants={ADD_MODAL_ITEM} className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#fff] leading-none">
+                      Новая задача
+                    </h2>
+                    <p className="text-[11px] text-[var(--text-dim)] mt-1.5">
+                      {fmtDate(newDate)} · {fmtExact(newStartH * 60 + newStartMin)} – {fmtExact(Math.min(24 * 60, newStartH * 60 + newStartMin + newDur))}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAdding(false)}
+                    title="Закрыть (Esc)"
+                    className="flex items-center justify-center size-9 rounded-xl btn-icon border transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M6 6l12 12M18 6l-12 12" />
+                    </svg>
+                  </button>
+                </motion.div>
+
+                <motion.div variants={ADD_MODAL_ITEM}>
+                  <div
+                    className="flex items-center rounded-xl border transition-colors px-4"
+                    style={{ borderColor: 'rgba(255,77,77,0.3)', background: 'rgba(255,255,255,0.02)' }}
+                  >
+                    <input
+                      autoFocus
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      placeholder="Что добавить в расписание?"
+                      className="input-base flex-1 py-3.5 text-[15px] focus:outline-none"
+                    />
+                    <span className="text-[10px] text-[var(--text-faint)] shrink-0">задача</span>
+                  </div>
+                </motion.div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <motion.div
+                    variants={ADD_MODAL_ITEM}
+                    className="rounded-2xl p-4"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+                  >
+                    <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-3 flex items-center gap-1.5">
+                      <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
+                      Дата
+                    </div>
+                    <MonthCalendar value={newDate} onChange={setNewDate} />
+                  </motion.div>
+
+                  <motion.div variants={ADD_MODAL_ITEM} className="flex flex-col gap-4">
+                    <div
+                      className="rounded-2xl p-4"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+                    >
+                      <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-1 flex items-center gap-1.5">
+                        <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
+                        Время начала
+                      </div>
+                      <div className="flex items-center justify-center gap-3">
+                        <TimeWheel options={Array.from({ length: 24 }, (_, h) => h)} value={newStartH} onChange={setNewStartH} suffix="ч" />
+                        <span className="text-[22px] font-bold text-[var(--text-faint)] -mt-5">:</span>
+                        <TimeWheel options={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]} value={newStartMin} onChange={setNewStartMin} suffix="" />
+                      </div>
+                    </div>
+                    <div
+                      className="rounded-2xl p-4"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+                    >
+                      <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-3 flex items-center gap-1.5">
+                        <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
+                        Длительность
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {DURATIONS.map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => setNewDur(d)}
+                            className="h-8 px-2.5 rounded-lg text-[11px] font-semibold transition-all"
+                            style={
+                              d === newDur
+                                ? { background: 'linear-gradient(135deg, #ff4d4d, #e11d48)', color: '#fff', boxShadow: '0 2px 10px rgba(255,77,77,0.4)' }
+                                : { background: 'rgba(255,255,255,0.04)', color: 'var(--text-dim)', border: '1px solid rgba(255,255,255,0.08)' }
+                            }
+                          >
+                            {d} <span className="opacity-60 text-[9px]">мин</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+
+                <motion.div variants={ADD_MODAL_ITEM}>
+                  <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-2 flex items-center gap-1.5">
+                    <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
+                    Проекты
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(Object.keys(PROJECTS) as ProjectKey[]).map((key) => {
+                      const p = PROJECTS[key]
+                      const on = newTags.includes(key)
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => toggleNewTag(key)}
+                          className="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[10px] font-semibold transition-all select-none"
+                          style={{
+                            background: on ? `${p.color}22` : 'rgba(255,255,255,0.03)',
+                            color: on ? p.color : 'rgba(255,255,255,0.4)',
+                            border: `1px solid ${on ? `${p.color}88` : 'rgba(255,255,255,0.08)'}`,
+                            boxShadow: on ? `0 0 10px ${p.color}30` : undefined,
+                          }}
+                        >
+                          <span
+                            className="size-[6px] rounded-full"
+                            style={{ background: on ? p.color : 'rgba(255,255,255,0.3)', boxShadow: on ? `0 0 6px ${p.color}` : undefined }}
+                          />
+                          {p.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </motion.div>
+
+                <motion.div variants={ADD_MODAL_ITEM} className="flex items-center gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setAdding(false)}
+                    className="btn-ghost btn h-11 px-5 rounded-xl text-[12px] font-semibold"
+                    style={{ color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!newTitle.trim()}
+                    className="flex-1 h-11 rounded-xl text-[13px] font-semibold justify-center disabled:opacity-40 transition-all hover:brightness-110"
+                    style={{ background: 'linear-gradient(135deg, #ff4d4d, #e11d48)', color: '#fff', boxShadow: '0 4px 18px rgba(255,77,77,0.4)' }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Добавить задачу
+                  </button>
+                </motion.div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

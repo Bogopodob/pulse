@@ -175,3 +175,6 @@ body::before {
 }
 
 .input-base::placeholder { color: var(--text-faint); }
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
