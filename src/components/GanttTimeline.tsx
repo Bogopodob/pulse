@@ -5,8 +5,6 @@ import type { GanttTask } from '../types'
 const HOUR_W = 160
 const BUFFER_HOURS = 3
 const GAP_MIN = 15
-const OFFSET = BUFFER_HOURS * HOUR_W
-const DAY_W = (24 + 2 * BUFFER_HOURS) * HOUR_W
 const TODAY = new Date(2026, 7, 21)
 
 const TASK_H = 58
@@ -17,16 +15,30 @@ const MINI_H = 28
 const DAYS_RU = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
 const MONTHS_RU = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
 
-const MOCK_TASKS: GanttTask[] = [
-  { id: '1', title: 'Send a summary to email.', startDate: new Date(2026, 7, 1), endDate: new Date(2026, 8, 21), progress: 0.35, assignees: ['JD', 'RK', 'ML'], startMinute: 9 * 60, endMinute: 18 * 60 },
-  { id: '2', title: 'Is status "MQL"?', startDate: new Date(2026, 7, 5), endDate: new Date(2026, 8, 3), progress: 0.70, assignees: ['AN'], startMinute: 10 * 60, endMinute: 16 * 60 },
-  { id: '3', title: 'Design system audit', startDate: new Date(2026, 7, 14), endDate: new Date(2026, 7, 28), progress: 0.90, assignees: ['SP', 'LJ'], startMinute: 8 * 60, endMinute: 17 * 60 },
-  { id: '4', title: 'API integration — phase 1', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 8, 7), progress: 0.15, assignees: ['MK', 'VR'], startMinute: 7 * 60, endMinute: 15 * 60 },
-  { id: '5', title: 'User testing results review', startDate: new Date(2026, 7, 24), endDate: new Date(2026, 8, 14), progress: 0.45, assignees: ['JD', 'SP', 'AN', 'RK'], startMinute: 11 * 60, endMinute: 13 * 60 },
-  { id: '6', title: 'Daily stand-up', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['JD', 'AN', 'MK', 'SP', 'VR'], startMinute: 9 * 60 + 30, endMinute: 9 * 60 + 45 },
-  { id: '7', title: 'Design review', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.6, assignees: ['SP', 'LJ'], startMinute: 11 * 60, endMinute: 12 * 60 + 30 },
-  { id: '8', title: 'Lunch', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 13 * 60, endMinute: 14 * 60 },
-  { id: '9', title: 'Sprint planning', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0, assignees: ['JD', 'AN', 'MK', 'SP', 'VR', 'RK', 'LJ'], startMinute: 15 * 60, endMinute: 16 * 60 + 30 },
+type ProjectKey = 'report' | 'sales' | 'design' | 'backend' | 'research' | 'ritual'
+
+const PROJECTS: Record<ProjectKey, { label: string; color: string }> = {
+  report: { label: 'Отчёт', color: '#4c8dff' },
+  sales: { label: 'Продажи', color: '#ff9d5c' },
+  design: { label: 'Дизайн', color: '#4fd4c4' },
+  backend: { label: 'Бэкенд', color: '#ff6b8a' },
+  research: { label: 'Исследования', color: '#a78bfa' },
+  ritual: { label: 'Команда', color: '#ffd43b' },
+}
+
+type GanttTaskEx = GanttTask & { project: ProjectKey }
+
+const MOCK_TASKS: GanttTaskEx[] = [
+  { id: '1', title: 'Send a summary to email.', startDate: new Date(2026, 7, 1), endDate: new Date(2026, 8, 21), progress: 0.35, assignees: ['JD', 'RK', 'ML'], startMinute: 9 * 60, endMinute: 18 * 60, project: 'report' },
+  { id: '2', title: 'Is status "MQL"?', startDate: new Date(2026, 7, 5), endDate: new Date(2026, 8, 3), progress: 0.70, assignees: ['AN'], startMinute: 10 * 60, endMinute: 16 * 60, project: 'sales' },
+  { id: '3', title: 'Design system audit', startDate: new Date(2026, 7, 14), endDate: new Date(2026, 7, 28), progress: 0.90, assignees: ['SP', 'LJ'], startMinute: 8 * 60, endMinute: 17 * 60, project: 'design' },
+  { id: '4', title: 'API integration — phase 1', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 8, 7), progress: 0.15, assignees: ['MK', 'VR'], startMinute: 7 * 60, endMinute: 15 * 60, project: 'backend' },
+  { id: '5', title: 'User testing results review', startDate: new Date(2026, 7, 24), endDate: new Date(2026, 8, 14), progress: 0.45, assignees: ['JD', 'SP', 'AN', 'RK'], startMinute: 11 * 60, endMinute: 13 * 60, project: 'research' },
+  { id: '6', title: 'Daily stand-up', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['JD', 'AN', 'MK', 'SP', 'VR'], startMinute: 9 * 60 + 30, endMinute: 9 * 60 + 45, project: 'ritual' },
+  { id: '7', title: 'Design review', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.6, assignees: ['SP', 'LJ'], startMinute: 11 * 60, endMinute: 12 * 60 + 30, project: 'design' },
+  { id: '8', title: 'Lunch', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 13 * 60, endMinute: 14 * 60, project: 'ritual' },
+  { id: '9', title: 'Sprint planning', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0, assignees: ['JD', 'AN', 'MK', 'SP', 'VR', 'RK', 'LJ'], startMinute: 15 * 60, endMinute: 16 * 60 + 30, project: 'ritual' },
+  { id: '10', title: 'Client demo prep', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.3, assignees: ['RK', 'MK'], startMinute: 15 * 60, endMinute: 18 * 60, project: 'sales' },
 ]
 
 const C = [
@@ -95,6 +107,23 @@ const cardVariants = {
   }),
 }
 
+function NavBtn({ dir, onClick }: { dir: 'prev' | 'next'; onClick: () => void }) {
+  return (
+    <motion.button
+      whileTap={{ scale: 0.88 }}
+      className="flex items-center justify-center size-[24px] rounded-md cursor-pointer shrink-0 transition-colors"
+      style={{ color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+      whileHover={{ color: '#fff', background: 'rgba(255,255,255,0.08)' }}
+      onClick={onClick}
+      title={dir === 'prev' ? 'Предыдущий день (←)' : 'Следующий день (→)'}
+    >
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        {dir === 'prev' ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 18l6-6-6-6" />}
+      </svg>
+    </motion.button>
+  )
+}
+
 export function GanttTimeline() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [currentDay, setCurrentDay] = useState(new Date(TODAY))
@@ -103,6 +132,21 @@ export function GanttTimeline() {
   const [viewportW, setViewportW] = useState(0)
   const [hoverMin, setHoverMin] = useState<number | null>(null)
   const [hoverX, setHoverX] = useState(0)
+  const [hiddenProjects, setHiddenProjects] = useState<Set<ProjectKey>>(new Set())
+
+  const prevDay = new Date(currentDay)
+  prevDay.setDate(prevDay.getDate() - 1)
+  const nextDay = new Date(currentDay)
+  nextDay.setDate(nextDay.getDate() + 1)
+
+  const tasksForDay = (day: Date) => MOCK_TASKS.filter((t) => day >= t.startDate && day <= t.endDate && !hiddenProjects.has(t.project))
+
+  const hasPrevTasks = tasksForDay(prevDay).length > 0
+  const hasNextTasks = tasksForDay(nextDay).length > 0
+  const prevW = hasPrevTasks ? 24 * HOUR_W : BUFFER_HOURS * HOUR_W
+  const nextW = hasNextTasks ? 24 * HOUR_W : BUFFER_HOURS * HOUR_W
+  const offset = prevW
+  const totalW = prevW + 24 * HOUR_W + nextW
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -115,8 +159,8 @@ export function GanttTimeline() {
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    el.scrollLeft = OFFSET + 8 * HOUR_W - el.clientWidth / 2
-  }, [currentDay])
+    el.scrollLeft = offset + 8 * HOUR_W - el.clientWidth / 2
+  }, [currentDay, offset])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -135,29 +179,29 @@ export function GanttTimeline() {
   const scrollToHour = useCallback((hour: number) => {
     const el = scrollRef.current
     if (!el) return
-    const target = OFFSET + hour * HOUR_W - el.clientWidth / 2
+    const target = offset + hour * HOUR_W - el.clientWidth / 2
     el.scrollTo({ left: target, behavior: 'smooth' })
-  }, [])
+  }, [offset])
 
   const handleMiniClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const el = scrollRef.current
     if (!el) return
     const rect = e.currentTarget.getBoundingClientRect()
     const ratio = (e.clientX - rect.left) / rect.width
-    el.scrollTo({ left: ratio * DAY_W - el.clientWidth / 2, behavior: 'smooth' })
-  }, [])
+    el.scrollTo({ left: ratio * totalW - el.clientWidth / 2, behavior: 'smooth' })
+  }, [totalW])
 
   const handleTickHover = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const absX = e.clientX - rect.left
-    const minute = (absX - OFFSET) / HOUR_W * 60
+    const minute = (absX - offset) / HOUR_W * 60
     if (minute >= -30 && minute <= 24 * 60 + 30) {
       setHoverMin(Math.round(Math.max(0, Math.min(24 * 60, minute))))
       setHoverX(absX)
     } else {
       setHoverMin(null)
     }
-  }, [])
+  }, [offset])
 
   const handleTickLeave = useCallback(() => {
     setHoverMin(null)
@@ -180,23 +224,49 @@ export function GanttTimeline() {
   }
 
   const isToday = isSameDay(currentDay, TODAY)
-  const visibleTasks = MOCK_TASKS.filter((t) => currentDay >= t.startDate && currentDay <= t.endDate)
 
-  const packedTasks = (() => {
-    const withBounds = visibleTasks.map((t) => ({
-      task: t,
-      leftMin: isSameDay(currentDay, t.startDate) ? t.startMinute : 0,
-      rightMin: isSameDay(currentDay, t.endDate) ? t.endMinute : 24 * 60,
-    }))
+  const toggleProject = (key: ProjectKey) => {
+    setHiddenProjects((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const hourSlots: { x: number; hour: number; isBuffer: boolean }[] = []
+  if (hasPrevTasks) {
+    for (let h = 0; h < 24; h++) hourSlots.push({ x: h * HOUR_W, hour: h, isBuffer: true })
+  } else {
+    for (let h = 24 - BUFFER_HOURS; h < 24; h++) hourSlots.push({ x: (h - (24 - BUFFER_HOURS)) * HOUR_W, hour: h, isBuffer: true })
+  }
+  for (let h = 0; h < 24; h++) hourSlots.push({ x: offset + h * HOUR_W, hour: h, isBuffer: false })
+  if (hasNextTasks) {
+    for (let h = 0; h < 24; h++) hourSlots.push({ x: offset + 24 * HOUR_W + h * HOUR_W, hour: h, isBuffer: true })
+  } else {
+    for (let h = 0; h < BUFFER_HOURS; h++) hourSlots.push({ x: offset + 24 * HOUR_W + h * HOUR_W, hour: h, isBuffer: true })
+  }
+
+  type RenderedTask = { task: GanttTaskEx; x: number; y: number; width: number; leftMin: number; rightMin: number; l0: number; r0: number; day: Date }
+
+  const layoutDay = (day: Date, xOrigin: number, windowStartMin: number, windowLenMin: number): RenderedTask[] => {
+    const windowEndMin = windowStartMin + windowLenMin
+    const withBounds = tasksForDay(day)
+      .map((t) => {
+        const l = isSameDay(day, t.startDate) ? t.startMinute : 0
+        const r = isSameDay(day, t.endDate) ? t.endMinute : 24 * 60
+        return { task: t, l, r, leftMin: Math.max(l, windowStartMin), rightMin: Math.min(r, windowEndMin) }
+      })
+      .filter((i) => i.rightMin > i.leftMin)
     withBounds.sort((a, b) => a.leftMin - b.leftMin)
 
     const rows: { end: number; items: typeof withBounds }[] = []
     for (const item of withBounds) {
       let placed = false
-      for (let r = 0; r < rows.length; r++) {
-        if (rows[r].end + GAP_MIN <= item.leftMin) {
-          rows[r].items.push(item)
-          rows[r].end = item.rightMin
+      for (let ri = 0; ri < rows.length; ri++) {
+        if (rows[ri].end + GAP_MIN <= item.leftMin) {
+          rows[ri].items.push(item)
+          rows[ri].end = item.rightMin
           placed = true
           break
         }
@@ -204,12 +274,30 @@ export function GanttTimeline() {
       if (!placed) rows.push({ end: item.rightMin, items: [item] })
     }
 
-    const result: { task: GanttTask; row: number; leftMin: number; rightMin: number }[] = []
+    const result: RenderedTask[] = []
     rows.forEach((row, ri) => {
-      row.items.forEach((item) => result.push({ task: item.task, row: ri, leftMin: item.leftMin, rightMin: item.rightMin }))
+      row.items.forEach((item) => {
+        result.push({
+          task: item.task,
+          x: xOrigin + (item.leftMin - windowStartMin) / 60 * HOUR_W,
+          y: HEADER_H + ri * (TASK_H + TASK_GAP),
+          width: Math.max((item.rightMin - item.leftMin) / 60 * HOUR_W, 220),
+          leftMin: item.leftMin,
+          rightMin: item.rightMin,
+          l0: item.l,
+          r0: item.r,
+          day,
+        })
+      })
     })
     return result
-  })()
+  }
+
+  const mainDayTasks = layoutDay(currentDay, offset, 0, 24 * 60)
+  const prevDayTasks = layoutDay(prevDay, 0, hasPrevTasks ? 0 : (24 - BUFFER_HOURS) * 60, hasPrevTasks ? 24 * 60 : BUFFER_HOURS * 60)
+  const nextDayTasks = layoutDay(nextDay, offset + 24 * HOUR_W, 0, hasNextTasks ? 24 * 60 : BUFFER_HOURS * 60)
+
+  const renderTasks = [...prevDayTasks, ...mainDayTasks, ...nextDayTasks]
 
   return (
     <motion.div
@@ -220,47 +308,63 @@ export function GanttTimeline() {
       <div className="absolute top-0 left-0 w-[60px] h-full z-[5] pointer-events-none" style={{ background: 'linear-gradient(90deg, var(--bg) 0%, transparent 100%)' }} />
       <div className="absolute top-0 right-0 w-[60px] h-full z-[5] pointer-events-none" style={{ background: 'linear-gradient(270deg, var(--bg) 0%, transparent 100%)' }} />
 
-      <div className="flex items-center justify-between shrink-0 px-2 h-[32px]">
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          className="flex items-center gap-1 px-2 h-[24px] rounded-md cursor-pointer text-[11px] font-medium"
-          style={{ color: 'rgba(255,255,255,0.3)' }}
-          whileHover={{ color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.04)' }}
-          onClick={goPrev}
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
-          <span>Назад</span>
-        </motion.button>
-
-        <div className="flex items-center gap-2">
-          <span className="text-[12px] font-semibold tracking-[-0.01em]" style={{ color: isToday ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.5)' }}>
-            {fmtDate(currentDay)}
-          </span>
-          {!isToday && (
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              className="px-2 h-[20px] rounded-md cursor-pointer text-[10px] font-semibold"
-              style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }}
-              whileHover={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)' }}
-              onClick={goToday}
-              animate={{ scale: [1, 1.04, 1] }}
-              transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-            >
-              Сегодня
-            </motion.button>
-          )}
+      <div className="flex items-center justify-between shrink-0 px-2 h-[34px] gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <NavBtn dir="prev" onClick={goPrev} />
+          <motion.button
+            whileTap={{ scale: 0.94 }}
+            className="flex items-center gap-1.5 h-[24px] px-2.5 rounded-md cursor-pointer text-[11px] font-semibold shrink-0 transition-colors"
+            style={
+              isToday
+                ? {
+                    background: 'linear-gradient(135deg, var(--focus), var(--focus-2))',
+                    color: '#0a0b0e',
+                    boxShadow: '0 0 12px rgba(76,141,255,0.3)',
+                  }
+                : {
+                    background: 'rgba(255,255,255,0.03)',
+                    color: 'rgba(255,255,255,0.5)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }
+            }
+            whileHover={isToday ? undefined : { background: 'rgba(255,255,255,0.08)', color: '#fff' }}
+            onClick={goToday}
+            title="К сегодняшнему дню (Home)"
+          >
+            <span
+              className="size-[6px] rounded-full"
+              style={isToday ? { background: 'rgba(10,11,14,0.7)' } : { background: 'var(--focus)', boxShadow: '0 0 6px var(--focus)' }}
+            />
+            Сегодня
+          </motion.button>
+          <NavBtn dir="next" onClick={goNext} />
         </div>
 
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          className="flex items-center gap-1 px-2 h-[24px] rounded-md cursor-pointer text-[11px] font-medium"
-          style={{ color: 'rgba(255,255,255,0.3)' }}
-          whileHover={{ color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.04)' }}
-          onClick={goNext}
-        >
-          <span>Вперёд</span>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
-        </motion.button>
+        <div className="text-[12px] font-semibold tracking-[-0.01em] shrink-0 select-none" style={{ color: isToday ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)' }}>
+          {fmtDate(currentDay)}
+        </div>
+
+        <div className="flex items-center gap-1.5 justify-end shrink-0 min-w-0 flex-wrap">
+          {(Object.keys(PROJECTS) as ProjectKey[]).map((key) => {
+            const p = PROJECTS[key]
+            const hidden = hiddenProjects.has(key)
+            return (
+              <button
+                key={key}
+                onClick={() => toggleProject(key)}
+                title={`${p.label} — ${hidden ? 'показать' : 'скрыть'}`}
+                className={`flex items-center gap-1.5 h-[22px] px-2 rounded-full cursor-pointer transition-all text-[10px] font-semibold select-none ${hidden ? 'opacity-25' : ''}`}
+                style={{ background: `${p.color}12`, color: hidden ? 'rgba(255,255,255,0.5)' : p.color, border: `1px solid ${p.color}30` }}
+              >
+                <span
+                  className="size-[5px] rounded-full"
+                  style={hidden ? { background: 'rgba(255,255,255,0.35)' } : { background: p.color, boxShadow: `0 0 6px ${p.color}` }}
+                />
+                {p.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {viewportW > 0 && (
@@ -269,12 +373,12 @@ export function GanttTimeline() {
           style={{ height: MINI_H, background: 'rgba(255,255,255,0.03)' }}
           onClick={handleMiniClick}
         >
-          {Array.from({ length: 25 }, (_, i) => (
+          {Array.from({ length: totalW / HOUR_W + 1 }, (_, i) => (
             <div
               key={`mt-${i}`}
               className="absolute top-0 rounded-full"
               style={{
-                left: `${(i / 24) * 100}%`,
+                left: `${(i / (totalW / HOUR_W)) * 100}%`,
                 width: i % 6 === 0 ? 1.5 : 0.5,
                 height: i % 6 === 0 ? MINI_H : 8,
                 top: i % 6 === 0 ? 0 : (MINI_H - 8) / 2,
@@ -283,15 +387,23 @@ export function GanttTimeline() {
               }}
             />
           ))}
+          <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${(offset / totalW) * 100}%`, width: 1, background: 'rgba(255,255,255,0.1)' }} />
+          <div className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${((offset + 24 * HOUR_W) / totalW) * 100}%`, width: 1, background: 'rgba(255,255,255,0.1)' }} />
           <div
             className="absolute top-0 h-full rounded-sm pointer-events-none"
             style={{
-              left: `${(scrollLeft / DAY_W) * 100}%`,
-              width: `${(viewportW / DAY_W) * 100}%`,
+              left: `${(scrollLeft / totalW) * 100}%`,
+              width: `${(viewportW / totalW) * 100}%`,
               border: '1px solid rgba(255,255,255,0.15)',
               background: 'rgba(255,255,255,0.04)',
             }}
           />
+          {isToday && (
+            <div
+              className="absolute top-1/2 -translate-y-1/2 rounded-full pointer-events-none z-10"
+              style={{ left: `${((offset + nowMinute / 60 * HOUR_W) / totalW) * 100}%`, width: 5, height: 5, background: '#ff3b30', boxShadow: '0 0 8px rgba(255,59,48,0.8)' }}
+            />
+          )}
         </div>
       )}
 
@@ -308,29 +420,25 @@ export function GanttTimeline() {
           <motion.div
             key={currentDay.toISOString()}
             className="relative"
-            style={{ width: DAY_W, minHeight: '100%' }}
+            style={{ width: totalW, minHeight: '100%' }}
             variants={contentVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
           >
             <div className="absolute top-0 left-0 right-0 z-[3] select-none" style={{ height: 14 }}>
-              {Array.from({ length: DAY_W / HOUR_W }, (_, i) => {
-                const hourOfDay = ((24 - BUFFER_HOURS + i) % 24)
-                const isBuffer = i < BUFFER_HOURS || i >= BUFFER_HOURS + 24
-                return (
-                  <div
-                    key={`hl-${i}`}
-                    className="absolute cursor-pointer"
-                    style={{ left: i * HOUR_W, top: '50%', transform: 'translate(-50%, -50%)' }}
-                    onClick={() => scrollToHour(hourOfDay)}
-                  >
-                    <span className="text-[9.5px] font-semibold tabular-nums" style={{ color: isBuffer ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.3)' }}>
-                      {String(hourOfDay).padStart(2, '0')}
-                    </span>
-                  </div>
-                )
-              })}
+              {hourSlots.map((s) => (
+                <div
+                  key={`hl-${s.x}`}
+                  className="absolute cursor-pointer"
+                  style={{ left: s.x, top: '50%', transform: 'translate(-50%, -50%)' }}
+                  onClick={() => scrollToHour(s.hour)}
+                >
+                  <span className="text-[9.5px] font-semibold tabular-nums" style={{ color: s.isBuffer ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.3)' }}>
+                    {String(s.hour).padStart(2, '0')}
+                  </span>
+                </div>
+              ))}
             </div>
 
             <div
@@ -339,23 +447,22 @@ export function GanttTimeline() {
               onMouseMove={handleTickHover}
               onMouseLeave={handleTickLeave}
             >
-              {Array.from({ length: DAY_W / HOUR_W + 1 }, (_, h) => {
-                const x = h * HOUR_W
-                const isMajor = h % 6 === 0
-                const isBuffer = h < BUFFER_HOURS || h > BUFFER_HOURS + 24
+              {hourSlots.map((s) => {
+                const isMajor = s.hour % 6 === 0
                 return (
                   <div
-                    key={`t-${h}`}
+                    key={`t-${s.x}`}
                     className="absolute bottom-0"
                     style={{
-                      left: x,
+                      left: s.x,
                       width: isMajor ? 1.5 : 1,
                       height: isMajor ? 26 : 10,
-                      background: isBuffer ? 'rgba(255,255,255,0.015)' : (isMajor ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)'),
+                      background: s.isBuffer ? 'rgba(255,255,255,0.015)' : (isMajor ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)'),
                     }}
                   />
                 )
               })}
+              <div className="absolute bottom-0" style={{ left: totalW, width: 1, height: 10, background: 'rgba(255,255,255,0.03)' }} />
               {hoverMin !== null && (
                 <div
                   className="absolute z-20 pointer-events-none"
@@ -380,21 +487,25 @@ export function GanttTimeline() {
 
             <div className="absolute top-[44px] left-0 right-0 z-[1] pointer-events-none" style={{ height: 1, background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 10%, rgba(255,255,255,0.06) 90%, transparent 100%)' }} />
 
-            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: 0, width: OFFSET, background: 'rgba(0,0,0,0.15)' }} />
-            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: OFFSET + 24 * HOUR_W, width: OFFSET, background: 'rgba(0,0,0,0.15)' }} />
+            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: 0, width: prevW, background: 'rgba(0,0,0,0.15)' }} />
+            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: offset + 24 * HOUR_W, width: nextW, background: 'rgba(0,0,0,0.15)' }} />
 
-            <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: 0, width: OFFSET, top: 0, height: 14 }}>
-              <span className="text-[8.5px] font-semibold tracking-[0.04em]" style={{ color: 'rgba(255,255,255,0.08)' }}>← вчера</span>
+            <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: 0, width: prevW, top: 0, height: 14 }}>
+              <span className="text-[11px] font-semibold tracking-[0.02em]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {hasPrevTasks ? `← вчера · ${fmtDate(prevDay)}` : '← вчера'}
+              </span>
             </div>
-            <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: OFFSET + 24 * HOUR_W, width: OFFSET, top: 0, height: 14 }}>
-              <span className="text-[8.5px] font-semibold tracking-[0.04em]" style={{ color: 'rgba(255,255,255,0.08)' }}>завтра →</span>
+            <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: offset + 24 * HOUR_W, width: nextW, top: 0, height: 14 }}>
+              <span className="text-[11px] font-semibold tracking-[0.02em]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {hasNextTasks ? `завтра · ${fmtDate(nextDay)} →` : 'завтра →'}
+              </span>
             </div>
 
-            <div className="absolute top-0 bottom-0 z-[2] pointer-events-none" style={{ left: OFFSET, width: 1, background: 'rgba(255,255,255,0.04)' }} />
-            <div className="absolute top-0 bottom-0 z-[2] pointer-events-none" style={{ left: OFFSET + 24 * HOUR_W, width: 1, background: 'rgba(255,255,255,0.04)' }} />
+            <div className="absolute top-0 bottom-0 z-[2] pointer-events-none" style={{ left: offset, width: 1, background: 'rgba(255,255,255,0.04)' }} />
+            <div className="absolute top-0 bottom-0 z-[2] pointer-events-none" style={{ left: offset + 24 * HOUR_W, width: 1, background: 'rgba(255,255,255,0.04)' }} />
 
             {isToday && (
-              <div className="absolute top-0 bottom-0 pointer-events-none z-10" style={{ left: OFFSET + nowMinute / 60 * HOUR_W }}>
+              <div className="absolute top-0 bottom-0 pointer-events-none z-10" style={{ left: offset + nowMinute / 60 * HOUR_W }}>
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -429,31 +540,31 @@ export function GanttTimeline() {
               </div>
             )}
 
-            <div className="absolute z-[1] pointer-events-none" style={{ top: 0, left: 0, width: DAY_W }}>
-              {Array.from(new Set(packedTasks.map((p) => p.row))).map((row) => (
-                <div key={`reel-${row}`} className="absolute left-0 w-full" style={{
-                  top: HEADER_H + row * (TASK_H + TASK_GAP) + TASK_H / 2,
+            <div className="absolute z-[1] pointer-events-none" style={{ top: 0, left: 0, width: totalW }}>
+              {Array.from(new Set(renderTasks.map((p) => p.y))).map((y) => (
+                <div key={`reel-${y}`} className="absolute left-0 w-full" style={{
+                  top: y + TASK_H / 2,
                   height: 1,
                   background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.025) 10%, rgba(255,255,255,0.025) 90%, transparent 100%)',
                 }} />
               ))}
             </div>
 
-            {packedTasks.map((p, idx) => {
+            {renderTasks.map((p, idx) => {
               const { task } = p
               const leftMin = p.leftMin
               const rightMin = p.rightMin
-              const left = OFFSET + leftMin / 60 * HOUR_W
-              const width = Math.max((rightMin - leftMin) / 60 * HOUR_W, 220)
-              const top = HEADER_H + p.row * (TASK_H + TASK_GAP)
+              const left = p.x
+              const width = p.width
+              const top = p.y
               const cc = C[idx % C.length]
 
-              const startsBefore = leftMin === 0 && currentDay > task.startDate
-              const endsAfter = rightMin === 24 * 60 && currentDay < task.endDate
+              const startsBefore = p.leftMin === p.l0 && p.day > task.startDate
+              const endsAfter = p.rightMin === p.r0 && p.day < task.endDate
 
               return (
                 <motion.div
-                  key={task.id}
+                  key={`${p.day.toISOString()}-${task.id}`}
                   custom={idx}
                   variants={cardVariants}
                   className="absolute group cursor-pointer select-none flex flex-col"
