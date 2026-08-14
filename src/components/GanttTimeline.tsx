@@ -1,10 +1,13 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Dropdown } from '@heroui/react/dropdown'
 import type { GanttTask } from '../types'
 
 const HOUR_W = 160
 const BUFFER_HOURS = 3
-const GAP_MIN = 15
+const MIN_W = 220
+const MIN_SPAN_MIN = MIN_W / HOUR_W * 60
+const VIS_GAP_MIN = 3
 const TODAY = new Date(2026, 7, 21)
 
 const TASK_H = 58
@@ -70,8 +73,6 @@ const C = [
   { base: '#f783ac' },
   { base: '#748ffc' },
 ]
-
-const AC = ['#4c8dff', '#ff9d5c', '#4fd4c4', '#ff6b8a', '#a78bfa', '#ffd43b', '#69db7c', '#f783ac', '#748ffc']
 
 function isSameDay(a: Date, b: Date) {
   return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
@@ -151,13 +152,16 @@ export function GanttTimeline() {
   const [hoverMin, setHoverMin] = useState<number | null>(null)
   const [hoverX, setHoverX] = useState(0)
   const [hiddenProjects, setHiddenProjects] = useState<Set<ProjectKey>>(new Set())
+  const [mockTasks, setMockTasks] = useState<GanttTaskEx[]>(MOCK_TASKS)
+  const [ctxMenu, setCtxMenu] = useState<{ key: number; x: number; y: number; task: GanttTaskEx } | null>(null)
+  const ctxAnchorRef = useRef<HTMLDivElement>(null)
 
   const prevDay = new Date(currentDay)
   prevDay.setDate(prevDay.getDate() - 1)
   const nextDay = new Date(currentDay)
   nextDay.setDate(nextDay.getDate() + 1)
 
-  const tasksForDay = (day: Date) => MOCK_TASKS.filter((t) => day >= t.startDate && day <= t.endDate && !hiddenProjects.has(t.project))
+  const tasksForDay = (day: Date) => mockTasks.filter((t) => day >= t.startDate && day <= t.endDate && !hiddenProjects.has(t.project))
 
   const hasPrevTasks = tasksForDay(prevDay).length > 0
   const hasNextTasks = tasksForDay(nextDay).length > 0
@@ -225,6 +229,33 @@ export function GanttTimeline() {
     setHoverMin(null)
   }, [])
 
+  const openContextMenu = useCallback((e: React.MouseEvent, task: GanttTaskEx) => {
+    e.preventDefault()
+    setCtxMenu((prev) => ({ key: (prev?.key ?? 0) + 1, x: e.clientX, y: e.clientY, task }))
+  }, [])
+
+  const closeContextMenu = useCallback(() => {
+    setCtxMenu(null)
+  }, [])
+
+  const handleCtxAction = useCallback(
+    (actionKey: React.Key) => {
+      const cur = ctxMenu
+      setCtxMenu(null)
+      if (!cur) return
+      const { task } = cur
+      if (actionKey === 'duplicate') {
+        const copy: GanttTaskEx = { ...task, id: `${task.id}-dup-${Date.now()}` }
+        setMockTasks((prev) => [...prev, copy])
+      } else if (actionKey === 'delete') {
+        setMockTasks((prev) => prev.filter((t) => t.id !== task.id))
+      } else if (actionKey === 'done') {
+        setMockTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, progress: t.progress >= 1 ? 0 : 1 } : t)))
+      }
+    },
+    [ctxMenu],
+  )
+
   const goPrev = () => {
     const d = new Date(currentDay)
     d.setDate(d.getDate() - 1)
@@ -273,7 +304,10 @@ export function GanttTimeline() {
       .map((t) => {
         const l = isSameDay(day, t.startDate) ? t.startMinute : 0
         const r = isSameDay(day, t.endDate) ? t.endMinute : 24 * 60
-        return { task: t, l, r, leftMin: Math.max(l, windowStartMin), rightMin: Math.min(r, windowEndMin) }
+        const leftMin = Math.max(l, windowStartMin)
+        const rightMin = Math.min(r, windowEndMin)
+        const visEnd = leftMin + Math.max(rightMin - leftMin, MIN_SPAN_MIN)
+        return { task: t, l, r, leftMin, rightMin, visEnd }
       })
       .filter((i) => i.rightMin > i.leftMin)
     withBounds.sort((a, b) => a.leftMin - b.leftMin)
@@ -282,24 +316,27 @@ export function GanttTimeline() {
     for (const item of withBounds) {
       let placed = false
       for (let ri = 0; ri < rows.length; ri++) {
-        if (rows[ri].end + GAP_MIN <= item.leftMin) {
+        if (rows[ri].end + VIS_GAP_MIN <= item.leftMin) {
           rows[ri].items.push(item)
-          rows[ri].end = item.rightMin
+          rows[ri].end = Math.max(rows[ri].end, item.visEnd)
           placed = true
           break
         }
       }
-      if (!placed) rows.push({ end: item.rightMin, items: [item] })
+      if (!placed) rows.push({ end: item.visEnd, items: [item] })
     }
 
     const result: RenderedTask[] = []
+    const regionRight = xOrigin + windowLenMin / 60 * HOUR_W
     rows.forEach((row, ri) => {
       row.items.forEach((item) => {
+        const x = xOrigin + (item.leftMin - windowStartMin) / 60 * HOUR_W
+        const rawWidth = Math.max((item.rightMin - item.leftMin) / 60 * HOUR_W, MIN_W)
         result.push({
           task: item.task,
-          x: xOrigin + (item.leftMin - windowStartMin) / 60 * HOUR_W,
+          x,
           y: HEADER_H + ri * (TASK_H + TASK_GAP),
-          width: Math.max((item.rightMin - item.leftMin) / 60 * HOUR_W, 220),
+          width: Math.min(rawWidth, regionRight - x),
           leftMin: item.leftMin,
           rightMin: item.rightMin,
           l0: item.l,
@@ -596,7 +633,8 @@ export function GanttTimeline() {
                   custom={idx}
                   variants={cardVariants}
                   className="absolute group cursor-pointer select-none flex flex-col"
-                  style={{ left: left + insetL, top, width: width - insetL - insetR, height: TASK_H, padding: '10px 36px 10px 14px' }}
+                  style={{ left: left + insetL, top, width: width - insetL - insetR, height: TASK_H, padding: '10px 14px 10px 14px' }}
+                  onContextMenu={(e) => openContextMenu(e, task)}
                 >
                   <motion.div
                     className="absolute inset-0"
@@ -625,9 +663,9 @@ export function GanttTimeline() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 relative z-[1] mt-auto flex-wrap" style={{ paddingTop: 4 }}>
+                  <div className="flex items-center gap-2 relative z-[1] mt-auto min-w-0" style={{ paddingTop: 4 }}>
                     {startsBefore ? (
-                      <span className="text-[10px] font-medium truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      <span className="text-[10px] font-medium truncate min-w-0" style={{ color: 'rgba(255,255,255,0.35)' }}>
                         {fmtRange(task.startDate, task.endDate)}
                       </span>
                     ) : (
@@ -640,59 +678,51 @@ export function GanttTimeline() {
                         → {fmtRange(task.startDate, task.endDate)}
                       </span>
                     )}
-                    <div className="flex-1 min-w-[4px]" />
-                    <span className="text-[10.5px] font-semibold tabular-nums shrink-0" style={{ color: cc.base, opacity: 0.5 }}>
+                    <span className="text-[10.5px] font-semibold tabular-nums shrink-0" style={{ color: cc.base, opacity: 0.6 }}>
                       {Math.round(task.progress * 100)}%
                     </span>
-                    <div className="flex shrink-0 items-center">
-                      {task.assignees.slice(0, 2).map((initials, i) => (
-                        <div
-                          key={i}
-                          className="rounded-full flex items-center justify-center text-[10px] font-semibold select-none"
-                          style={{
-                            width: 24, height: 24,
-                            background: `linear-gradient(135deg, ${AC[(idx + i) % AC.length]}, ${AC[(idx + i + 1) % AC.length]})`,
-                            color: '#fff', marginLeft: i > 0 ? -6 : 0,
-                            zIndex: task.assignees.length - i,
-                            border: '2px solid var(--bg)', opacity: 0.7,
-                          }}
-                          title={initials}
-                        >
-                          {initials}
-                        </div>
-                      ))}
-                      {task.assignees.length > 2 && (
-                        <div
-                          className="rounded-full flex items-center justify-center text-[9px] font-semibold select-none"
-                          style={{
-                            width: 22, height: 22, marginLeft: -6,
-                            background: 'rgba(255,255,255,0.06)',
-                            color: 'rgba(255,255,255,0.35)',
-                            border: '1.5px solid var(--bg)',
-                          }}
-                        >
-                          +{task.assignees.length - 2}
-                        </div>
-                      )}
-                    </div>
                   </div>
-
-                  <motion.button
-                    whileTap={{ scale: 0.85 }}
-                    className="absolute right-[5px] top-[5px] rounded-full flex items-center justify-center z-[2]"
-                    style={{ width: 24, height: 24, color: 'rgba(255,255,255,0.12)' }}
-                    whileHover={{ color: 'rgba(255,255,255,0.4)' }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" />
-                    </svg>
-                  </motion.button>
                 </motion.div>
               )
             })}
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <div
+        ref={ctxAnchorRef}
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          width: 1,
+          height: 1,
+          pointerEvents: 'none',
+          transform: ctxMenu ? `translate(${ctxMenu.x}px, ${ctxMenu.y}px)` : 'translate(-400px, -400px)',
+        }}
+      />
+
+      <Dropdown.Root isOpen={ctxMenu !== null} onOpenChange={closeContextMenu}>
+        <Dropdown.Popover key={ctxMenu?.key} triggerRef={ctxAnchorRef} placement="right top" offset={4} isNonModal>
+          <Dropdown.Menu className="min-w-[200px] max-w-[280px]" onAction={handleCtxAction}>
+            <Dropdown.Item
+              key="header"
+              isDisabled
+              style={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.6, fontSize: 11, fontWeight: 600 }}
+            >
+              {ctxMenu?.task.title}
+            </Dropdown.Item>
+            <Dropdown.Item key="open">Открыть</Dropdown.Item>
+            <Dropdown.Item key="edit">Редактировать</Dropdown.Item>
+            <Dropdown.Item key="duplicate">Дублировать</Dropdown.Item>
+            <Dropdown.Item key="done">{ctxMenu && ctxMenu.task.progress >= 1 ? 'Снять выполнение' : 'Отметить выполненной'}</Dropdown.Item>
+            <Dropdown.Item key="delete" style={{ color: '#ff6b8a' }}>
+              Удалить
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        </Dropdown.Popover>
+      </Dropdown.Root>
     </motion.div>
   )
 }
