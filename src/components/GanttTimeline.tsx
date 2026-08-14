@@ -13,6 +13,8 @@ const MIN_W = 220
 const VIS_GAP_MIN = 3
 const MIN_TAG_W = 280
 const MAX_TAG_TITLE = 20
+const MAX_SMOOTH_PX = 162
+const SMOOTH_FACTOR = 0.22
 const SUPPORTS_SCROLL_TIMELINE =
   typeof CSS !== 'undefined' && typeof ScrollTimeline === 'function' && typeof Element.prototype.animate === 'function'
 const TODAY = new Date(2026, 7, 21)
@@ -404,6 +406,38 @@ export function GanttTimeline() {
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [syncIndicator])
+
+  const smoothTargetRef = useRef(0)
+  const smoothRAFRef = useRef(0)
+
+  const smoothTick = useCallback(() => {
+    smoothRAFRef.current = 0
+    const el = scrollRef.current
+    if (!el) return
+    const diff = smoothTargetRef.current - el.scrollLeft
+    if (Math.abs(diff) < 0.5) return
+    const step = Math.max(-MAX_SMOOTH_PX, Math.min(MAX_SMOOTH_PX, diff * SMOOTH_FACTOR))
+    el.scrollLeft = el.scrollLeft + step
+    scrollLeftRef.current = el.scrollLeft
+    smoothRAFRef.current = requestAnimationFrame(smoothTick)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      const dx = e.deltaX
+      const dy = e.deltaY
+      if (Math.abs(dx) <= Math.abs(dy)) return
+      e.preventDefault()
+      const mult = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : 1
+      const max = el.scrollWidth - el.clientWidth
+      smoothTargetRef.current = Math.max(0, Math.min(max, el.scrollLeft + dx * mult))
+      if (!smoothRAFRef.current) smoothRAFRef.current = requestAnimationFrame(smoothTick)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [smoothTick])
 
   const scrollToHour = useCallback((hour: number) => {
     const el = scrollRef.current
