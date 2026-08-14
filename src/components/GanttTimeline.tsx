@@ -54,7 +54,7 @@ const MOCK_TASKS: GanttTaskEx[] = [
   { id: '11', title: 'Дочитать книгу', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.85, assignees: ['AN'], startMinute: 10 * 60, endMinute: 24 * 60, tags: ["research"] },
   { id: '12', title: 'Планирование недели', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: ['JD', 'AN', 'MK'], startMinute: 9 * 60, endMinute: 9 * 60 + 30, tags: ["ritual","report"] },
   { id: '13', title: 'Тренировка', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: [], startMinute: 18 * 60, endMinute: 19 * 60, tags: ["ritual"] },
-  { id: '14', title: 'Ночная пробежка', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['MK'], startMinute: 0, endMinute: 2 * 60 + 30, tags: ["ritual"] },
+  { id: '14', title: 'Ночная пробежка', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['MK'], startMinute: 0, endMinute: 2 * 60, tags: ["ritual"] },
   { id: '15', title: 'Проверить почту', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['AN'], startMinute: 9 * 60, endMinute: 9 * 60 + 5, tags: ["report","sales"] },
   { id: '16', title: 'Ответить в чате', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['RK'], startMinute: 9 * 60 + 6, endMinute: 9 * 60 + 7, tags: ["sales","report"] },
   { id: '17', title: 'Созвон с командой', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['JD', 'AN', 'MK', 'SP'], startMinute: 9 * 60 + 10, endMinute: 9 * 60 + 40, tags: ["ritual"] },
@@ -88,7 +88,7 @@ const MOCK_TASKS: GanttTaskEx[] = [
   { id: '45', title: 'Итоги дня', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.8, assignees: ['AN'], startMinute: 20 * 60 + 30, endMinute: 21 * 60 + 15, tags: ["report","ritual"] },
   { id: '46', title: 'Лёгкая прогулка', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: ['MK'], startMinute: 20 * 60 + 45, endMinute: 21 * 60 + 30, tags: ["ritual"] },
   { id: '47', title: 'Чтение', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.4, assignees: [], startMinute: 21 * 60 + 45, endMinute: 22 * 60 + 30, tags: ["research","ritual"] },
-  { id: '48', title: 'Подготовка ко сну', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.9, assignees: [], startMinute: 22 * 60 + 45, endMinute: 23 * 60 + 10, tags: ["ritual"] },
+  { id: '48', title: 'Подготовка ко сну', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.9, assignees: [], startMinute: 22 * 60, endMinute: 23 * 60, tags: ["ritual"] },
   { id: '49', title: 'Внедрение фичи', startDate: new Date(2026, 7, 15), endDate: new Date(2026, 8, 5), progress: 0.55, assignees: ['MK', 'VR'], startMinute: 9 * 60, endMinute: 18 * 60, tags: ["backend","sales"] },
   { id: '50', title: 'Подготовка релиза', startDate: new Date(2026, 7, 18), endDate: new Date(2026, 7, 30), progress: 0.4, assignees: ['JD', 'AN', 'MK'], startMinute: 10 * 60, endMinute: 19 * 60, tags: ["report","backend","design"] },
   { id: '51', title: 'Квартальный отчёт', startDate: new Date(2026, 7, 1), endDate: new Date(2026, 8, 25), progress: 0.65, assignees: ['AN', 'JD'], startMinute: 8 * 60, endMinute: 17 * 60, tags: ["report","sales"] },
@@ -115,11 +115,6 @@ function isSameDay(a: Date, b: Date) {
 
 function fmtDate(d: Date) {
   return `${DAYS_RU[d.getDay()]}, ${d.getDate()} ${MONTHS_RU[d.getMonth()]}`
-}
-
-function fmtHour(m: number) {
-  const h = Math.floor(m / 60)
-  return `${String(h).padStart(2, '0')}h`
 }
 
 function fmtExact(m: number) {
@@ -835,8 +830,8 @@ export function GanttTimeline() {
                   style={{ left: l.x, transform: 'translateX(-50%)' }}
                 >
                   <span
-                    className="text-[9px] font-medium tabular-nums leading-none"
-                    style={{ color: l.isBuffer ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.28)' }}
+                    className="text-[9.5px] font-medium tabular-nums leading-none"
+                    style={{ color: l.isBuffer ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.45)' }}
                   >
                     {l.text}
                   </span>
@@ -1008,7 +1003,7 @@ export function GanttTimeline() {
                       </span>
                     ) : (
                       <span className="text-[11px] font-medium shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                        {fmtHour(leftMin)}–{fmtHour(rightMin)}
+                        {fmtExact(leftMin)}–{fmtExact(rightMin)}
                       </span>
                     )}
                     {endsAfter && (
