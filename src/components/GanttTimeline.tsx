@@ -39,6 +39,24 @@ const MOCK_TASKS: GanttTaskEx[] = [
   { id: '8', title: 'Lunch', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 13 * 60, endMinute: 14 * 60, project: 'ritual' },
   { id: '9', title: 'Sprint planning', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0, assignees: ['JD', 'AN', 'MK', 'SP', 'VR', 'RK', 'LJ'], startMinute: 15 * 60, endMinute: 16 * 60 + 30, project: 'ritual' },
   { id: '10', title: 'Client demo prep', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.3, assignees: ['RK', 'MK'], startMinute: 15 * 60, endMinute: 18 * 60, project: 'sales' },
+  { id: '11', title: 'Дочитать книгу', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 0.85, assignees: ['AN'], startMinute: 10 * 60, endMinute: 24 * 60, project: 'research' },
+  { id: '12', title: 'Планирование недели', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: ['JD', 'AN', 'MK'], startMinute: 9 * 60, endMinute: 9 * 60 + 30, project: 'ritual' },
+  { id: '13', title: 'Тренировка', startDate: new Date(2026, 7, 20), endDate: new Date(2026, 7, 20), progress: 1, assignees: [], startMinute: 18 * 60, endMinute: 19 * 60, project: 'ritual' },
+  { id: '14', title: 'Ночная пробежка', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['MK'], startMinute: 0, endMinute: 2 * 60 + 30, project: 'ritual' },
+  { id: '15', title: 'Проверить почту', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['AN'], startMinute: 9 * 60, endMinute: 9 * 60 + 5, project: 'report' },
+  { id: '16', title: 'Ответить в чате', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['RK'], startMinute: 9 * 60 + 6, endMinute: 9 * 60 + 7, project: 'sales' },
+  { id: '17', title: 'Созвон с командой', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: ['JD', 'AN', 'MK', 'SP'], startMinute: 9 * 60 + 10, endMinute: 9 * 60 + 40, project: 'ritual' },
+  { id: '18', title: 'Разбор бэклога', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.5, assignees: ['MK', 'VR'], startMinute: 9 * 60 + 45, endMinute: 10 * 60 + 15, project: 'backend' },
+  { id: '19', title: 'Ретроспектива', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.8, assignees: ['JD', 'AN', 'MK', 'SP', 'VR'], startMinute: 10 * 60 + 20, endMinute: 10 * 60 + 50, project: 'ritual' },
+  { id: '20', title: 'Код-ревью пулл-реквеста', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.9, assignees: ['VR'], startMinute: 11 * 60, endMinute: 11 * 60 + 20, project: 'backend' },
+  { id: '21', title: 'Короткая медитация', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 1, assignees: [], startMinute: 12 * 60 + 35, endMinute: 12 * 60 + 40, project: 'ritual' },
+  { id: '22', title: 'Ответить клиентам', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.6, assignees: ['RK', 'ML'], startMinute: 14 * 60 + 15, endMinute: 14 * 60 + 30, project: 'sales' },
+  { id: '23', title: 'Правки макета', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.4, assignees: ['SP', 'LJ'], startMinute: 14 * 60 + 40, endMinute: 15 * 60 + 10, project: 'design' },
+  { id: '24', title: 'Проверка метрик', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.7, assignees: ['AN', 'JD'], startMinute: 16 * 60 + 35, endMinute: 16 * 60 + 55, project: 'research' },
+  { id: '25', title: 'Чтение статей', startDate: new Date(2026, 7, 21), endDate: new Date(2026, 7, 21), progress: 0.2, assignees: [], startMinute: 19 * 60, endMinute: 20 * 60, project: 'research' },
+  { id: '26', title: 'Утренний забег', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 1, assignees: ['MK'], startMinute: 7 * 60, endMinute: 8 * 60, project: 'ritual' },
+  { id: '27', title: 'Подготовка к встрече', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.5, assignees: ['RK'], startMinute: 14 * 60, endMinute: 14 * 60 + 30, project: 'sales' },
+  { id: '28', title: 'Анализ результатов теста', startDate: new Date(2026, 7, 22), endDate: new Date(2026, 7, 22), progress: 0.1, assignees: ['JD', 'AN'], startMinute: 11 * 60, endMinute: 12 * 60 + 30, project: 'research' },
 ]
 
 const C = [
@@ -247,7 +265,7 @@ export function GanttTimeline() {
     for (let h = 0; h < BUFFER_HOURS; h++) hourSlots.push({ x: offset + 24 * HOUR_W + h * HOUR_W, hour: h, isBuffer: true })
   }
 
-  type RenderedTask = { task: GanttTaskEx; x: number; y: number; width: number; leftMin: number; rightMin: number; l0: number; r0: number; day: Date }
+  type RenderedTask = { task: GanttTaskEx; x: number; y: number; width: number; leftMin: number; rightMin: number; l0: number; r0: number; w0: number; w1: number; day: Date }
 
   const layoutDay = (day: Date, xOrigin: number, windowStartMin: number, windowLenMin: number): RenderedTask[] => {
     const windowEndMin = windowStartMin + windowLenMin
@@ -286,6 +304,8 @@ export function GanttTimeline() {
           rightMin: item.rightMin,
           l0: item.l,
           r0: item.r,
+          w0: windowStartMin,
+          w1: windowEndMin,
           day,
         })
       })
@@ -410,7 +430,7 @@ export function GanttTimeline() {
       <div
         ref={scrollRef}
         onScroll={handleGanttScroll}
-        className="flex-1 overflow-x-auto overflow-y-hidden"
+        className="flex-1 overflow-x-auto overflow-y-auto"
         style={{
           scrollbarWidth: 'thin',
           scrollbarColor: 'var(--surface-3) transparent',
@@ -463,6 +483,8 @@ export function GanttTimeline() {
                 )
               })}
               <div className="absolute bottom-0" style={{ left: totalW, width: 1, height: 10, background: 'rgba(255,255,255,0.03)' }} />
+              <div className="absolute bottom-0 rounded-full" style={{ left: offset, width: 2, height: 26, transform: 'translateX(-1px)', background: 'rgba(255,255,255,0.18)' }} />
+              <div className="absolute bottom-0 rounded-full" style={{ left: offset + 24 * HOUR_W, width: 2, height: 26, transform: 'translateX(-1px)', background: 'rgba(255,255,255,0.18)' }} />
               {hoverMin !== null && (
                 <div
                   className="absolute z-20 pointer-events-none"
@@ -487,8 +509,8 @@ export function GanttTimeline() {
 
             <div className="absolute top-[44px] left-0 right-0 z-[1] pointer-events-none" style={{ height: 1, background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 10%, rgba(255,255,255,0.06) 90%, transparent 100%)' }} />
 
-            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: 0, width: prevW, background: 'rgba(0,0,0,0.15)' }} />
-            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: offset + 24 * HOUR_W, width: nextW, background: 'rgba(0,0,0,0.15)' }} />
+            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: 0, width: prevW, background: 'linear-gradient(90deg, rgba(0,0,0,0.22), rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.1))' }} />
+            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: offset + 24 * HOUR_W, width: nextW, background: 'linear-gradient(270deg, rgba(0,0,0,0.22), rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.1))' }} />
 
             <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: 0, width: prevW, top: 0, height: 14 }}>
               <span className="text-[11px] font-semibold tracking-[0.02em]" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -500,9 +522,6 @@ export function GanttTimeline() {
                 {hasNextTasks ? `завтра · ${fmtDate(nextDay)} →` : 'завтра →'}
               </span>
             </div>
-
-            <div className="absolute top-0 bottom-0 z-[2] pointer-events-none" style={{ left: offset, width: 1, background: 'rgba(255,255,255,0.04)' }} />
-            <div className="absolute top-0 bottom-0 z-[2] pointer-events-none" style={{ left: offset + 24 * HOUR_W, width: 1, background: 'rgba(255,255,255,0.04)' }} />
 
             {isToday && (
               <div className="absolute top-0 bottom-0 pointer-events-none z-10" style={{ left: offset + nowMinute / 60 * HOUR_W }}>
@@ -562,20 +581,37 @@ export function GanttTimeline() {
               const startsBefore = p.leftMin === p.l0 && p.day > task.startDate
               const endsAfter = p.rightMin === p.r0 && p.day < task.endDate
 
+              const connectLeft = startsBefore
+              const connectRight = endsAfter
+              const atLeftEdge = p.leftMin === p.w0
+              const atRightEdge = p.rightMin === p.w1
+              const insetL = atLeftEdge && !connectLeft ? 7 : 0
+              const insetR = atRightEdge && !connectRight ? 7 : 0
+              const radiusL = connectLeft ? 0 : 12
+              const radiusR = connectRight ? 0 : 12
+
               return (
                 <motion.div
                   key={`${p.day.toISOString()}-${task.id}`}
                   custom={idx}
                   variants={cardVariants}
                   className="absolute group cursor-pointer select-none flex flex-col"
-                  style={{ left, top, width, height: TASK_H, padding: '10px 36px 10px 14px' }}
+                  style={{ left: left + insetL, top, width: width - insetL - insetR, height: TASK_H, padding: '10px 36px 10px 14px' }}
                 >
                   <motion.div
-                    className="absolute inset-0 rounded-xl"
-                    style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.05)' }}
+                    className="absolute inset-0"
+                    style={{
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderLeftWidth: connectLeft ? 0 : 1,
+                      borderRightWidth: connectRight ? 0 : 1,
+                      background: 'rgba(255,255,255,0.05)',
+                      borderRadius: `${radiusL}px ${radiusR}px ${radiusR}px ${radiusL}px`,
+                    }}
                     whileHover={{
                       y: -2,
                       borderColor: 'rgba(255,255,255,0.15)',
+                      borderLeftColor: connectLeft ? 'transparent' : 'rgba(255,255,255,0.15)',
+                      borderRightColor: connectRight ? 'transparent' : 'rgba(255,255,255,0.15)',
                       background: 'rgba(255,255,255,0.07)',
                       boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
                       transition: { type: 'spring' as const, stiffness: 350, damping: 14 },
