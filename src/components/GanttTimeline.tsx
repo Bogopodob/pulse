@@ -603,8 +603,8 @@ export function GanttTimeline() {
       animate={{ opacity: 1 }}
       className="flex-1 flex flex-col min-h-0 relative"
     >
-      <div className="absolute top-0 left-0 w-[60px] h-full z-[5] pointer-events-none" style={{ background: 'linear-gradient(90deg, var(--bg) 0%, transparent 100%)' }} />
-      <div className="absolute top-0 right-0 w-[60px] h-full z-[5] pointer-events-none" style={{ background: 'linear-gradient(270deg, var(--bg) 0%, transparent 100%)' }} />
+      <div className="absolute top-0 left-0 w-[40px] h-full z-[5] pointer-events-none" style={{ background: 'linear-gradient(90deg, var(--bg) 0%, transparent 100%)' }} />
+      <div className="absolute top-0 right-0 w-[40px] h-full z-[5] pointer-events-none" style={{ background: 'linear-gradient(270deg, var(--bg) 0%, transparent 100%)' }} />
 
       <div className="flex items-center justify-between shrink-0 px-2 h-[34px] gap-2">
         <div className="flex items-center gap-1.5 shrink-0">
@@ -727,7 +727,7 @@ export function GanttTimeline() {
             animate="visible"
             exit="exit"
           >
-            <div className="absolute top-0 left-0 right-0 z-[3] select-none" style={{ height: 14 }}>
+            <div className="absolute top-0 left-0 right-0 z-[3] select-none" style={{ height: 14, contentVisibility: 'auto' }}>
               {hourSlots.map((s) => (
                 <div
                   key={`hl-${s.x}`}
@@ -744,7 +744,7 @@ export function GanttTimeline() {
 
             <div
               className="absolute z-[1]"
-              style={{ top: 16, left: 0, right: 0, height: 26 }}
+              style={{ top: 16, left: 0, right: 0, height: 26, contentVisibility: 'auto' }}
               onMouseMove={handleTickHover}
               onMouseLeave={handleTickLeave}
             >
@@ -802,15 +802,15 @@ export function GanttTimeline() {
 
             <div className="absolute top-[44px] left-0 right-0 z-[1] pointer-events-none" style={{ height: 1, background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 10%, rgba(255,255,255,0.06) 90%, transparent 100%)' }} />
 
-            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: 0, width: prevW, background: 'linear-gradient(90deg, rgba(0,0,0,0.10), rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.04))' }} />
-            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: offset + mainW, width: nextW, background: 'linear-gradient(270deg, rgba(0,0,0,0.10), rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.04))' }} />
+            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: 0, width: prevW, background: 'linear-gradient(90deg, rgba(0,0,0,0.05), rgba(0,0,0,0.02) 60%, rgba(0,0,0,0.02))' }} />
+            <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: offset + mainW, width: nextW, background: 'linear-gradient(270deg, rgba(0,0,0,0.05), rgba(0,0,0,0.02) 60%, rgba(0,0,0,0.02))' }} />
 
-            <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: 0, width: prevW, top: 0, height: 14 }}>
+            <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: 0, width: prevW, top: 0, height: 14, contentVisibility: 'auto' }}>
               <span className="text-[11px] font-semibold tracking-[0.02em]" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 {hasPrevTasks ? `← вчера · ${fmtDate(prevDay)}` : '← вчера'}
               </span>
             </div>
-            <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: offset + mainW, width: nextW, top: 0, height: 14 }}>
+            <div className="absolute z-[3] pointer-events-none select-none flex items-center justify-center" style={{ left: offset + mainW, width: nextW, top: 0, height: 14, contentVisibility: 'auto' }}>
               <span className="text-[11px] font-semibold tracking-[0.02em]" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 {hasNextTasks ? `завтра · ${fmtDate(nextDay)} →` : 'завтра →'}
               </span>
@@ -852,7 +852,7 @@ export function GanttTimeline() {
               </div>
             )}
 
-            <div className="absolute z-[1] pointer-events-none" style={{ top: 0, left: 0, width: totalW }}>
+            <div className="absolute z-[1] pointer-events-none" style={{ top: 0, left: 0, width: totalW, contentVisibility: 'auto' }}>
               {Array.from(new Set(renderTasks.map((p) => p.y))).map((y) => (
                 <div key={`reel-${y}`} className="absolute left-0 w-full" style={{
                   top: y + TASK_H / 2,
@@ -892,7 +892,7 @@ export function GanttTimeline() {
                   custom={idx}
                   variants={cardVariants}
                   className="absolute group cursor-pointer select-none flex flex-col"
-                  style={{ left: left + insetL, top, width: width - insetL - insetR, height: TASK_H, padding: '10px 14px 10px 14px' }}
+                  style={{ left: left + insetL, top, width: width - insetL - insetR, height: TASK_H, padding: '10px 14px 10px 14px', contentVisibility: 'auto' }}
                   onContextMenu={(e) => openContextMenu(e, task)}
                 >
                   <motion.div
