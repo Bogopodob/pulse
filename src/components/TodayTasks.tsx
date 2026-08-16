@@ -73,7 +73,7 @@ export function TodayTasks({ rhythm }: { rhythm: ReturnType<typeof useRhythm> })
                   className="text-[13px] font-semibold truncate"
                   style={{ color: status === 'upcoming' ? 'var(--text-dim)' : 'var(--text)', textDecoration: status === 'done' ? 'line-through' : 'none' }}
                 >
-                  {s.task}
+                  {s.label}
                 </div>
                 <div className={`text-[11px] font-mono mt-0.5 ${status === 'active' ? 'text-[var(--focus)]' : 'text-[var(--text-faint)]'}`}>
                   {fmtHM(s.start)}–{fmtHM(s.end)}

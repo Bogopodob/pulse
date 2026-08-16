@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useRhythm, fmtHM } from '../hooks/useRhythm'
+import { ACCENTS, ICON_PATHS } from '../lib/activities'
 
 function fmtDur(min: number): string {
   const h = Math.floor(min / 60)
@@ -7,11 +8,14 @@ function fmtDur(min: number): string {
   return m === 0 ? `${h} ч` : `${h} ч ${m} мин`
 }
 
+const BREAK_GROUP = new Set(['break', 'smoke', 'rest'])
+const FOOD_GROUP = new Set(['lunch', 'breakfast', 'dinner'])
+
 export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [showJump, setShowJump] = useState(false)
-  const [hv, setHv] = useState<{ x: number; min: number; type: string } | null>(null)
+  const [hv, setHv] = useState<{ x: number; min: number; type: string; color: string; label: string } | null>(null)
   const velocityRef = useRef(0)
   const offsetRef = useRef(0)
   const rafRef = useRef(0)
@@ -29,8 +33,12 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const rowWidth = totalBars * PITCH
 
   const totals = useMemo(() => {
-    const t: Record<string, number> = { focus: 0, rest: 0, lunch: 0 }
-    for (const s of segments) if (s.type in t) t[s.type] += s.end - s.start
+    const t = { focus: 0, break: 0, food: 0 }
+    for (const s of segments) {
+      if (s.type === 'focus') t.focus += s.end - s.start
+      else if (BREAK_GROUP.has(s.type)) t.break += s.end - s.start
+      else if (FOOD_GROUP.has(s.type)) t.food += s.end - s.start
+    }
     return t
   }, [segments])
 
@@ -165,7 +173,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
 
       <div
         ref={viewportRef}
-        className="relative h-[220px] mt-3 overflow-hidden cursor-grab"
+        className="timeline-viewport relative h-[220px] mt-3 overflow-hidden cursor-grab"
         style={{ perspective: '1000px' }}
         onMouseDown={(e) => {
           setIsDragging(true)
@@ -183,7 +191,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
           const relX = e.clientX - rect.left
           const min = DAY_START + (relX + offsetRef.current) / PITCH * STEP_MIN
           const s = segments.find((sg) => min >= sg.start && min < sg.end) ?? segments[segments.length - 1]
-          setHv({ x: relX, min, type: s.type })
+          setHv({ x: relX, min, type: s.type, color: s.color, label: s.label })
         }}
         onMouseLeave={() => setHv(null)}
       >
@@ -194,13 +202,13 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         />
 
         {(() => {
-          const t = rhythm.cur.type
-          if (t === 'off') return null
-          const c = t === 'rest' ? '255,157,92' : t === 'lunch' ? '79,212,196' : '76,141,255'
+          const t = rhythm.cur
+          if (t.type === 'off') return null
+          const a = ACCENTS[t.color as keyof typeof ACCENTS] ?? ACCENTS.blue
           return (
             <div
               className="absolute left-1/2 -translate-x-1/2 top-[30px] bottom-[62px] w-[320px] pointer-events-none rounded-full"
-              style={{ background: `radial-gradient(ellipse at center, rgba(${c},0.14), transparent 70%)`, filter: 'blur(28px)' }}
+              style={{ background: `radial-gradient(ellipse at center, rgba(${a.glow},0.14), transparent 70%)`, filter: 'blur(28px)' }}
             />
           )
         })()}
@@ -214,10 +222,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
                 width: PITCH - 2,
                 marginRight: 1,
                 height: bar.height,
-                background: bar.type === 'focus' ? 'linear-gradient(180deg, var(--focus-2), var(--focus))'
-                  : bar.type === 'rest' ? 'linear-gradient(180deg, var(--rest-2), var(--rest))'
-                  : bar.type === 'lunch' ? 'linear-gradient(180deg, var(--lunch-2), var(--lunch))'
-                  : 'var(--off)',
+                background: bar.type === 'off' ? 'var(--off)' : (ACCENTS[bar.color as keyof typeof ACCENTS] ?? ACCENTS.blue).gradient,
                 opacity: bar.type === 'off' ? 0.55 : 1,
               }}
             />
@@ -229,8 +234,9 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         />
 
         <div ref={markersRef} className="absolute left-0 top-[4px] h-[20px] will-change-transform z-[3]" style={{ width: rowWidth }}>
-          {segments.filter(s => s.type === 'rest' || s.type === 'lunch').map((s) => {
+          {segments.filter(s => s.type !== 'focus' && s.type !== 'off').map((s) => {
             const x = ((s.start - DAY_START) / STEP_MIN) * PITCH
+            const a = ACCENTS[s.color as keyof typeof ACCENTS] ?? ACCENTS.blue
             return (
               <div
                 key={s.start}
@@ -238,13 +244,13 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
                 style={{
                   left: x,
                   transform: 'translateX(-50%)',
-                  color: s.type === 'lunch' ? '#bff2e6' : '#ffd7b0',
+                  color: a.color,
                   background: 'var(--surface-2)',
                   border: '1px solid var(--stroke)',
                   opacity: 0.55,
                 }}
               >
-                {s.type === 'lunch' ? `Обед · ${fmtHM(s.start)}` : `Перерыв · ${fmtHM(s.start)}`}
+                {`${s.label} · ${fmtHM(s.start)}`}
               </div>
             )
           })}
@@ -278,15 +284,17 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         </div>
 
         {hv && (() => {
-          const cfg = segStyles[hv.type]
+          const a = ACCENTS[hv.color as keyof typeof ACCENTS] ?? ACCENTS.blue
           return (
             <div className="absolute z-[8] pointer-events-none" style={{ left: hv.x, top: 26, transform: 'translateX(-50%)' }}>
               <div
                 className="flex items-center gap-1.5 px-2 py-1 rounded-md whitespace-nowrap"
                 style={{ background: 'var(--surface-3)', border: '1px solid var(--stroke)', boxShadow: '0 6px 18px rgba(0,0,0,0.4)' }}
               >
-                <span style={{ color: cfg.color }}>{cfg.icon}</span>
-                <span className="text-[10.5px] font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={ICON_PATHS[hv.type] ?? ICON_PATHS.clock} />
+                </svg>
+                <span className="text-[10.5px] font-semibold" style={{ color: a.color }}>{hv.label}</span>
                 <span className="text-[10px] text-[var(--text-dim)] font-mono">{fmtHM(hv.min)}</span>
               </div>
             </div>
@@ -299,15 +307,12 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
           <span className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)] font-semibold shrink-0">Карта дня</span>
           <div className="flex-1 h-[12px] rounded-full overflow-hidden flex gap-px">
             {segments.map((s) => {
-              const c = s.type === 'focus' ? 'linear-gradient(180deg, var(--focus-2), var(--focus))'
-                : s.type === 'rest' ? 'linear-gradient(180deg, var(--rest-2), var(--rest))'
-                : s.type === 'lunch' ? 'linear-gradient(180deg, var(--lunch-2), var(--lunch))'
-                : 'var(--off)'
+              const c = s.type === 'off' ? 'var(--off)' : (ACCENTS[s.color as keyof typeof ACCENTS] ?? ACCENTS.blue).gradient
               return (
                 <button
                   key={s.start}
                   onClick={() => animateTo(s.start + 1)}
-                  title={`${fmtHM(s.start)} — ${segStyles[s.type].label}`}
+                  title={`${fmtHM(s.start)} — ${s.label}`}
                   className="h-full cursor-pointer transition-[filter] hover:brightness-125"
                   style={{ flex: s.end - s.start, background: c, opacity: s.type === 'off' ? 0.3 : 1 }}
                 />
@@ -321,13 +326,13 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
       <div className="flex items-center gap-5 px-6 py-3 border-t border-[var(--stroke)]">
         {[
           { key: 'focus', label: 'Фокус', color: 'var(--focus)' },
-          { key: 'rest', label: 'Перерывы', color: 'var(--rest)' },
-          { key: 'lunch', label: 'Обед', color: 'var(--lunch)' },
+          { key: 'break', label: 'Паузы', color: 'var(--rest)' },
+          { key: 'food', label: 'Еда', color: 'var(--lunch)' },
         ].map((c) => (
           <div key={c.key} className="flex items-center gap-1.5">
             <span className="size-[6px] rounded-full" style={{ background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
             <span className="text-[10.5px] text-[var(--text-faint)] font-medium">{c.label}</span>
-            <span className="text-[10.5px] font-semibold font-mono tabular-nums" style={{ color: c.color }}>{fmtDur(totals[c.key])}</span>
+            <span className="text-[10.5px] font-semibold font-mono tabular-nums" style={{ color: c.color }}>{fmtDur(totals[c.key as keyof typeof totals])}</span>
           </div>
         ))}
         <div className="ml-auto flex items-center gap-1.5 text-[10.5px] text-[var(--text-faint)] font-mono">
@@ -336,41 +341,6 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
       </div>
     </div>
   )
-}
-
-const segStyles: Record<string, { label: string; gradient: string; bg: string; border: string; color: string; icon: React.ReactNode }> = {
-  focus: {
-    label: 'Фокус',
-    gradient: 'linear-gradient(135deg, var(--focus), var(--focus-2))',
-    bg: 'rgba(76,141,255,0.06)',
-    border: 'rgba(76,141,255,0.2)',
-    color: 'var(--focus)',
-    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  },
-  rest: {
-    label: 'Перерыв',
-    gradient: 'linear-gradient(135deg, var(--rest), var(--rest-2))',
-    bg: 'rgba(255,157,92,0.06)',
-    border: 'rgba(255,157,92,0.2)',
-    color: 'var(--rest)',
-    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  },
-  lunch: {
-    label: 'Обед',
-    gradient: 'linear-gradient(135deg, var(--lunch), var(--lunch-2))',
-    bg: 'rgba(79,212,196,0.06)',
-    border: 'rgba(79,212,196,0.2)',
-    color: 'var(--lunch)',
-    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 0 0-7 17h14a10 10 0 0 0-7-17z" strokeLinecap="round"/><path d="M8 19v1a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-1"/></svg>,
-  },
-  off: {
-    label: 'Вне графика',
-    gradient: 'linear-gradient(135deg, var(--off), #5a5d65)',
-    bg: 'rgba(74,77,85,0.06)',
-    border: 'rgba(74,77,85,0.2)',
-    color: 'var(--text-faint)',
-    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h0" strokeLinecap="round"/></svg>,
-  },
 }
 
 

@@ -1,69 +1,40 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { RESTING_TYPES } from '../lib/activities'
+import type { Rule } from '../lib/activities'
 
 const DAY_START = 0
 const DAY_END = 1440
 const STEP_MIN = 2
 const PITCH = 7
 const SIM_SPEED = 2
+const CHAIN_START = 540
 
 export interface Segment {
   start: number
   end: number
-  type: 'focus' | 'rest' | 'lunch' | 'off'
+  type: string
+  label: string
+  color: string
   task?: string
 }
 
-const focusTasks = [
-  'UI компоненты',
-  'API интеграция',
-  'Ревью кода',
-  'Документация',
-  'Разработка бэкенда',
-  'Дизайн-система',
-  'Правки багов',
-  'Ретроспектива',
-  'Подготовка отчета',
-  'План на завтра',
-]
-
-function buildSegments(): Segment[] {
+export function buildSegments(rules: Rule[]): Segment[] {
   const segs: Segment[] = []
-
-  if (DAY_START < 480) segs.push({ start: DAY_START, end: 480, type: 'off' })
-
-  segs.push({ start: 480, end: 540, type: 'off' })
-
-  let t = 540
-  let taskIdx = 0
-  while (t < 780) {
-    const e = Math.min(t + 60, 780)
-    segs.push({ start: t, end: e, type: 'focus', task: focusTasks[taskIdx++ % focusTasks.length] })
-    t = e
-    if (t < 780) { const e2 = Math.min(t + 10, 780); segs.push({ start: t, end: e2, type: 'rest' }); t = e2 }
+  if (DAY_START < CHAIN_START) {
+    segs.push({ start: DAY_START, end: CHAIN_START, type: 'off', label: 'Вне графика', color: 'gray' })
   }
-
-  segs.push({ start: 780, end: 840, type: 'lunch' })
-
-  t = 840
-  while (t < 1080) {
-    const e = Math.min(t + 90, 1080)
-    segs.push({ start: t, end: e, type: 'focus', task: focusTasks[taskIdx++ % focusTasks.length] })
-    t = e
-    if (t < 1080) { const e2 = Math.min(t + 15, 1080); segs.push({ start: t, end: e2, type: 'rest' }); t = e2 }
+  let t = CHAIN_START
+  for (const r of rules) {
+    const end = Math.min(t + r.minutes, DAY_END)
+    if (end > t) {
+      segs.push({ start: t, end, type: r.type, label: r.name, color: r.color, task: r.type === 'focus' ? r.name : undefined })
+    }
+    t = end
+    if (t >= DAY_END) break
   }
-
-  t = 1080
-  while (t < 1200) {
-    const e = Math.min(t + 45, 1200)
-    segs.push({ start: t, end: e, type: 'focus', task: focusTasks[taskIdx++ % focusTasks.length] })
-    t = e
-    if (t < 1200) { const e2 = Math.min(t + 10, 1200); segs.push({ start: t, end: e2, type: 'rest' }); t = e2 }
+  if (t < DAY_END) {
+    segs.push({ start: t, end: DAY_END, type: 'off', label: 'Вне графика', color: 'gray' })
   }
-
-  segs.push({ start: 1200, end: 1260, type: 'off' })
-
-  if (1260 < DAY_END) segs.push({ start: 1260, end: DAY_END, type: 'off' })
-
   return segs
 }
 
@@ -73,13 +44,19 @@ export function fmtHM(min: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-export function useRhythm() {
+function segAt(min: number, segs: Segment[]): Segment {
+  for (const s of segs) {
+    if (min >= s.start && min < s.end) return s
+  }
+  return segs[segs.length - 1]
+}
+
+export function useRhythm(rules: Rule[]) {
   const [nowMinutes, setNowMinutes] = useState(() => {
     const d = new Date()
     return d.getHours() * 60 + d.getMinutes()
   })
   const [toast, setToast] = useState<{ title: string; text: string } | null>(null)
-  const segmentsRef = useRef(buildSegments())
   const lastTypeRef = useRef<string>('focus')
   const lastTsRef = useRef<number | null>(null)
 
@@ -100,24 +77,25 @@ export function useRhythm() {
     return () => cancelAnimationFrame(raf)
   }, [])
 
+  const segments = useMemo(() => buildSegments(rules), [rules])
+
   useEffect(() => {
-    const cur = segAt(nowMinutes)
+    const cur = segAt(nowMinutes, segments)
     if (cur.type !== lastTypeRef.current) {
-      const resting = cur.type === 'rest' || cur.type === 'lunch'
+      const resting = RESTING_TYPES.has(cur.type)
       setToast({
         title: resting ? 'Время отдохнуть' : 'Возвращаемся к работе',
         text: resting
           ? 'Встань, разомнись, посмотри вдаль'
-          : `Перерыв закончен — ${cur.task ?? 'фокус'} до ${fmtHM(cur.end)}`,
+          : `Блок начался — ${cur.label} до ${fmtHM(cur.end)}`,
       })
       setTimeout(() => setToast(null), 4200)
       lastTypeRef.current = cur.type
     }
-  }, [nowMinutes])
+  }, [nowMinutes, segments])
 
-  const segments = segmentsRef.current
-  const cur = segAt(nowMinutes)
-  const resting = cur.type === 'rest' || cur.type === 'lunch'
+  const cur = segAt(nowMinutes, segments)
+  const resting = RESTING_TYPES.has(cur.type)
   const remain = Math.max(0, cur.end - nowMinutes)
   const total = Math.max(1, cur.end - cur.start)
   const progress = 1 - remain / total
@@ -126,32 +104,24 @@ export function useRhythm() {
   const rowWidth = totalBars * PITCH
 
   function buildBars() {
-    const bars: { type: string; height: number }[] = []
+    const bars: { type: string; height: number; color: string }[] = []
     for (let m = DAY_START; m < DAY_END; m += STEP_MIN) {
-      const s = segAt(m)
+      const s = segAt(m, segments)
       const local = (m - s.start) / Math.max(1, s.end - s.start)
       let intensity: number
       const idx = Math.floor((m - DAY_START) / STEP_MIN)
       const noise = Math.sin(idx * 12.9898) * 43758.5453
       const frac = noise - Math.floor(noise)
       if (s.type === 'focus') intensity = 0.32 + 0.55 * local + 0.10 * Math.sin(idx * 0.85) * local
-      else if (s.type === 'rest') intensity = 0.42 + 0.22 * Math.sin(idx * 0.6)
-      else if (s.type === 'lunch') intensity = 0.28 + 0.08 * Math.sin(idx * 0.4)
-      else intensity = 0.10 + 0.06 * frac
+      else if (s.type === 'off') intensity = 0.10 + 0.06 * frac
+      else if (s.type === 'break' || s.type === 'smoke') intensity = 0.42 + 0.22 * Math.sin(idx * 0.6)
+      else if (s.type === 'lunch' || s.type === 'breakfast' || s.type === 'dinner') intensity = 0.28 + 0.08 * Math.sin(idx * 0.4)
+      else intensity = 0.38 + 0.12 * Math.sin(idx * 0.5)
       intensity = Math.max(0.08, Math.min(1, intensity))
       const h = Math.round(8 + intensity * 70)
-      bars.push({ type: s.type, height: h })
+      bars.push({ type: s.type, height: h, color: s.color })
     }
     return bars
-  }
-
-  function ruleLabelAt(min: number): string {
-    if (min < 540) return 'Утро'
-    if (min < 780) return 'До обеда'
-    if (min < 840) return 'Обед'
-    if (min < 1080) return 'После обеда'
-    if (min < 1200) return 'Вечер'
-    return 'Ночь'
   }
 
   return {
@@ -165,7 +135,6 @@ export function useRhythm() {
     totalBars,
     rowWidth,
     buildBars,
-    ruleLabelAt,
     toast,
     setToast,
     DAY_START,
@@ -174,12 +143,4 @@ export function useRhythm() {
     PITCH,
     nextSegment: segments.find((s) => s.start > cur.start),
   }
-}
-
-export function segAt(min: number): Segment {
-  const segments = buildSegments()
-  for (const s of segments) {
-    if (min >= s.start && min < s.end) return s
-  }
-  return segments[segments.length - 1]
 }

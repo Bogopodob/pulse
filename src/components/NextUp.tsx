@@ -1,18 +1,15 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRhythm, fmtHM } from '../hooks/useRhythm'
+import { ACCENTS, ICON_PATHS } from '../lib/activities'
 
 const CIRC = 2 * Math.PI * 43
 
-const ICONS: Record<string, { path: string; color: string; bg: string; border: string }> = {
-  focus: { path: 'M12 7v5l3.5 2', color: '#bcd4ff', bg: 'rgba(76,141,255,0.1)', border: 'rgba(76,141,255,0.25)' },
-  rest: { path: 'M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z', color: '#ffd7b0', bg: 'rgba(255,157,92,0.1)', border: 'rgba(255,157,92,0.25)' },
-  lunch: { path: 'M7 9h10a3 3 0 0 1 0 6H7a3 3 0 0 1 0-6zM7 15v3M11 15v3M8 5h1M12 5h1', color: '#bff2e6', bg: 'rgba(79,212,196,0.1)', border: 'rgba(79,212,196,0.25)' },
-}
-
 export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
-  const { nowMinutes, cur, resting, remain, ruleLabelAt, segments, progress } = rhythm
+  const { cur, resting, remain, segments, progress } = rhythm
   const remainTotal = Math.max(1, cur.end - cur.start)
   const offset = CIRC * (1 - remain / remainTotal)
+
+  const curAccent = ACCENTS[cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
 
   const upcoming: typeof segments = (() => {
     const out: typeof segments = []
@@ -25,26 +22,22 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
 
   const urgent = !resting && remain < 600
 
-  const title = resting
-    ? `${cur.type === 'lunch' ? 'Обеденный перерыв' : 'Перерыв'} · до ${fmtHM(cur.end)}`
-    : cur.type === 'off'
-      ? 'Вне графика'
-      : `Фокус · ${cur.task}`
+  const title = cur.type === 'off'
+    ? 'Вне графика'
+    : resting
+      ? `${cur.label} · до ${fmtHM(cur.end)}`
+      : `Фокус · ${cur.label}`
 
-  const subtitle = resting
-    ? `следующий фокус начнётся в ${fmtHM(cur.end)}`
-    : cur.type === 'off'
-      ? `следующее событие в ${fmtHM(cur.end)}`
-      : `в ${fmtHM(cur.end)}, правило «${ruleLabelAt(nowMinutes)}»`
+  const subtitle = cur.type === 'off'
+    ? `следующий блок начнётся в ${fmtHM(cur.end)}`
+    : `до ${fmtHM(cur.end)}`
 
   return (
     <div className={`card card-lift relative z-[1] overflow-hidden p-6 flex flex-col ${resting ? 'resting' : ''}`}>
       <div
         className="absolute w-[460px] h-[460px] left-1/2 -translate-x-1/2 top-[-260px] pointer-events-none rounded-full transition-all duration-600"
         style={{
-          background: resting
-            ? 'radial-gradient(circle, rgba(255,157,92,0.12), transparent 65%)'
-            : 'radial-gradient(circle, rgba(76,141,255,0.10), transparent 65%)',
+          background: `radial-gradient(circle, rgba(${curAccent.glow},0.12), transparent 65%)`,
         }}
       />
 
@@ -53,11 +46,9 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
           className="h-full rounded-full"
           style={{
             background: resting
-              ? 'linear-gradient(90deg, var(--rest), var(--rest-2))'
+              ? `linear-gradient(90deg, ${curAccent.dot}, ${curAccent.dot})`
               : 'linear-gradient(90deg, var(--focus), var(--focus-2))',
-            boxShadow: resting
-              ? '0 0 8px rgba(255,157,92,0.7)'
-              : '0 0 8px rgba(76,141,255,0.7)',
+            boxShadow: `0 0 8px rgba(${curAccent.glow},0.7)`,
           }}
           animate={{ width: `${Math.round(progress * 100)}%` }}
           transition={{ duration: 0.4, ease: 'linear' }}
@@ -84,7 +75,7 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
               fill="none"
               strokeWidth="7"
               strokeLinecap="round"
-              stroke={resting ? 'var(--rest)' : 'url(#nuGrad)'}
+              stroke={resting ? curAccent.dot : 'url(#nuGrad)'}
               strokeDasharray={CIRC.toFixed(1)}
               initial={false}
               animate={{ strokeDashoffset: offset.toFixed(1) }}
@@ -93,11 +84,11 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
             {resting ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rest)" strokeWidth="2">
-                <path d="M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={curAccent.dot} strokeWidth="2">
+                <path d={ICON_PATHS[cur.type] ?? ICON_PATHS.clock} />
               </svg>
             ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--focus)" strokeWidth="2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={curAccent.dot} strokeWidth="2">
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 7v5l3.5 2" />
               </svg>
@@ -134,17 +125,17 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         {upcoming.length > 0 && (
           <div className="flex items-center justify-center gap-1.5 mt-2.5 flex-wrap">
             {upcoming.map((s) => {
-              const cfg = ICONS[s.type] ?? ICONS.focus
+              const a = ACCENTS[s.color as keyof typeof ACCENTS] ?? ACCENTS.blue
               return (
                 <span
                   key={s.start}
                   className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[10.5px] font-semibold"
-                  style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, color: cfg.color }}
+                  style={{ background: a.bg, border: `1px solid ${a.border}`, color: a.color }}
                 >
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                    <path d={cfg.path} />
+                    <path d={ICON_PATHS[s.type] ?? ICON_PATHS.clock} />
                   </svg>
-                  {s.type === 'focus' ? (s.task ?? 'Фокус') : s.type === 'lunch' ? 'Обед' : 'Перерыв'}
+                  {s.label}
                   <span className="opacity-60 font-mono">{fmtHM(s.start)}</span>
                 </span>
               )
@@ -169,7 +160,8 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
           </motion.button>
           <motion.button
             whileTap={{ scale: 0.96 }}
-            className={`btn btn-primary flex-1 ${resting ? '!bg-gradient-to-r !from-[var(--rest)] !to-[var(--rest-2)]' : ''}`}
+            className="btn btn-primary flex-1"
+            style={resting ? { background: `linear-gradient(135deg, ${curAccent.dot}, ${curAccent.dot})`, border: 'none', color: '#131418' } : undefined}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7z" />

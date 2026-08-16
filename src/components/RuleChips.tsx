@@ -1,245 +1,408 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Reorder, useDragControls } from 'framer-motion'
+import {
+  ACTIVITIES,
+  ACCENTS,
+  ICON_PATHS,
+  CUSTOM_ICONS,
+  COLOR_KEYS,
+} from '../lib/activities'
+import type { Rule, RuleColor } from '../lib/activities'
+import { fmtHM } from '../hooks/useRhythm'
 
-type RuleColor = 'blue' | 'amber' | 'violet'
+const CHAIN_START = 540
 
-interface Rule {
+interface EditState {
   id: string
-  name: string
-  start: string
-  end: string
-  focus: number
-  rest: number
-  color: RuleColor
+  field: 'name' | 'minutes'
+  value: string
 }
 
-const ACCENTS: Record<RuleColor, { color: string; bg: string; border: string }> = {
-  blue: { color: '#bcd4ff', bg: 'rgba(76,141,255,0.12)', border: 'rgba(76,141,255,0.28)' },
-  amber: { color: '#ffd7b0', bg: 'rgba(255,157,92,0.12)', border: 'rgba(255,157,92,0.28)' },
-  violet: { color: '#d3c8ff', bg: 'rgba(124,107,255,0.14)', border: 'rgba(124,107,255,0.3)' },
-}
-
-const RULE_ICONS: Record<RuleColor, string> = {
-  blue: 'M12 7v5l3.5 2',
-  amber: 'M12 2C8 6 6 9 6 13a6 6 0 0 0 12 0c0-4-2-7-6-11z',
-  violet: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
-}
-
-const INITIAL: Rule[] = [
-  { id: '1', name: 'До обеда', start: '09:00', end: '13:00', focus: 60, rest: 10, color: 'blue' },
-  { id: '2', name: 'После обеда', start: '14:00', end: '18:00', focus: 90, rest: 15, color: 'amber' },
-  { id: '3', name: 'Вечер', start: '18:00', end: '20:00', focus: 45, rest: 10, color: 'violet' },
-]
-
-interface Draft {
-  name: string
-  focus: number
-  rest: number
-}
-
-export function RuleChips() {
-  const [rules, setRules] = useState<Rule[]>(INITIAL)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [draft, setDraft] = useState<Draft | null>(null)
-
-  const startEdit = (r: Rule) => {
-    setEditingId(r.id)
-    setDraft({ name: r.name, focus: r.focus, rest: r.rest })
+function ruleRanges(rules: Rule[]): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = []
+  let t = CHAIN_START
+  for (const r of rules) {
+    out.push({ start: t, end: t + r.minutes })
+    t += r.minutes
   }
-
-  const saveEdit = (id: string) => {
-    if (!draft) return
-    setRules((rs) =>
-      rs.map((r) =>
-        r.id === id
-          ? { ...r, name: draft.name.trim() || r.name, focus: Math.max(1, draft.focus), rest: Math.max(0, draft.rest) }
-          : r
-      )
-    )
-    setEditingId(null)
-    setDraft(null)
-  }
-
-  const cancelEdit = () => {
-    setEditingId(null)
-    setDraft(null)
-  }
-
-  const removeRule = (id: string) => {
-    setRules((rs) => rs.filter((r) => r.id !== id))
-    if (editingId === id) cancelEdit()
-  }
-
-  const addRule = () => {
-    const r: Rule = { id: crypto.randomUUID(), name: 'Новое правило', start: '09:00', end: '13:00', focus: 50, rest: 10, color: 'blue' }
-    setRules((rs) => [...rs, r])
-    startEdit(r)
-  }
-
-  return (
-    <div className="card card-lift relative z-[1] overflow-hidden">
-      <div className="flex items-center justify-between px-6 pt-5 pb-3">
-        <div className="flex items-center gap-2">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--focus)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-          <h3 className="font-[var(--font-display)] text-[15.5px] font-semibold">Правила дня</h3>
-          <span className="text-[10px] text-[var(--text-faint)] bg-[var(--surface-2)] border border-[var(--stroke)] px-1.5 py-0.5 rounded tabular-nums">{rules.length}</span>
-        </div>
-        <button onClick={addRule} className="btn btn-ghost !px-2.5 !py-1.5 text-[11px]">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          Добавить правило
-        </button>
-      </div>
-
-      <Reorder.Group axis="y" values={rules} onReorder={setRules} className="flex flex-col">
-        {rules.map((rule) => (
-          <RuleRow
-            key={rule.id}
-            rule={rule}
-            editing={editingId === rule.id}
-            draft={draft}
-            onStartEdit={() => startEdit(rule)}
-            onSave={() => saveEdit(rule.id)}
-            onCancel={cancelEdit}
-            onRemove={() => removeRule(rule.id)}
-            onDraftChange={setDraft}
-          />
-        ))}
-      </Reorder.Group>
-    </div>
-  )
+  return out
 }
 
 function RuleRow({
   rule,
-  editing,
-  draft,
-  onStartEdit,
-  onSave,
-  onCancel,
+  range,
+  dragging,
+  onDragState,
+  edit,
+  setEdit,
+  onUpdate,
   onRemove,
-  onDraftChange,
 }: {
   rule: Rule
-  editing: boolean
-  draft: Draft | null
-  onStartEdit: () => void
-  onSave: () => void
-  onCancel: () => void
-  onRemove: () => void
-  onDraftChange: (d: Draft) => void
+  range: { start: number; end: number }
+  dragging: boolean
+  onDragState: (d: boolean) => void
+  edit: EditState | null
+  setEdit: (e: EditState | null) => void
+  onUpdate: (id: string, patch: Partial<Rule>) => void
+  onRemove: (id: string) => void
 }) {
-  const drag = useDragControls()
-  const [dragging, setDragging] = useState(false)
+  const dragControls = useDragControls()
   const a = ACCENTS[rule.color]
+  const isEditingName = edit?.id === rule.id && edit.field === 'name'
+  const isEditingMin = edit?.id === rule.id && edit.field === 'minutes'
+
+  const commitEdit = (field: 'name' | 'minutes') => {
+    if (!edit) return
+    if (field === 'minutes') {
+      const n = Number(edit.value)
+      if (Number.isFinite(n) && n > 0) onUpdate(rule.id, { minutes: Math.round(n) })
+    } else if (edit.value.trim()) {
+      onUpdate(rule.id, { name: edit.value.trim() })
+    }
+    setEdit(null)
+  }
 
   return (
     <Reorder.Item
       value={rule}
       dragListener={false}
-      dragControls={drag}
-      onDragStart={() => setDragging(true)}
-      onDragEnd={() => setDragging(false)}
-      onPointerUp={() => setDragging(false)}
-      onPointerCancel={() => setDragging(false)}
+      dragControls={dragControls}
+      onDragStart={() => onDragState(true)}
+      onDragEnd={() => onDragState(false)}
+      onPointerUp={() => onDragState(false)}
+      onPointerCancel={() => onDragState(false)}
+      className="flex items-center gap-2 rounded-xl px-2.5 py-2"
       style={{
-        scale: dragging ? 1.02 : 1,
-        zIndex: dragging ? 40 : 1,
-        boxShadow: dragging ? '0 14px 34px rgba(0,0,0,0.4)' : 'none',
-        borderRadius: dragging ? '14px' : '0px',
+        background: 'var(--surface-2)',
+        border: '1px solid var(--stroke)',
+        scale: dragging ? 1 : 1,
+        zIndex: dragging ? 10 : 1,
+        boxShadow: dragging ? '0 8px 24px rgba(0,0,0,0.45)' : 'none',
+        borderRadius: '0px',
+        cursor: 'default',
       }}
-      className="group flex items-center gap-3 px-6 py-3 border-t border-[var(--stroke)] first:border-t-0 bg-[var(--surface)] transition-[border-radius,box-shadow] duration-150"
     >
       <button
-        onPointerDown={(e) => drag.start(e)}
-        title="Перетащите для сортировки"
-        className="shrink-0 cursor-grab active:cursor-grabbing text-[var(--text-faint)] hover:text-[var(--text-dim)] transition-colors"
+        onPointerDown={(e) => dragControls.start(e)}
+        className="grid size-6 place-items-center rounded-md text-[var(--text-faint)] hover:text-[var(--text)] transition-colors"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="9" cy="5" r="1.7" /><circle cx="15" cy="5" r="1.7" />
-          <circle cx="9" cy="12" r="1.7" /><circle cx="15" cy="12" r="1.7" />
-          <circle cx="9" cy="19" r="1.7" /><circle cx="15" cy="19" r="1.7" />
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="9" cy="5" r="1.7" />
+          <circle cx="15" cy="5" r="1.7" />
+          <circle cx="9" cy="12" r="1.7" />
+          <circle cx="15" cy="12" r="1.7" />
+          <circle cx="9" cy="19" r="1.7" />
+          <circle cx="15" cy="19" r="1.7" />
         </svg>
       </button>
 
-      <div
-        className="shrink-0 flex items-center justify-center size-[38px] rounded-xl"
-        style={{ background: a.bg, border: `1px solid ${a.border}`, color: a.color, boxShadow: `inset 0 0 12px ${a.bg}` }}
+      <span
+        className="text-[10px] font-mono text-[var(--text-faint)] tabular-nums whitespace-nowrap"
+        style={{ minWidth: 86 }}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d={RULE_ICONS[rule.color]} />
+        {fmtHM(range.start)}–{fmtHM(range.end)}
+      </span>
+
+      <span
+        className="grid size-7 place-items-center rounded-lg shrink-0"
+        style={{ background: a.bg, border: `1px solid ${a.border}`, color: a.color }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d={ICON_PATHS[rule.icon] ?? ICON_PATHS.clock} />
         </svg>
+      </span>
+
+      <div className="min-w-0 flex-1">
+        {isEditingName ? (
+          <input
+            autoFocus
+            value={edit.value}
+            onChange={(e) => setEdit({ ...edit, value: e.target.value })}
+            onBlur={() => commitEdit('name')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitEdit('name')
+              if (e.key === 'Escape') setEdit(null)
+            }}
+            className="w-full rounded-md bg-[var(--surface-3)] px-1.5 py-0.5 text-[12.5px] outline-none border border-[var(--stroke)]"
+          />
+        ) : (
+          <button
+            onClick={() => setEdit({ id: rule.id, field: 'name', value: rule.name })}
+            className="block max-w-full truncate text-[12.5px] font-semibold text-left hover:text-[var(--text)] transition-colors"
+          >
+            {rule.name}
+          </button>
+        )}
+        <div className="text-[10px] text-[var(--text-faint)]">
+          {ACTIVITIES[rule.type]?.label ?? 'Своё правило'}
+        </div>
       </div>
 
-      {editing && draft ? (
-        <>
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            <input
-              autoFocus
-              value={draft.name}
-              onChange={(e) => onDraftChange({ ...draft, name: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') onSave()
-                if (e.key === 'Escape') onCancel()
-              }}
-              className="input-base text-[12.5px] font-semibold bg-[var(--surface-2)] border border-[var(--stroke)] rounded-lg px-2 py-1.5 w-[130px] focus:border-[rgba(76,141,255,0.4)]"
-            />
-            <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-faint)]">
+      {isEditingMin ? (
+        <input
+          autoFocus
+          type="number"
+          min={1}
+          value={edit.value}
+          onChange={(e) => setEdit({ ...edit, value: e.target.value })}
+          onBlur={() => commitEdit('minutes')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitEdit('minutes')
+            if (e.key === 'Escape') setEdit(null)
+          }}
+          className="w-14 rounded-md bg-[var(--surface-3)] px-1.5 py-0.5 text-[11.5px] text-right outline-none border border-[var(--stroke)] font-mono"
+        />
+      ) : (
+        <button
+          onClick={() => setEdit({ id: rule.id, field: 'minutes', value: String(rule.minutes) })}
+          className="rounded-md px-1.5 py-0.5 text-[11px] font-mono tabular-nums transition-colors"
+          style={{ background: a.bg, color: a.color }}
+          title="Длительность, мин"
+        >
+          {rule.minutes}м
+        </button>
+      )}
+
+      <button
+        onClick={() => onRemove(rule.id)}
+        className="grid size-6 place-items-center rounded-md text-[var(--text-faint)] hover:text-[var(--rest)] transition-colors"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+        </svg>
+      </button>
+    </Reorder.Item>
+  )
+}
+
+export function RuleChips({ rules, onChange }: { rules: Rule[]; onChange: (rules: Rule[]) => void }) {
+  const [dragging, setDragging] = useState(false)
+  const [edit, setEdit] = useState<EditState | null>(null)
+  const [showAdd, setShowAdd] = useState(false)
+  const [presetType, setPresetType] = useState<string | null>(null)
+  const [presetMin, setPresetMin] = useState(0)
+  const [customMin, setCustomMin] = useState(60)
+  const [custom, setCustom] = useState({ name: '', icon: 'star', color: 'blue' as RuleColor })
+  const addRef = useRef<HTMLDivElement>(null)
+  const ranges = ruleRanges(rules)
+
+  const save = (rules: Rule[]) => onChange(rules)
+
+  const update = (id: string, patch: Partial<Rule>) =>
+    save(rules.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+
+  const remove = (id: string) => save(rules.filter((r) => r.id !== id))
+
+  const openAdd = () => {
+    setShowAdd(true)
+    setTimeout(() => addRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60)
+  }
+
+  const addRule = (rule: Rule) => {
+    save([...rules, rule])
+    if (presetType) setPresetMin(ACTIVITIES[presetType].presets[0])
+  }
+
+  const openPreset = (type: string) => {
+    setPresetType(type)
+    setPresetMin(ACTIVITIES[type].presets[0])
+    openAdd()
+  }
+
+  const addPreset = () => {
+    if (!presetType) return
+    const a = ACTIVITIES[presetType]
+    addRule({
+      id: crypto.randomUUID(),
+      type: presetType,
+      name: a.label,
+      minutes: presetMin,
+      color: a.color,
+      icon: a.icon,
+    })
+  }
+
+  const addCustom = () => {
+    if (!custom.name.trim()) return
+    addRule({
+      id: crypto.randomUUID(),
+      type: 'focus',
+      name: custom.name.trim(),
+      minutes: customMin,
+      color: custom.color,
+      icon: custom.icon,
+    })
+    setCustom({ name: '', icon: 'star', color: 'blue' })
+  }
+
+  return (
+    <div className="card card-lift relative z-[1] overflow-hidden">
+      <div className="flex items-center gap-2 px-5 pt-4 pb-3">
+        <div className="flex items-center gap-2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--focus)]">
+            <rect x="3" y="4" width="18" height="17" rx="2" />
+            <path d="M3 9h18M8 2v4M16 2v4M8 13h3M8 17h6" />
+          </svg>
+          <span className="font-[var(--font-display)] text-[14.5px] font-semibold">Правила дня</span>
+          <span className="text-[10.5px] text-[var(--text-faint)] font-mono">{rules.length}</span>
+        </div>
+        <button
+          onClick={() => (showAdd ? setShowAdd(false) : openAdd())}
+          className="ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors"
+          style={{ background: 'var(--surface-3)', border: '1px solid var(--stroke)', color: 'var(--text-dim)' }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Блок
+        </button>
+      </div>
+
+      <Reorder.Group
+        axis="y"
+        values={rules}
+        onReorder={save}
+        className="flex flex-col gap-1 px-3"
+      >
+        {rules.map((r, i) => (
+          <RuleRow
+            key={r.id}
+            rule={r}
+            range={ranges[i]}
+            dragging={dragging}
+            onDragState={setDragging}
+            edit={edit}
+            setEdit={setEdit}
+            onUpdate={update}
+            onRemove={remove}
+          />
+        ))}
+      </Reorder.Group>
+
+      {showAdd && (
+        <div ref={addRef} className="border-t border-[var(--stroke)] px-4 py-4 flex flex-col gap-4">
+          <div>
+            <div className="text-[10.5px] uppercase tracking-[0.1em] text-[var(--text-faint)] font-semibold mb-2">
+              Готовые блоки
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {Object.entries(ACTIVITIES).map(([type, a]) => {
+                const acc = ACCENTS[a.color]
+                return (
+                  <button
+                    key={type}
+                    onClick={() => openPreset(type)}
+                    className="flex flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 transition-colors"
+                    style={{
+                      background: presetType === type ? acc.bg : 'var(--surface-2)',
+                      border: `1px solid ${presetType === type ? acc.border : 'var(--stroke)'}`,
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={a.color ? acc.color : acc.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={ICON_PATHS[a.icon]} />
+                    </svg>
+                    <span className="text-[10px] font-semibold" style={{ color: acc.color }}>{a.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {presetType && (
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                {ACTIVITIES[presetType].presets.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setPresetMin(m)}
+                    className="rounded-lg px-2.5 py-1.5 text-[11.5px] font-mono transition-colors"
+                    style={
+                      presetMin === m
+                        ? { background: 'var(--focus)', color: '#131418', fontWeight: 700 }
+                        : { background: 'var(--surface-3)', color: 'var(--text-dim)' }
+                    }
+                  >
+                    {m} мин
+                  </button>
+                ))}
+                <div className="flex items-center gap-1 ml-1">
+                  <input
+                    type="number"
+                    min={1}
+                    value={presetMin}
+                    onChange={(e) => setPresetMin(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-16 rounded-lg bg-[var(--surface-3)] px-2 py-1.5 text-[11.5px] text-right outline-none border border-[var(--stroke)] font-mono"
+                  />
+                  <span className="text-[11px] text-[var(--text-faint)]">мин</span>
+                </div>
+                <button
+                  onClick={addPreset}
+                  className="ml-auto rounded-lg px-3 py-1.5 text-[11.5px] font-semibold"
+                  style={{ background: 'var(--focus)', color: '#131418' }}
+                >
+                  Добавить
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-[var(--stroke)] pt-4">
+            <div className="text-[10.5px] uppercase tracking-[0.1em] text-[var(--text-faint)] font-semibold mb-2">
+              Своё правило
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                value={custom.name}
+                onChange={(e) => setCustom({ ...custom, name: e.target.value })}
+                placeholder="Название, например «Спортзал»"
+                className="flex-1 rounded-lg bg-[var(--surface-3)] px-2.5 py-2 text-[12.5px] outline-none border border-[var(--stroke)] placeholder:text-[var(--text-faint)]"
+              />
+              <div className="flex items-center gap-1.5 rounded-lg px-2 py-2" style={{ background: 'var(--surface-3)', border: '1px solid var(--stroke)' }}>
+                {CUSTOM_ICONS.slice(0, 6).map((icon) => (
+                  <button
+                    key={icon}
+                    onClick={() => setCustom({ ...custom, icon })}
+                    className="grid size-6 place-items-center rounded-md transition-colors"
+                    style={custom.icon === icon ? { background: ACCENTS[custom.color].bg } : {}}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={custom.icon === icon ? ACCENTS[custom.color].color : 'var(--text-faint)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={ICON_PATHS[icon]} />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1.5 rounded-lg px-2 py-2" style={{ background: 'var(--surface-3)', border: '1px solid var(--stroke)' }}>
+                {COLOR_KEYS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCustom({ ...custom, color: c })}
+                    className="size-4 rounded-full transition-transform"
+                    style={{
+                      background: ACCENTS[c].dot,
+                      boxShadow: custom.color === c ? `0 0 0 2px rgba(19,20,24,1), 0 0 0 3.5px ${ACCENTS[c].color}` : 'none',
+                    }}
+                  />
+                ))}
+              </div>
               <input
                 type="number"
                 min={1}
-                value={draft.focus}
-                onChange={(e) => onDraftChange({ ...draft, focus: Number(e.target.value) })}
-                className="w-[48px] text-center text-[var(--text)] bg-[var(--surface-2)] border border-[var(--stroke)] rounded-lg px-1 py-1.5 no-spinner"
+                value={customMin}
+                onChange={(e) => setCustomMin(Math.max(1, Number(e.target.value) || 1))}
+                className="w-16 rounded-lg bg-[var(--surface-3)] px-2 py-2 text-[11.5px] text-right outline-none border border-[var(--stroke)] font-mono"
+                title="Минут"
               />
-              <span className="opacity-60">/</span>
-              <input
-                type="number"
-                min={0}
-                value={draft.rest}
-                onChange={(e) => onDraftChange({ ...draft, rest: Number(e.target.value) })}
-                className="w-[48px] text-center text-[var(--text)] bg-[var(--surface-2)] border border-[var(--stroke)] rounded-lg px-1 py-1.5 no-spinner"
-              />
-              <span className="opacity-60">мин</span>
+              <button
+                onClick={addCustom}
+                disabled={!custom.name.trim()}
+                className="rounded-lg px-3 py-2 text-[11.5px] font-semibold disabled:opacity-40"
+                style={{ background: ACCENTS[custom.color].dot, color: '#131418' }}
+              >
+                Добавить
+              </button>
             </div>
           </div>
-          <button onClick={onSave} title="Сохранить" className="btn-icon !size-8 hover:!text-[#7ee787]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 12.5l5 5L20 6.5" />
-            </svg>
-          </button>
-        </>
-      ) : (
-        <>
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-semibold text-[var(--text)]">{rule.name}</div>
-            <div className="text-[11px] font-mono text-[var(--text-faint)] mt-0.5">
-              {rule.start}–{rule.end}
-              <span className="opacity-60"> · </span>
-              <span style={{ color: a.color }}>{rule.focus}</span>
-              <span className="opacity-60"> / </span>
-              <span className="text-[var(--text-dim)]">{rule.rest}</span>
-              <span className="opacity-60"> мин</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={onStartEdit} title="Редактировать" className="btn-icon !size-8">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
-              </svg>
-            </button>
-            <button onClick={onRemove} title="Удалить" className="btn-icon !size-8 hover:!text-[var(--danger)]">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" />
-              </svg>
-            </button>
-          </div>
-        </>
+        </div>
       )}
-    </Reorder.Item>
+    </div>
   )
 }

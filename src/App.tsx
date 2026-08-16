@@ -9,6 +9,8 @@ import { GanttTimeline } from './components/GanttTimeline'
 import { RuleChips } from './components/RuleChips'
 import { Toast } from './components/Toast'
 import { useRhythm } from './hooks/useRhythm'
+import { DEFAULT_RULES, ACCENTS } from './lib/activities'
+import type { Rule } from './lib/activities'
 
 const days = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
 const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
@@ -22,7 +24,8 @@ const pageMeta: Record<Page, { title: string; desc: string }> = {
 }
 
 function App() {
-  const rhythm = useRhythm()
+  const [rules, setRules] = useState<Rule[]>(DEFAULT_RULES)
+  const rhythm = useRhythm(rules)
   const [page, setPage] = useState<Page>('today')
   const [clockStr, setClockStr] = useState('')
 
@@ -41,13 +44,10 @@ function App() {
   const meta = pageMeta[page]
 
   const todayStatus = (() => {
-    if (rhythm.cur.type === 'lunch')
-      return { label: 'Обед', color: '#bff2e6', bg: 'rgba(79,212,196,0.12)', border: 'rgba(79,212,196,0.3)' }
-    if (rhythm.resting)
-      return { label: 'Перерыв', color: '#ffd7b0', bg: 'rgba(255,157,92,0.12)', border: 'rgba(255,157,92,0.3)' }
+    const a = ACCENTS[rhythm.cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
     if (rhythm.cur.type === 'off')
       return { label: 'Вне графика', color: 'var(--text-faint)', bg: 'var(--surface-2)', border: 'var(--stroke)' }
-    return { label: 'Фокус', color: '#bcd4ff', bg: 'rgba(76,141,255,0.12)', border: 'rgba(76,141,255,0.3)' }
+    return { label: rhythm.cur.label, color: a.color, bg: a.bg, border: a.border }
   })()
 
   return (
@@ -97,7 +97,7 @@ function App() {
                   <div className="relative z-[1] min-w-0 order-1"><NextUp rhythm={rhythm} /></div>
                   <div className="relative z-[1] min-w-0 order-2"><Timeline rhythm={rhythm} /></div>
                   <div className="relative z-[1] min-w-0 order-3"><TodayTasks rhythm={rhythm} /></div>
-                  <div className="relative z-[1] min-w-0 order-4"><RuleChips /></div>
+                  <div className="relative z-[1] min-w-0 order-4"><RuleChips rules={rules} onChange={setRules} /></div>
                 </div>
               </motion.div>
             )}
