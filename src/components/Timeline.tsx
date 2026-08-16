@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { motion } from 'framer-motion'
 import { useRhythm, fmtHM } from '../hooks/useRhythm'
 
 function fmtDur(min: number): string {
@@ -306,46 +305,6 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
             {fmtHM(rhythm.nowMinutes)}
           </div>
         </div>
-
-        {(() => {
-          const { cur, nowMinutes } = rhythm
-          const cfg = cur ? segStyles[cur.type] : null
-          if (!cfg || cur.type === 'off') return null
-          const remain = Math.max(0, cur.end - nowMinutes)
-          const total = Math.max(1, cur.end - cur.start)
-          const pct = 1 - remain / total
-          return (
-            <div className="absolute left-1/2 z-10 pointer-events-none" style={{ bottom: '62px', transform: 'translateX(-50%)' }}>
-              <div
-                className="flex items-center gap-2 px-2.5 py-1 rounded-lg whitespace-nowrap"
-                style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
-              >
-                <div className="flex items-center justify-center size-5 rounded shrink-0" style={{ color: cfg.color }}>
-                  {cfg.icon}
-                </div>
-                <span className="text-[11px] font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
-                {cur.task && (
-                  <span className="text-[10px] text-[var(--text-dim)] font-medium max-w-[90px] truncate">{cur.task}</span>
-                )}
-                <span className="w-px h-3 bg-[var(--stroke)]" />
-                <span className="text-[9px] text-[var(--text-faint)] font-mono">{fmtHM(cur.start)}–{fmtHM(cur.end)}</span>
-                <span className="w-px h-3 bg-[var(--stroke)]" />
-                <motion.span
-                  key={Math.round(remain * 2)}
-                  initial={{ opacity: 0.4 }}
-                  animate={{ opacity: 1 }}
-                  className="text-[13px] font-semibold font-[var(--font-display)] tabular-nums leading-none min-w-[44px] text-right"
-                  style={{ color: cfg.color }}
-                >
-                  {fmtHM(remain)}
-                </motion.span>
-                <div className="w-[32px] h-[2px] rounded-full bg-[var(--surface-2)] overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${Math.max(2, pct * 100)}%`, background: cfg.gradient }} />
-                </div>
-              </div>
-            </div>
-          )
-        })()}
 
         {hv && (() => {
           const cfg = segStyles[hv.type]
