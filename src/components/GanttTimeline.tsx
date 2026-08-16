@@ -257,6 +257,7 @@ function MacCalendar({
   projects,
   onMonthChange,
   onPick,
+  onClear,
   hover,
   onHover,
 }: {
@@ -269,6 +270,7 @@ function MacCalendar({
   projects: Record<string, { label: string; color: string }>
   onMonthChange: (m: Date) => void
   onPick: (d: Date) => void
+  onClear: () => void
   hover: Date | null
   onHover: (d: Date | null) => void
 }) {
@@ -276,10 +278,13 @@ function MacCalendar({
   const m = month.getMonth()
   const offset = (new Date(y, m, 1).getDay() + 6) % 7
   const dim = new Date(y, m + 1, 0).getDate()
-  const cells: (Date | null)[] = []
+  const prevDim = new Date(y, m, 0).getDate()
+  const cells: { d: Date; out: boolean }[] = []
   for (let i = 0; i < 6 * 7; i++) {
-    const d = i - offset + 1
-    cells.push(d >= 1 && d <= dim ? new Date(y, m, d) : null)
+    const n = i - offset + 1
+    if (n >= 1 && n <= dim) cells.push({ d: new Date(y, m, n), out: false })
+    else if (n < 1) cells.push({ d: new Date(y, m - 1, prevDim + n), out: true })
+    else cells.push({ d: new Date(y, m + 1, n - dim), out: true })
   }
 
   const sT = start.toDate(getLocalTimeZone()).getTime()
@@ -299,11 +304,53 @@ function MacCalendar({
   const footTo = mode === 'range' && periodStage === 2 ? end.toDate(getLocalTimeZone()) : selDate
   const footCount = tasks.filter((t) => t.startDate <= footTo && t.endDate >= footFrom).length
 
+  const isTodayMonth = y === TODAY.getFullYear() && m === TODAY.getMonth()
+  const canClear =
+    (mode === 'single' && !isSameDay(selDate, TODAY)) || (mode === 'range' && periodStage > 0)
+
   const monthDir = useRef(0)
   const prevMonthKey = useRef(month.getTime())
   if (month.getTime() !== prevMonthKey.current) {
     monthDir.current = month.getTime() > prevMonthKey.current ? 1 : -1
     prevMonthKey.current = month.getTime()
+  }
+
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [focused, setFocused] = useState(false)
+  const [kb, setKb] = useState(() => new Date(y, m, 1))
+
+  useEffect(() => {
+    if (kb.getMonth() !== m || kb.getFullYear() !== y) setKb(new Date(y, m, 1))
+  }, [y, m, kb])
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      onMonthChange(new Date(y, m + (e.deltaY > 0 ? 1 : -1), 1))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [y, m, onMonthChange])
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const steps: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }
+    const step = steps[e.key]
+    if (step) {
+      e.preventDefault()
+      const nd = new Date(kb.getFullYear(), kb.getMonth(), kb.getDate() + step)
+      setKb(nd)
+      if (nd.getMonth() !== m || nd.getFullYear() !== y)
+        onMonthChange(new Date(nd.getFullYear(), nd.getMonth(), 1))
+      return
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onPick(kb)
+    } else if (e.key === 'Escape') {
+      e.currentTarget.blur()
+    }
   }
 
   const spotX = useMotionValue(50)
@@ -317,15 +364,24 @@ function MacCalendar({
   }
 
   return (
-    <div className="mac-cal-wrap">
+    <div className="mac-cal-wrap" ref={wrapRef} tabIndex={0} role="grid" aria-label="Календарь" onKeyDown={onKeyDown} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}>
       <div className="mac-cal-head">
-        <button
-          type="button"
-          className="mac-cal-today"
-          onClick={() => onMonthChange(new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))}
-        >
-          Сегодня
-        </button>
+        <div className="mac-cal-head-left">
+          <button
+            type="button"
+            className={`mac-cal-today${isTodayMonth ? ' on' : ''}`}
+            onClick={() => onMonthChange(new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))}
+          >
+            Сегодня
+          </button>
+          {canClear && (
+            <button type="button" className="mac-cal-clear" onClick={onClear} aria-label="Сбросить выбор" title="Сбросить выбор">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
         <motion.div
           key={`${y}-${m}`}
           className="mac-cal-title"
@@ -374,49 +430,73 @@ function MacCalendar({
         </div>
         <div className="mac-cal-grid" onMouseLeave={() => onHover(null)} onMouseMove={onSpotMove}>
           <div className="mac-cal-spot" style={{ background: spotBg } as unknown as React.CSSProperties} />
-          {cells.map((d, i) => {
-            if (!d) return <div key={i} className="mac-cal-day" />
+          {cells.map(({ d, out }, i) => {
             const t = d.getTime()
             const today = isSameDay(d, TODAY)
+            const weekend = d.getDay() === 0 || d.getDay() === 6
             const isStart = hasRange && t === sT
             const isEnd = finalEnd ? t === finalEnd.getTime() : false
             const isPreview = previewEnd ? t === previewEnd.getTime() : false
-            const selSingle = mode === 'single' && isSameDay(d, start.toDate(getLocalTimeZone()))
+            const selSingle = mode === 'single' && isSameDay(d, selDate)
+            const previewSingle = mode === 'single' && hover && t === hover.getTime() && !isSameDay(hover, selDate)
             const selected = isStart || isEnd || selSingle
             const inPill = hasRange && rangeEnd && t >= lo && t <= hi
             const hasPill = inPill && !(lo === hi && t === lo)
             const dayTasks = dayTasksFor(d)
+            const isHovered = hover !== null && isSameDay(hover, d)
+            const kbHere = focused && isSameDay(kb, d)
             return (
               <motion.button
                 key={i}
                 variants={MAC_CELL_VARIANTS}
                 type="button"
+                tabIndex={-1}
                 className="mac-cal-day"
-                onClick={() => onPick(d)}
+                onClick={() => {
+                  if (out) onMonthChange(new Date(d.getFullYear(), d.getMonth(), 1))
+                  onPick(d)
+                  wrapRef.current?.focus({ preventScroll: true })
+                }}
                 onMouseEnter={() => onHover(d)}
               >
                 {hasPill && (
                   <span
-                    key={periodStage}
+                    key={previewEnd ? `p${previewEnd.getTime()}` : `f${periodStage}`}
                     className={`mac-cal-bar${previewEnd ? ' prev' : ''}`}
-                    style={previewEnd ? undefined : { animationDelay: `${Math.min(280, ((t - lo) / 86400000) * 20)}ms` }}
+                    style={{ animationDelay: `${Math.min(280, ((t - lo) / 86400000) * 20)}ms` }}
                   />
                 )}
                 <span
-                  className={`mac-cal-num${selected ? ' sel' : ''}${isPreview ? ' preview' : ''}${today ? ' today' : ''}`}
+                  className={`mac-cal-num${selected ? ' sel' : ''}${isPreview || previewSingle ? ' preview' : ''}${today ? ' today' : ''}${out ? ' out' : ''}${weekend ? ' we' : ''}${kbHere ? ' kb' : ''}`}
                 >
                   {d.getDate()}
                 </span>
                 {selected && <span className="mac-cal-ripple" />}
                 {dayTasks.length > 0 && (
                   <span className={`mac-cal-dots${selected ? ' on-sel' : ''}${today && !selected ? ' on-today' : ''}`}>
-                    {dayTasks.slice(0, 3).map((tk) => (
+                    {dayTasks.slice(0, 3).map((tk, di) => (
                       <span
                         key={tk.id}
                         className="mac-cal-dot"
-                        style={selected || today ? undefined : { background: taskColor(tk) }}
+                        style={selected || today ? undefined : { background: taskColor(tk), animationDelay: `${di * 70}ms` }}
                       />
                     ))}
+                    {dayTasks.length > 3 && (
+                      <span className={`mac-cal-dots-more${selected ? ' on-sel' : ''}${today && !selected ? ' on-today' : ''}`}>
+                        +{dayTasks.length - 3}
+                      </span>
+                    )}
+                  </span>
+                )}
+                {isHovered && dayTasks.length > 0 && (
+                  <span className={`mac-cal-tip${i < 14 ? ' down' : ''}`}>
+                    {dayTasks.slice(0, 4).map((tk) => (
+                      <span key={tk.id} className="mac-cal-tip-row">
+                        <span className="mac-cal-tip-dot" style={{ background: taskColor(tk) }} />
+                        <span className="mac-cal-tip-title">{tk.title}</span>
+                      </span>
+                    ))}
+                    {dayTasks.length > 4 && <span className="mac-cal-tip-more">и ещё {dayTasks.length - 4}</span>}
                   </span>
                 )}
               </motion.button>
@@ -557,6 +637,16 @@ function AddTaskModal({
     if (d.getTime() < date.toDate(getLocalTimeZone()).getTime()) setDate(date.set(day))
     else setEndDate(endDate.set(day))
     setPeriodStage(2)
+  }
+
+  const clearSelection = () => {
+    if (!date || !endDate) return
+    const day = { year: TODAY.getFullYear(), month: TODAY.getMonth() + 1, day: TODAY.getDate() }
+    setDate(date.set(day))
+    setEndDate(endDate.set(day))
+    setPeriodStage(0)
+    setCalMonth(new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))
+    setCalHover(null)
   }
 
   const setPeriod = (v: boolean) => {
@@ -938,6 +1028,7 @@ function AddTaskModal({
                       projects={projects}
                       onMonthChange={setCalMonth}
                       onPick={pickDay}
+                      onClear={clearSelection}
                       hover={calHover}
                       onHover={setCalHover}
                     />
