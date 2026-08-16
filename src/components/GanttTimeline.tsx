@@ -144,8 +144,12 @@ function pluralTasks(n: number) {
 }
 
 const ADD_MODAL_VARIANTS = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.35, delayChildren: 0.28, staggerChildren: 0.07 } },
+  hidden: { opacity: 0, scale: 0.92 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    transition: { type: 'spring' as const, stiffness: 260, damping: 26, delayChildren: 0.18, staggerChildren: 0.07 },
+  },
 }
 
 const ADD_MODAL_ITEM = {
@@ -820,12 +824,10 @@ function AddTaskModal({
             onClick={onClose}
           />
           <motion.div
-            layoutId="add-modal"
             variants={ADD_MODAL_VARIANTS}
             initial="hidden"
             animate="show"
             exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-            transition={{ type: 'spring', stiffness: 250, damping: 30 }}
             className="absolute inset-0 flex items-center justify-center p-5 overflow-y-auto"
           >
             <div
@@ -1808,7 +1810,7 @@ export function GanttTimeline() {
           </motion.button>
           <NavBtn dir="next" onClick={goNext} />
           <motion.button
-            layoutId="add-modal"
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.94 }}
             onClick={openAdd}
             title="Добавить задачу"
