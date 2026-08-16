@@ -409,9 +409,13 @@ function MacCalendar({
                 </span>
                 {selected && <span className="mac-cal-ripple" />}
                 {dayTasks.length > 0 && (
-                  <span className="mac-cal-dots">
+                  <span className={`mac-cal-dots${selected ? ' on-sel' : ''}${today && !selected ? ' on-today' : ''}`}>
                     {dayTasks.slice(0, 3).map((tk) => (
-                      <span key={tk.id} className="mac-cal-dot" style={{ background: taskColor(tk) }} />
+                      <span
+                        key={tk.id}
+                        className="mac-cal-dot"
+                        style={selected || today ? undefined : { background: taskColor(tk) }}
+                      />
                     ))}
                   </span>
                 )}

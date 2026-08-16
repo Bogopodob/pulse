@@ -616,7 +616,7 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 40px;
+  height: 42px;
   border: none;
   background: transparent;
   padding: 0;
@@ -641,13 +641,13 @@ body::before {
 .mac-cal-num {
   position: relative;
   z-index: 1;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   color: rgba(245, 245, 247, 0.78);
   transition: background 140ms, color 140ms, transform 140ms, box-shadow 140ms;
@@ -706,11 +706,11 @@ body::before {
 
 .mac-cal-dots {
   position: absolute;
-  bottom: 4px;
+  bottom: 3px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 2.5px;
+  gap: 3px;
   z-index: 2;
   pointer-events: none;
 }
@@ -720,6 +720,16 @@ body::before {
   height: 4px;
   border-radius: 50%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+.mac-cal-dots.on-today .mac-cal-dot {
+  background: #ff453a;
+  box-shadow: 0 0 0 1px rgba(255, 69, 58, 0.25);
+}
+
+.mac-cal-dots.on-sel .mac-cal-dot {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .mac-cal-day:active .mac-cal-num { transform: scale(0.85); }
