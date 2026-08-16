@@ -1,4 +1,4 @@
-import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react'
+import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo, memo } from 'react'
 import { motion, AnimatePresence, useMotionValue, useMotionTemplate } from 'framer-motion'
 import { Dropdown } from '@heroui/react/dropdown'
 import { CalendarDateTime, getLocalTimeZone } from '@internationalized/date'
@@ -153,12 +153,14 @@ const ADD_MODAL_ITEM = {
   show: { opacity: 1, y: 0, transition: { duration: 0.42, ease: 'easeOut' as const } },
 }
 
+const EASE: [number, number, number, number] = [0.22, 0.8, 0.28, 1]
+
 const MAC_GRID_VARIANTS = {
   hidden: (dir: number) => ({ opacity: 0, x: dir * 34 }),
   show: {
     opacity: 1,
     x: 0,
-    transition: { type: 'spring' as const, stiffness: 320, damping: 30, staggerChildren: 0.011, delayChildren: 0.04 },
+    transition: { duration: 0.34, ease: EASE, staggerChildren: 0.011, delayChildren: 0.04 },
   },
 }
 
@@ -168,7 +170,7 @@ const MAC_CELL_VARIANTS = {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { type: 'spring' as const, stiffness: 480, damping: 26 },
+    transition: { duration: 0.26, ease: EASE },
   },
 }
 
@@ -179,7 +181,9 @@ const WHEEL_VISIBLE = 5
 const HOURS = Array.from({ length: 24 }, (_, h) => h)
 const MINUTES = Array.from({ length: 60 }, (_, m) => m)
 
-function TimeWheel({ options, value, onChange }: { options: number[]; value: number; onChange: (v: number) => void }) {
+const EMPTY_TASKS: GanttTaskEx[] = []
+
+const TimeWheel = memo(function TimeWheel({ options, value, onChange }: { options: number[]; value: number; onChange: (v: number) => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const lastEmitted = useRef(value)
 
@@ -230,7 +234,7 @@ function TimeWheel({ options, value, onChange }: { options: number[]; value: num
       <div className="mac-wheel-bar" />
     </div>
   )
-}
+})
 
 function fmtRange(a: Date, b: Date) {
   const f = (d: Date) => `${d.getDate()} ${MONTHS_RU[d.getMonth()]}`
@@ -247,7 +251,7 @@ const PRESETS: { key: PresetKey; label: string }[] = [
   { key: 'month', label: 'Месяц' },
 ]
 
-function MacCalendar({
+const MacCalendar = memo(function MacCalendar({
   mode,
   start,
   end,
@@ -258,8 +262,6 @@ function MacCalendar({
   onMonthChange,
   onPick,
   onClear,
-  hover,
-  onHover,
 }: {
   mode: 'single' | 'range'
   start: CalendarDateTime
@@ -271,8 +273,6 @@ function MacCalendar({
   onMonthChange: (m: Date) => void
   onPick: (d: Date) => void
   onClear: () => void
-  hover: Date | null
-  onHover: (d: Date | null) => void
 }) {
   const y = month.getFullYear()
   const m = month.getMonth()
@@ -287,6 +287,8 @@ function MacCalendar({
     else cells.push({ d: new Date(y, m + 1, n - dim), out: true })
   }
 
+  const [hover, setHover] = useState<Date | null>(null)
+
   const sT = start.toDate(getLocalTimeZone()).getTime()
   const hasRange = mode === 'range' && periodStage >= 1
   const previewEnd = mode === 'range' && periodStage === 1 && hover && hover.getTime() !== sT ? hover : null
@@ -297,7 +299,22 @@ function MacCalendar({
 
   const taskColor = (t: GanttTaskEx) => (t.tags[0] ? projects[t.tags[0]]?.color : undefined) ?? 'rgba(255,255,255,0.45)'
 
-  const dayTasksFor = (d: Date) => tasks.filter((t) => d >= t.startDate && d <= t.endDate)
+  const tasksByDay = useMemo(() => {
+    const map = new Map<number, GanttTaskEx[]>()
+    for (const t of tasks) {
+      const d0 = new Date(t.startDate.getFullYear(), t.startDate.getMonth(), t.startDate.getDate())
+      const d1 = new Date(t.endDate.getFullYear(), t.endDate.getMonth(), t.endDate.getDate())
+      for (const d = new Date(d0); d <= d1; d.setDate(d.getDate() + 1)) {
+        const k = d.getTime()
+        const arr = map.get(k)
+        if (arr) arr.push(t)
+        else map.set(k, [t])
+      }
+    }
+    return map
+  }, [tasks])
+
+  const dayTasksFor = (d: Date) => tasksByDay.get(d.getTime()) ?? EMPTY_TASKS
 
   const selDate = start.toDate(getLocalTimeZone())
   const footFrom = selDate
@@ -357,11 +374,34 @@ function MacCalendar({
   const spotY = useMotionValue(50)
   const spotBg = useMotionTemplate`radial-gradient(150px circle at ${spotX}% ${spotY}%, rgba(10,132,255,0.14), transparent 70%)`
 
+  const spotRaf = useRef(0)
+  const spotLatest = useRef({ x: 50, y: 50 })
+
+  useEffect(() => () => cancelAnimationFrame(spotRaf.current), [])
+
   const onSpotMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
-    spotX.set(((e.clientX - r.left) / r.width) * 100)
-    spotY.set(((e.clientY - r.top) / r.height) * 100)
+    spotLatest.current = {
+      x: ((e.clientX - r.left) / r.width) * 100,
+      y: ((e.clientY - r.top) / r.height) * 100,
+    }
+    if (spotRaf.current) return
+    spotRaf.current = requestAnimationFrame(() => {
+      spotRaf.current = 0
+      spotX.set(spotLatest.current.x)
+      spotY.set(spotLatest.current.y)
+    })
   }
+
+  const prevMonth = useRef(month.getTime())
+
+  useLayoutEffect(() => {
+    if (prevMonth.current !== month.getTime()) {
+      prevMonth.current = month.getTime()
+      setHover(null)
+      setFocused(false)
+    }
+  }, [month])
 
   return (
     <div className="mac-cal-wrap" ref={wrapRef} tabIndex={0} role="grid" aria-label="Календарь" onKeyDown={onKeyDown} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}>
@@ -428,7 +468,7 @@ function MacCalendar({
             </div>
           ))}
         </div>
-        <div className="mac-cal-grid" onMouseLeave={() => onHover(null)} onMouseMove={onSpotMove}>
+        <div className="mac-cal-grid" onMouseLeave={() => setHover(null)} onMouseMove={onSpotMove}>
           <div className="mac-cal-spot" style={{ background: spotBg } as unknown as React.CSSProperties} />
           {cells.map(({ d, out }, i) => {
             const t = d.getTime()
@@ -457,7 +497,7 @@ function MacCalendar({
                   onPick(d)
                   wrapRef.current?.focus({ preventScroll: true })
                 }}
-                onMouseEnter={() => onHover(d)}
+                onMouseEnter={() => setHover(d)}
               >
                 {hasPill && (
                   <span
@@ -527,7 +567,7 @@ function MacCalendar({
       </div>
     </div>
   )
-}
+})
 
 type AddTaskData = {
   title: string
@@ -566,7 +606,6 @@ function AddTaskModal({
   const [newProjOpen, setNewProjOpen] = useState(false)
   const [newProjName, setNewProjName] = useState('')
   const [calMonth, setCalMonth] = useState<Date>(() => new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))
-  const [calHover, setCalHover] = useState<Date | null>(null)
   const wasOpen = useRef(false)
   const pickerWrapRef = useRef<HTMLDivElement>(null)
 
@@ -589,7 +628,6 @@ function AddTaskModal({
       setNewProjOpen(false)
       setNewProjName('')
       setCalMonth(new Date(initialDay.getFullYear(), initialDay.getMonth(), 1))
-      setCalHover(null)
     }
     if (!open) wasOpen.current = false
   }, [open, initialDay])
@@ -615,12 +653,34 @@ function AddTaskModal({
     return () => document.removeEventListener('mousedown', onDown)
   }, [picker])
 
-  const setTime = (side: 'start' | 'end', part: { hour?: number; minute?: number }) => {
-    if (side === 'start') setDate((d) => (d ? d.set(part) : d))
-    else setEndDate((d) => (d ? d.set(part) : d))
-  }
+  const setTime = useCallback(
+    (side: 'start' | 'end', part: { hour?: number; minute?: number }) => {
+      if (!date || !endDate) return
+      const sameDay = date.year === endDate.year && date.month === endDate.month && date.day === endDate.day
+      if (side === 'start') {
+        const ns = date.set(part)
+        setDate(ns)
+        const sm = ns.hour * 60 + ns.minute
+        const em = endDate.hour * 60 + endDate.minute
+        setEndDate(sameDay && em < sm ? endDate.set({ hour: ns.hour, minute: ns.minute }) : endDate)
+      } else {
+        const ne = endDate.set(part)
+        const sm = date.hour * 60 + date.minute
+        const em = ne.hour * 60 + ne.minute
+        setEndDate(sameDay && em < sm ? endDate.set({ hour: date.hour, minute: date.minute }) : ne)
+      }
+    },
+    [date, endDate],
+  )
 
-  const pickDay = (d: Date) => {
+  const onPickerHour = useCallback((h: number) => {
+    if (picker) setTime(picker, { hour: h })
+  }, [picker, setTime])
+  const onPickerMinute = useCallback((mi: number) => {
+    if (picker) setTime(picker, { minute: mi })
+  }, [picker, setTime])
+
+  const pickDay = useCallback((d: Date) => {
     if (!date || !endDate) return
     const day = { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }
     if (!usePeriod) {
@@ -637,17 +697,15 @@ function AddTaskModal({
     if (d.getTime() < date.toDate(getLocalTimeZone()).getTime()) setDate(date.set(day))
     else setEndDate(endDate.set(day))
     setPeriodStage(2)
-  }
+  }, [date, endDate, usePeriod, periodStage])
 
-  const clearSelection = () => {
-    if (!date || !endDate) return
+  const clearSelection = useCallback(() => {
     const day = { year: TODAY.getFullYear(), month: TODAY.getMonth() + 1, day: TODAY.getDate() }
-    setDate(date.set(day))
-    setEndDate(endDate.set(day))
+    setDate((d) => (d ? d.set(day) : d))
+    setEndDate((d) => (d ? d.set(day) : d))
     setPeriodStage(0)
     setCalMonth(new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))
-    setCalHover(null)
-  }
+  }, [])
 
   const setPeriod = (v: boolean) => {
     setUsePeriod(v)
@@ -968,10 +1026,10 @@ function AddTaskModal({
                               onClick={() => setPicker(picker === 'start' ? null : 'start')}
                               className={`mac-time-pill${picker === 'start' ? ' on' : ''}`}
                             >
-                              {usePeriod && <span className="mac-time-label">с</span>}
+                              <span className="mac-time-label">с</span>
                               {fmtExact(date.hour * 60 + date.minute)}
                             </button>
-                            {usePeriod && endDate && (
+                            {endDate && (
                               <>
                                 <span className="mac-time-arrow">—</span>
                                 <button
@@ -998,13 +1056,13 @@ function AddTaskModal({
                                 <TimeWheel
                                   options={HOURS}
                                   value={(picker === 'start' ? date : endDate!).hour}
-                                  onChange={(h) => setTime(picker, { hour: h })}
+                                  onChange={onPickerHour}
                                 />
                                 <span className="text-[20px] font-bold text-[rgba(245,245,247,0.35)]">:</span>
                                 <TimeWheel
                                   options={MINUTES}
                                   value={(picker === 'start' ? date : endDate!).minute}
-                                  onChange={(m) => setTime(picker, { minute: m })}
+                                  onChange={onPickerMinute}
                                 />
                                 <button type="button" onClick={() => setPicker(null)} className="mac-picker-done">
                                   Готово
@@ -1029,8 +1087,6 @@ function AddTaskModal({
                       onMonthChange={setCalMonth}
                       onPick={pickDay}
                       onClear={clearSelection}
-                      hover={calHover}
-                      onHover={setCalHover}
                     />
                   )}
                 </div>
@@ -1076,7 +1132,7 @@ function AddTaskModal({
                           if (e.key === 'Escape') setNewProjOpen(false)
                         }}
                         placeholder="Название проекта"
-                        className="input-base w-[110px] text-[10px] font-semibold"
+                        className="input-base w-[200px] text-[10px] font-semibold"
                       />
                       <div className="flex items-center gap-1">
                         {TAG_PALETTE.map((c) => (
