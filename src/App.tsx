@@ -66,12 +66,8 @@ function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25 }}
-                className="max-w-3xl mx-auto w-full space-y-5 relative"
+                className="max-w-5xl mx-auto w-full"
               >
-                <div className="absolute inset-0 overflow-hidden rounded-[24px] pointer-events-none" aria-hidden="true">
-                  <div className="aurora-blob a1" />
-                  <div className="aurora-blob a2" />
-                </div>
                 <div className="relative flex items-end justify-between">
                   <div>
                     <h1 className="font-[var(--font-display)] text-[24px] font-semibold tracking-[-0.02em]">{meta.title}</h1>
@@ -93,10 +89,16 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <NextUp rhythm={rhythm} />
-                <Timeline rhythm={rhythm} />
-                <TodayTasks rhythm={rhythm} />
-                <RuleChips />
+                <div className="relative grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-5 items-stretch mt-5">
+                  <div className="absolute inset-0 overflow-hidden rounded-[24px] pointer-events-none" aria-hidden="true">
+                    <div className="aurora-blob a1" />
+                    <div className="aurora-blob a2" />
+                  </div>
+                  <div className="relative z-[1] min-w-0 order-1"><NextUp rhythm={rhythm} /></div>
+                  <div className="relative z-[1] min-w-0 order-2"><Timeline rhythm={rhythm} /></div>
+                  <div className="relative z-[1] min-w-0 order-3"><TodayTasks rhythm={rhythm} /></div>
+                  <div className="relative z-[1] min-w-0 order-4"><RuleChips /></div>
+                </div>
               </motion.div>
             )}
 

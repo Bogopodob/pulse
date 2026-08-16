@@ -364,6 +364,30 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         })()}
       </div>
 
+      <div className="px-6 pt-1 pb-3">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)] font-semibold shrink-0">Карта дня</span>
+          <div className="flex-1 h-[12px] rounded-full overflow-hidden flex gap-px">
+            {segments.map((s) => {
+              const c = s.type === 'focus' ? 'linear-gradient(180deg, var(--focus-2), var(--focus))'
+                : s.type === 'rest' ? 'linear-gradient(180deg, var(--rest-2), var(--rest))'
+                : s.type === 'lunch' ? 'linear-gradient(180deg, var(--lunch-2), var(--lunch))'
+                : 'var(--off)'
+              return (
+                <button
+                  key={s.start}
+                  onClick={() => animateTo(s.start + 1)}
+                  title={`${fmtHM(s.start)} — ${segStyles[s.type].label}`}
+                  className="h-full cursor-pointer transition-[filter] hover:brightness-125"
+                  style={{ flex: s.end - s.start, background: c, opacity: s.type === 'off' ? 0.3 : 1 }}
+                />
+              )
+            })}
+          </div>
+          <span className="text-[10px] font-mono text-[var(--text-faint)] shrink-0">24:00</span>
+        </div>
+      </div>
+
       <div className="flex items-center gap-5 px-6 py-3 border-t border-[var(--stroke)]">
         {[
           { key: 'focus', label: 'Фокус', color: 'var(--focus)' },
