@@ -267,12 +267,11 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         <div className="absolute top-[22px] bottom-[56px] left-1/2 w-[2px] z-5 pointer-events-none"
           style={{
             background: 'linear-gradient(180deg, transparent, #fff 15%, #fff 85%, transparent)',
-            boxShadow: '0 0 12px rgba(255,255,255,0.6)',
           }}
         >
           <div
             ref={playheadTimeRef}
-            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full font-mono text-[12px] text-white bg-[var(--surface-3)] border border-[var(--stroke)] px-2 py-0.5 rounded-md whitespace-nowrap -mt-2"
+            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[6] font-mono text-[12px] text-white bg-[var(--surface-3)] border border-[var(--stroke)] px-2 py-0.5 rounded-md whitespace-nowrap"
           >
             {fmtHM(rhythm.nowMinutes)}
           </div>
