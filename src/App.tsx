@@ -4,6 +4,7 @@ import { TitleBar } from './components/TitleBar'
 import { Sidebar } from './components/Sidebar'
 import { NextUp } from './components/NextUp'
 import { Timeline } from './components/Timeline'
+import { TodayTasks } from './components/TodayTasks'
 import { GanttTimeline } from './components/GanttTimeline'
 import { RuleChips } from './components/RuleChips'
 import { Toast } from './components/Toast'
@@ -39,6 +40,16 @@ function App() {
 
   const meta = pageMeta[page]
 
+  const todayStatus = (() => {
+    if (rhythm.cur.type === 'lunch')
+      return { label: 'Обед', color: '#bff2e6', bg: 'rgba(79,212,196,0.12)', border: 'rgba(79,212,196,0.3)' }
+    if (rhythm.resting)
+      return { label: 'Перерыв', color: '#ffd7b0', bg: 'rgba(255,157,92,0.12)', border: 'rgba(255,157,92,0.3)' }
+    if (rhythm.cur.type === 'off')
+      return { label: 'Вне графика', color: 'var(--text-faint)', bg: 'var(--surface-2)', border: 'var(--stroke)' }
+    return { label: 'Фокус', color: '#bcd4ff', bg: 'rgba(76,141,255,0.12)', border: 'rgba(76,141,255,0.3)' }
+  })()
+
   return (
     <div className="h-dvh w-screen flex flex-col">
       <TitleBar status={rhythm.resting ? 'rest' : rhythm.cur.type === 'off' ? 'idle' : 'focus'} />
@@ -55,19 +66,36 @@ function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25 }}
-                className="max-w-3xl mx-auto w-full space-y-5"
+                className="max-w-3xl mx-auto w-full space-y-5 relative"
               >
-                <div className="flex items-end justify-between">
+                <div className="absolute inset-0 overflow-hidden rounded-[24px] pointer-events-none" aria-hidden="true">
+                  <div className="aurora-blob a1" />
+                  <div className="aurora-blob a2" />
+                </div>
+                <div className="relative flex items-end justify-between">
                   <div>
                     <h1 className="font-[var(--font-display)] text-[24px] font-semibold tracking-[-0.02em]">{meta.title}</h1>
                     <p className="text-[13px] text-[var(--text-dim)] mt-1">{meta.desc}</p>
                   </div>
-                  <div className="text-[12px] text-[var(--text-dim)] bg-[var(--surface)] border border-[var(--stroke)] px-3 py-1.5 rounded-full tabular-nums">
-                    {clockStr}
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-full"
+                      style={{ background: todayStatus.bg, border: `1px solid ${todayStatus.border}`, color: todayStatus.color }}
+                    >
+                      <span
+                        className="size-[6px] rounded-full"
+                        style={{ background: todayStatus.color, boxShadow: `0 0 7px ${todayStatus.color}`, animation: 'nu-glow-pulse 3.2s ease-in-out infinite' }}
+                      />
+                      {todayStatus.label}
+                    </div>
+                    <div className="text-[12px] text-[var(--text-dim)] bg-[var(--surface)] border border-[var(--stroke)] px-3 py-1.5 rounded-full tabular-nums">
+                      {clockStr}
+                    </div>
                   </div>
                 </div>
                 <NextUp rhythm={rhythm} />
                 <Timeline rhythm={rhythm} />
+                <TodayTasks rhythm={rhythm} />
                 <RuleChips />
               </motion.div>
             )}

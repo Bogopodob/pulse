@@ -909,3 +909,68 @@ body::before {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  filter: blur(80px);
+  opacity: 0.35;
+}
+
+.aurora-blob.a1 {
+  width: 420px;
+  height: 420px;
+  left: -120px;
+  top: -80px;
+  background: radial-gradient(circle at 30% 30%, rgba(76, 141, 255, 0.55), transparent 70%);
+  animation: aurora-drift-1 26s ease-in-out infinite;
+}
+
+.aurora-blob.a2 {
+  width: 380px;
+  height: 380px;
+  right: -140px;
+  bottom: -100px;
+  background: radial-gradient(circle at 60% 60%, rgba(124, 107, 255, 0.5), transparent 70%);
+  animation: aurora-drift-2 32s ease-in-out infinite;
+}
+
+@keyframes aurora-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, 30px) scale(1.08); }
+}
+
+@keyframes aurora-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1.05); }
+  50% { transform: translate(-30px, -25px) scale(0.96); }
+}
+
+.nu-ring-glow {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(76, 141, 255, 0.24), transparent 70%);
+  filter: blur(2px);
+  pointer-events: none;
+  animation: nu-glow-pulse 3.2s ease-in-out infinite;
+}
+
+.nu-ring-glow.rest {
+  background: radial-gradient(circle, rgba(255, 157, 92, 0.24), transparent 70%);
+}
+
+@keyframes nu-glow-pulse {
+  0%, 100% { transform: scale(0.93); opacity: 0.6; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+.card-lift {
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.card-lift:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+}

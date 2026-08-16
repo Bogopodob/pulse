@@ -6,7 +6,7 @@ export function RuleChips() {
   ]
 
   return (
-    <div className="flex gap-2.5 flex-wrap">
+    <div className="flex gap-2.5 flex-wrap relative z-[1]">
       {rules.map((rule) => (
         <div
           key={rule.name}

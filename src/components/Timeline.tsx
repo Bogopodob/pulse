@@ -1,11 +1,18 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useRhythm, fmtHM } from '../hooks/useRhythm'
+
+function fmtDur(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = Math.round(min % 60)
+  return m === 0 ? `${h} ч` : `${h} ч ${m} мин`
+}
 
 export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [showJump, setShowJump] = useState(false)
+  const [hv, setHv] = useState<{ x: number; min: number; type: string } | null>(null)
   const velocityRef = useRef(0)
   const offsetRef = useRef(0)
   const rafRef = useRef(0)
@@ -22,6 +29,12 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const bars = rhythm.buildBars()
   const totalBars = bars.length
   const rowWidth = totalBars * PITCH
+
+  const totals = useMemo(() => {
+    const t: Record<string, number> = { focus: 0, rest: 0, lunch: 0 }
+    for (const s of segments) if (s.type in t) t[s.type] += s.end - s.start
+    return t
+  }, [segments])
 
   const homeOffsetPx = ((rhythm.nowMinutes - DAY_START) / STEP_MIN) * PITCH
 
@@ -103,24 +116,37 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
 
-  const handleJumpNow = () => {
+  const animateTo = useCallback((min: number) => {
+    const target = (min - rhythm.nowMinutes) / STEP_MIN * PITCH
     const onDone = () => {
-      if (barsRef.current) barsRef.current.style.transition = 'none'
-      if (lensRef.current) lensRef.current.style.transition = 'none'
-      if (markersRef.current) markersRef.current.style.transition = 'none'
-      if (rulerRef.current) rulerRef.current.style.transition = 'none'
+      ;[barsRef, lensRef, markersRef, rulerRef].forEach((ref) => {
+        if (ref.current) ref.current.style.transition = 'none'
+      })
     }
     ;[barsRef, lensRef, markersRef, rulerRef].forEach((ref) => {
       if (ref.current) ref.current.style.transition = 'transform 0.6s cubic-bezier(0.2,0.9,0.25,1)'
     })
-    offsetRef.current = 0
+    offsetRef.current = target
     velocityRef.current = 0
     applyTransform()
     setTimeout(onDone, 620)
+  }, [applyTransform, rhythm.nowMinutes, STEP_MIN, PITCH])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const min = (e as CustomEvent<{ min: number }>).detail?.min
+      if (typeof min === 'number') animateTo(min)
+    }
+    window.addEventListener('rhythm:go-to', handler)
+    return () => window.removeEventListener('rhythm:go-to', handler)
+  }, [animateTo])
+
+  const handleJumpNow = () => {
+    animateTo(rhythm.nowMinutes)
   }
 
   return (
-    <div className="card p-0 overflow-hidden">
+    <div className="card card-lift relative z-[1] p-0 overflow-hidden">
       <div className="flex items-center justify-between px-6 pt-5 pb-1">
         <h3 className="font-[var(--font-display)] text-[15.5px] font-semibold">Ритм дня</h3>
         <div className="flex items-center gap-2.5">
@@ -155,12 +181,32 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         onMouseUp={() => {
           if (viewportRef.current) viewportRef.current.style.cursor = 'grab'
         }}
+        onMouseMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const relX = e.clientX - rect.left
+          const min = DAY_START + (relX + offsetRef.current) / PITCH * STEP_MIN
+          const s = segments.find((sg) => min >= sg.start && min < sg.end) ?? segments[segments.length - 1]
+          setHv({ x: relX, min, type: s.type })
+        }}
+        onMouseLeave={() => setHv(null)}
       >
         <div className="absolute inset-0 pointer-events-none z-[6]"
           style={{
             background: 'linear-gradient(90deg, var(--surface) 0%, transparent 120px, transparent calc(100% - 120px), var(--surface) 100%)',
           }}
         />
+
+        {(() => {
+          const t = rhythm.cur.type
+          if (t === 'off') return null
+          const c = t === 'rest' ? '255,157,92' : t === 'lunch' ? '79,212,196' : '76,141,255'
+          return (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 top-[30px] bottom-[62px] w-[320px] pointer-events-none rounded-full"
+              style={{ background: `radial-gradient(ellipse at center, rgba(${c},0.14), transparent 70%)`, filter: 'blur(28px)' }}
+            />
+          )
+        })()}
 
         <div ref={barsRef} className="absolute left-0 top-[30px] bottom-[62px] flex items-end will-change-transform" style={{ width: rowWidth, transformStyle: 'preserve-3d' }}>
           {bars.map((bar, i) => (
@@ -300,8 +346,40 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
             </div>
           )
         })()}
+
+        {hv && (() => {
+          const cfg = segStyles[hv.type]
+          return (
+            <div className="absolute z-[8] pointer-events-none" style={{ left: hv.x, top: 26, transform: 'translateX(-50%)' }}>
+              <div
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md whitespace-nowrap"
+                style={{ background: 'var(--surface-3)', border: '1px solid var(--stroke)', boxShadow: '0 6px 18px rgba(0,0,0,0.4)' }}
+              >
+                <span style={{ color: cfg.color }}>{cfg.icon}</span>
+                <span className="text-[10.5px] font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
+                <span className="text-[10px] text-[var(--text-dim)] font-mono">{fmtHM(hv.min)}</span>
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
+      <div className="flex items-center gap-5 px-6 py-3 border-t border-[var(--stroke)]">
+        {[
+          { key: 'focus', label: 'Фокус', color: 'var(--focus)' },
+          { key: 'rest', label: 'Перерывы', color: 'var(--rest)' },
+          { key: 'lunch', label: 'Обед', color: 'var(--lunch)' },
+        ].map((c) => (
+          <div key={c.key} className="flex items-center gap-1.5">
+            <span className="size-[6px] rounded-full" style={{ background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
+            <span className="text-[10.5px] text-[var(--text-faint)] font-medium">{c.label}</span>
+            <span className="text-[10.5px] font-semibold font-mono tabular-nums" style={{ color: c.color }}>{fmtDur(totals[c.key])}</span>
+          </div>
+        ))}
+        <div className="ml-auto flex items-center gap-1.5 text-[10.5px] text-[var(--text-faint)] font-mono">
+          {fmtHM(DAY_START)}–{fmtHM(DAY_END)}
+        </div>
+      </div>
     </div>
   )
 }
