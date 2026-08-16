@@ -1,6 +1,7 @@
 import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Dropdown } from '@heroui/react/dropdown'
+import { CalendarDateTime, getLocalTimeZone } from '@internationalized/date'
 import type { GanttTask } from '../types'
 
 const BASE_HOUR_W = 160
@@ -25,6 +26,10 @@ const MINI_H = 28
 
 const DAYS_RU = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
 const MONTHS_RU = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+const MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
+const WEEKDAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+const WEEKDAYS_FULL = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']
 
 type ProjectKey = 'report' | 'sales' | 'design' | 'backend' | 'research' | 'ritual'
 
@@ -122,6 +127,14 @@ function fmtExact(m: number) {
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
 }
 
+function pluralDays(n: number) {
+  const m10 = n % 10
+  const m100 = n % 100
+  if (m10 === 1 && m100 !== 11) return `${n} день`
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return `${n} дня`
+  return `${n} дней`
+}
+
 const ADD_MODAL_VARIANTS = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { duration: 0.35, delayChildren: 0.28, staggerChildren: 0.07 } },
@@ -132,195 +145,62 @@ const ADD_MODAL_ITEM = {
   show: { opacity: 1, y: 0, transition: { duration: 0.42, ease: 'easeOut' as const } },
 }
 
-const WHEEL_ITEM_H = 36
-const WHEEL_VISIBLE = 5
-const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 const TAG_PALETTE = ['#ff4d4d', '#ff9d5c', '#4fd4c4', '#4c8dff', '#a78bfa', '#ffd43b', '#69db7c', '#f783ac']
 
-function TimeWheel({
-  options,
-  value,
-  onChange,
-  suffix,
-}: {
-  options: number[]
-  value: number
-  onChange: (v: number) => void
-  suffix: string
-}) {
+const WHEEL_ITEM_H = 40
+const WHEEL_VISIBLE = 5
+const HOURS = Array.from({ length: 24 }, (_, h) => h)
+const MINUTES = Array.from({ length: 60 }, (_, m) => m)
+
+function TimeWheel({ options, value, onChange }: { options: number[]; value: number; onChange: (v: number) => void }) {
   const ref = useRef<HTMLDivElement>(null)
-  const valRef = useRef(value)
-  const centeredRef2 = useRef(false)
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null)
-  valRef.current = value
+  const lastEmitted = useRef(value)
 
   useEffect(() => {
     const el = ref.current
-    if (!el || centeredRef2.current) return
+    if (!el) return
     const idx = options.indexOf(value)
     if (idx < 0) return
-    centeredRef2.current = true
-    const target = idx * WHEEL_ITEM_H
-    const center = (attempt: number) => {
-      if (attempt > 40) return
-      const max = el.scrollHeight - el.clientHeight
-      if (max < target) {
-        requestAnimationFrame(() => center(attempt + 1))
-        return
-      }
-      el.scrollTop = target
+    if (Math.abs(el.scrollTop - idx * WHEEL_ITEM_H) > WHEEL_ITEM_H / 2) {
+      el.scrollTop = idx * WHEEL_ITEM_H
     }
-    center(0)
-  }, [options, value])
+    lastEmitted.current = value
+  }, [value, options])
 
   const onScroll = () => {
     const el = ref.current
     if (!el) return
     const idx = Math.round(el.scrollTop / WHEEL_ITEM_H)
-    const v = options[Math.max(0, Math.min(options.length - 1, idx))]
-    if (v !== valRef.current) onChange(v)
-  }
-
-  const scrollTo = (idx: number) => {
-    const el = ref.current
-    if (!el) return
-    el.scrollTo({ top: idx * WHEEL_ITEM_H, behavior: 'smooth' })
-    onChange(options[idx])
+    if (idx >= 0 && idx < options.length) {
+      const v = options[idx]
+      if (v !== lastEmitted.current) {
+        lastEmitted.current = v
+        onChange(v)
+      }
+    }
   }
 
   return (
-    <div className="relative">
+    <div className="mac-wheel">
       <div
         ref={ref}
         onScroll={onScroll}
-        className="overflow-y-auto no-scrollbar cursor-grab select-none"
+        className="mac-wheel-list"
         style={{
           height: WHEEL_ITEM_H * WHEEL_VISIBLE,
-          scrollSnapType: 'y proximity',
           paddingTop: (WHEEL_ITEM_H * (WHEEL_VISIBLE - 1)) / 2,
           paddingBottom: (WHEEL_ITEM_H * (WHEEL_VISIBLE - 1)) / 2,
-          WebkitMaskImage: 'linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent)',
-          maskImage: 'linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent)',
         }}
       >
-        {options.map((o, i) => {
-          const selected = o === value
-          const hovered = hoverIdx === i
-          return (
-            <button
-              key={o}
-              type="button"
-              onClick={() => scrollTo(i)}
-              onMouseEnter={() => setHoverIdx(i)}
-              onMouseLeave={() => setHoverIdx(null)}
-              className="block w-[64px] text-center transition-all leading-none"
-              style={{ height: WHEEL_ITEM_H, scrollSnapAlign: 'center' }}
-            >
-              <span
-                className={`inline-flex items-center justify-center rounded-lg text-[15px] font-semibold tabular-nums transition-all ${
-                  selected || hovered ? '' : 'text-[var(--text-faint)]'
-                }`}
-                style={{
-                  width: 56,
-                  height: 28,
-                  background: selected
-                    ? 'linear-gradient(135deg, #ff4d4d, #e11d48)'
-                    : hovered
-                      ? 'rgba(255,77,77,0.12)'
-                      : 'transparent',
-                  color: selected ? '#fff' : hovered ? '#ff9d9d' : undefined,
-                  border: hovered && !selected ? '1px solid rgba(255,77,77,0.35)' : undefined,
-                  boxShadow: selected ? '0 2px 14px rgba(255,77,77,0.45)' : undefined,
-                }}
-              >
-                {String(o).padStart(2, '0')}
-                {o === value && <span className="ml-0.5 text-[9px] font-medium opacity-70">{suffix}</span>}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function MonthCalendar({ value, onChange }: { value: Date; onChange: (d: Date) => void }) {
-  const [view, setView] = useState(() => new Date(value.getFullYear(), value.getMonth(), 1))
-  const year = view.getFullYear()
-  const month = view.getMonth()
-  const firstDow = (view.getDay() + 6) % 7
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const cells: (Date | null)[] = []
-  for (let i = 0; i < firstDow; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d))
-  const today = new Date()
-  const same = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[12px] font-semibold text-[var(--text)] capitalize">
-          {MONTHS_RU[month]} {year}
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setView(new Date(year, month - 1, 1))}
-            className="flex items-center justify-center size-6 rounded-md btn-subtle border border-[var(--stroke)] bg-[var(--surface-2)] text-[var(--text-dim)]"
-          >
-            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => setView(new Date(year, month + 1, 1))}
-            className="flex items-center justify-center size-6 rounded-md btn-subtle border border-[var(--stroke)] bg-[var(--surface-2)] text-[var(--text-dim)]"
-          >
-            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </div>
-      <div className="grid grid-cols-7 gap-y-0.5">
-        {WEEKDAYS.map((w) => (
-          <div key={w} className="h-5 flex items-center justify-center text-[8.5px] uppercase tracking-wider text-[var(--text-faint)]">
-            {w}
+        {options.map((o) => (
+          <div key={o} className="mac-wheel-item" style={{ height: WHEEL_ITEM_H }}>
+            <span className={`mac-wheel-val${o === value ? ' on' : ''}`}>{String(o).padStart(2, '0')}</span>
           </div>
         ))}
-        {cells.map((d, i) =>
-          d === null ? (
-            <div key={`e-${i}`} />
-          ) : (
-            <button
-              key={`d-${i}`}
-              type="button"
-              onClick={() => onChange(d)}
-              className="size-8 rounded-lg text-[11px] font-medium transition-all"
-              style={
-                same(d, value)
-                  ? {
-                      background: 'linear-gradient(135deg, #ff4d4d, #e11d48)',
-                      color: '#fff',
-                      boxShadow: '0 2px 12px rgba(255,77,77,0.45)',
-                    }
-                  : same(d, today)
-                    ? { border: '1px solid rgba(255,77,77,0.55)', color: '#ff7a7a', background: 'rgba(255,77,77,0.12)', fontWeight: 700 }
-                    : { color: 'var(--text-dim)' }
-              }
-              onMouseEnter={(e) => {
-                if (!same(d, value)) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-              }}
-              onMouseLeave={(e) => {
-                if (!same(d, value)) e.currentTarget.style.background = ''
-              }}
-            >
-              {d.getDate()}
-            </button>
-          )
-        )}
       </div>
+      <div className="mac-wheel-mask top" />
+      <div className="mac-wheel-mask bottom" />
+      <div className="mac-wheel-bar" />
     </div>
   )
 }
@@ -328,6 +208,719 @@ function MonthCalendar({ value, onChange }: { value: Date; onChange: (d: Date) =
 function fmtRange(a: Date, b: Date) {
   const f = (d: Date) => `${d.getDate()} ${MONTHS_RU[d.getMonth()]}`
   return `от ${f(a)} до ${f(b)}`
+}
+
+type PresetKey = 'today' | 'tomorrow' | 'week' | 'nextweek' | 'month'
+
+const PRESETS: { key: PresetKey; label: string }[] = [
+  { key: 'today', label: 'Сегодня' },
+  { key: 'tomorrow', label: 'Завтра' },
+  { key: 'week', label: 'Эта неделя' },
+  { key: 'nextweek', label: 'След. неделя' },
+  { key: 'month', label: 'Месяц' },
+]
+
+function MacCalendar({
+  mode,
+  start,
+  end,
+  periodStage,
+  month,
+  onMonthChange,
+  onPick,
+  hover,
+  onHover,
+}: {
+  mode: 'single' | 'range'
+  start: CalendarDateTime
+  end: CalendarDateTime
+  periodStage: 0 | 1 | 2
+  month: Date
+  onMonthChange: (m: Date) => void
+  onPick: (d: Date) => void
+  hover: Date | null
+  onHover: (d: Date | null) => void
+}) {
+  const y = month.getFullYear()
+  const m = month.getMonth()
+  const offset = (new Date(y, m, 1).getDay() + 6) % 7
+  const dim = new Date(y, m + 1, 0).getDate()
+  const rows = Math.ceil((offset + dim) / 7)
+  const cells: (Date | null)[] = []
+  for (let i = 0; i < rows * 7; i++) {
+    const d = i - offset + 1
+    cells.push(d >= 1 && d <= dim ? new Date(y, m, d) : null)
+  }
+
+  const sT = start.toDate(getLocalTimeZone()).getTime()
+  const hasRange = mode === 'range' && periodStage >= 1
+  const previewEnd = mode === 'range' && periodStage === 1 && hover && hover.getTime() !== sT ? hover : null
+  const finalEnd = mode === 'range' && periodStage === 2 ? end.toDate(getLocalTimeZone()) : null
+  const rangeEnd = previewEnd ?? finalEnd
+  const lo = rangeEnd ? Math.min(sT, rangeEnd.getTime()) : 0
+  const hi = rangeEnd ? Math.max(sT, rangeEnd.getTime()) : 0
+
+  const monthDir = useRef(0)
+  const prevMonthKey = useRef(month.getTime())
+  if (month.getTime() !== prevMonthKey.current) {
+    monthDir.current = month.getTime() > prevMonthKey.current ? 1 : -1
+    prevMonthKey.current = month.getTime()
+  }
+
+  return (
+    <div className="mac-cal-wrap">
+      <div className="mac-cal-head">
+        <button
+          type="button"
+          className="mac-cal-today"
+          onClick={() => onMonthChange(new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))}
+        >
+          Сегодня
+        </button>
+        <motion.div
+          key={`${y}-${m}`}
+          className="mac-cal-title"
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        >
+          {MONTHS_NOM[m]} {y}
+        </motion.div>
+        <div className="mac-cal-nav">
+          <button type="button" onClick={() => onMonthChange(new Date(y, m - 1, 1))} aria-label="Предыдущий месяц">
+            ‹
+          </button>
+          <button type="button" onClick={() => onMonthChange(new Date(y, m + 1, 1))} aria-label="Следующий месяц">
+            ›
+          </button>
+        </div>
+      </div>
+      <motion.div
+        key={`grid-${y}-${m}`}
+        initial={{ opacity: 0, x: monthDir.current * 30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+      >
+        <div className="mac-cal-week">
+          {WEEKDAYS_SHORT.map((w, i) => (
+            <div key={w} className={i >= 5 ? 'we' : ''}>
+              {w}
+            </div>
+          ))}
+        </div>
+        <div className="mac-cal-grid" onMouseLeave={() => onHover(null)}>
+          {cells.map((d, i) => {
+            if (!d) return <div key={i} className="mac-cal-day" />
+            const t = d.getTime()
+            const today = isSameDay(d, TODAY)
+            const isStart = hasRange && t === sT
+            const isEnd = finalEnd ? t === finalEnd.getTime() : false
+            const isPreview = previewEnd ? t === previewEnd.getTime() : false
+            const selSingle = mode === 'single' && isSameDay(d, start.toDate(getLocalTimeZone()))
+            const inPill = hasRange && rangeEnd && t >= lo && t <= hi
+            const hasPill = inPill && !(lo === hi && t === lo)
+            return (
+              <button
+                key={i}
+                type="button"
+                className="mac-cal-day"
+                onClick={() => onPick(d)}
+                onMouseEnter={() => onHover(d)}
+              >
+                {hasPill && <span className={`mac-cal-bar${previewEnd ? ' prev' : ''}`} />}
+                <span
+                  className={`mac-cal-num${isStart || isEnd || selSingle ? ' sel' : ''}${isPreview ? ' preview' : ''}${today ? ' today' : ''}`}
+                >
+                  {d.getDate()}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+type AddTaskData = {
+  title: string
+  startDate: Date
+  endDate: Date
+  startMinute: number
+  endMinute: number
+  tags: string[]
+}
+
+function AddTaskModal({
+  open,
+  initialDay,
+  projects,
+  onClose,
+  onAdd,
+  onAddProject,
+}: {
+  open: boolean
+  initialDay: Date
+  projects: Record<string, { label: string; color: string }>
+  onClose: () => void
+  onAdd: (data: AddTaskData) => void
+  onAddProject: (key: string, project: { label: string; color: string }) => void
+}) {
+  const [newTitle, setNewTitle] = useState('')
+  const [date, setDate] = useState<CalendarDateTime | null>(null)
+  const [endDate, setEndDate] = useState<CalendarDateTime | null>(null)
+  const [usePeriod, setUsePeriod] = useState(false)
+  const [periodStage, setPeriodStage] = useState<0 | 1 | 2>(0)
+  const [allDay, setAllDay] = useState(false)
+  const [picker, setPicker] = useState<'start' | 'end' | null>(null)
+  const [newTags, setNewTags] = useState<string[]>(['ritual'])
+  const [newProjOpen, setNewProjOpen] = useState(false)
+  const [newProjName, setNewProjName] = useState('')
+  const [calMonth, setCalMonth] = useState<Date>(() => new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))
+  const [calHover, setCalHover] = useState<Date | null>(null)
+  const wasOpen = useRef(false)
+  const pickerWrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (open && !wasOpen.current) {
+      wasOpen.current = true
+      const now = new Date()
+      const m = isSameDay(initialDay, now) ? now.getHours() * 60 + now.getMinutes() : 9 * 60
+      const em = Math.min(24 * 60 - 1, m + 30)
+      const mk = (min: number) =>
+        new CalendarDateTime(initialDay.getFullYear(), initialDay.getMonth() + 1, initialDay.getDate(), Math.floor(min / 60), min % 60)
+      setDate(mk(m))
+      setEndDate(mk(em))
+      setUsePeriod(false)
+      setPeriodStage(0)
+      setAllDay(false)
+      setPicker(null)
+      setNewTitle('')
+      setNewTags(['ritual'])
+      setNewProjOpen(false)
+      setNewProjName('')
+      setCalMonth(new Date(initialDay.getFullYear(), initialDay.getMonth(), 1))
+      setCalHover(null)
+    }
+    if (!open) wasOpen.current = false
+  }, [open, initialDay])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (picker) setPicker(null)
+        else onClose()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose, picker])
+
+  useEffect(() => {
+    if (!picker) return
+    const onDown = (e: MouseEvent) => {
+      if (pickerWrapRef.current && !pickerWrapRef.current.contains(e.target as Node)) setPicker(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [picker])
+
+  const setTime = (side: 'start' | 'end', part: { hour?: number; minute?: number }) => {
+    if (side === 'start') setDate((d) => (d ? d.set(part) : d))
+    else setEndDate((d) => (d ? d.set(part) : d))
+  }
+
+  const pickDay = (d: Date) => {
+    if (!date || !endDate) return
+    const day = { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }
+    if (!usePeriod) {
+      setDate(date.set(day))
+      setEndDate(endDate.set(day))
+      return
+    }
+    if (periodStage === 0 || periodStage === 2) {
+      setDate(date.set(day))
+      setEndDate(endDate.set(day))
+      setPeriodStage(1)
+      return
+    }
+    if (d.getTime() < date.toDate(getLocalTimeZone()).getTime()) setDate(date.set(day))
+    else setEndDate(endDate.set(day))
+    setPeriodStage(2)
+  }
+
+  const setPeriod = (v: boolean) => {
+    setUsePeriod(v)
+    setPeriodStage(0)
+    setPicker(null)
+  }
+
+  const toggleAllDay = () => {
+    setAllDay((a) => !a)
+    setPicker(null)
+  }
+
+  const applyPreset = (key: PresetKey) => {
+    if (!date || !endDate) return
+    const set = (d: Date) => ({ year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() })
+    const d0 = new Date(TODAY)
+    let s: Date
+    let e: Date
+    const wd = (d0.getDay() + 6) % 7
+    switch (key) {
+      case 'tomorrow': {
+        s = new Date(d0)
+        s.setDate(s.getDate() + 1)
+        e = s
+        break
+      }
+      case 'week': {
+        s = new Date(d0)
+        s.setDate(s.getDate() - wd)
+        e = new Date(s)
+        e.setDate(e.getDate() + 6)
+        break
+      }
+      case 'nextweek': {
+        s = new Date(d0)
+        s.setDate(s.getDate() - wd + 7)
+        e = new Date(s)
+        e.setDate(e.getDate() + 6)
+        break
+      }
+      case 'month': {
+        s = new Date(d0.getFullYear(), d0.getMonth(), 1)
+        e = new Date(d0.getFullYear(), d0.getMonth() + 1, 0)
+        break
+      }
+      default: {
+        s = new Date(d0)
+        e = s
+      }
+    }
+    setDate(date.set(set(s)))
+    setEndDate(endDate.set(set(e)))
+    setCalMonth(new Date(s.getFullYear(), s.getMonth(), 1))
+    setPicker(null)
+    if (s.getTime() !== e.getTime()) {
+      setUsePeriod(true)
+      setPeriodStage(2)
+    } else {
+      setPeriodStage(0)
+    }
+  }
+
+  const dayCount =
+    usePeriod && periodStage === 2 && date && endDate
+      ? Math.round((endDate.toDate(getLocalTimeZone()).getTime() - date.toDate(getLocalTimeZone()).getTime()) / 86400000) + 1
+      : null
+
+  const toggleNewTag = (key: string) => {
+    setNewTags((prev) => (prev.includes(key) ? prev.filter((t) => t !== key) : [...prev, key]))
+  }
+
+  const addProject = (color: string) => {
+    const name = newProjName.trim()
+    if (!name) return
+    const key = `custom-${Date.now()}`
+    onAddProject(key, { label: name, color })
+    setNewTags((prev) => [...prev, key])
+    setNewProjName('')
+    setNewProjOpen(false)
+  }
+
+  const submit = () => {
+    const trimmed = newTitle.trim()
+    if (!trimmed || !date || !endDate) return
+    const sd = date.toDate(getLocalTimeZone())
+    const ed = endDate.toDate(getLocalTimeZone())
+    let startMin = allDay ? 0 : date.hour * 60 + date.minute
+    let endMin = allDay ? 24 * 60 : endDate.hour * 60 + endDate.minute
+    if (isSameDay(sd, ed) && endMin <= startMin) endMin = Math.min(24 * 60, startMin + 30)
+    onAdd({
+      title: trimmed,
+      startDate: sd,
+      endDate: ed,
+      startMinute: startMin,
+      endMinute: endMin,
+      tags: newTags.length > 0 ? newTags : ['ritual'],
+    })
+    setNewTitle('')
+  }
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div key="add-modal" className="fixed inset-0 z-50">
+          <motion.div
+            className="absolute inset-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            style={{ background: 'rgba(4,5,8,0.6)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}
+            onClick={onClose}
+          />
+          <motion.div
+            layoutId="add-modal"
+            variants={ADD_MODAL_VARIANTS}
+            initial="hidden"
+            animate="show"
+            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+            transition={{ type: 'spring', stiffness: 250, damping: 30 }}
+            className="absolute inset-0 flex items-center justify-center p-5 overflow-y-auto"
+          >
+            <div
+              className="add-glow"
+              style={{
+                width: 560,
+                height: 560,
+                top: '-12%',
+                left: '-6%',
+                background: 'radial-gradient(circle, rgba(124,58,237,0.3) 0%, transparent 65%)',
+              }}
+            />
+            <div
+              className="add-glow"
+              style={{
+                width: 460,
+                height: 460,
+                bottom: '-14%',
+                right: '-5%',
+                background: 'radial-gradient(circle, rgba(192,38,211,0.24) 0%, transparent 65%)',
+              }}
+            />
+            <div
+              className="add-glow"
+              style={{
+                width: 400,
+                height: 400,
+                top: '28%',
+                right: '18%',
+                background: 'radial-gradient(circle, rgba(236,72,153,0.18) 0%, transparent 65%)',
+              }}
+            />
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                submit()
+              }}
+              className="modal-glass relative z-10 w-full max-w-[840px] p-7 flex flex-col gap-5"
+            >
+              <motion.div variants={ADD_MODAL_ITEM} className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#fff] leading-none">Новая задача</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  title="Закрыть (Esc)"
+                  className="flex items-center justify-center size-9 rounded-xl btn-icon border transition-colors"
+                  style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M6 6l12 12M18 6l-12 12" />
+                  </svg>
+                </button>
+              </motion.div>
+
+              <motion.div variants={ADD_MODAL_ITEM}>
+                <div
+                  className="flex items-center rounded-xl border transition-colors px-4"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}
+                >
+                  <input
+                    autoFocus
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="Что добавить в расписание?"
+                    className="input-base flex-1 py-3.5 text-[15px] focus:outline-none"
+                  />
+                  <span className="text-[10px] text-[var(--text-faint)] shrink-0">задача</span>
+                </div>
+              </motion.div>
+
+              <motion.div
+                variants={ADD_MODAL_ITEM}
+                className="rounded-[22px] p-5"
+                style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <div className="flex items-center justify-between mb-4 gap-3">
+                  <div className="mac-section-title">Дата и время</div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] font-medium text-[rgba(245,245,247,0.5)] select-none">Весь день</span>
+                      <button type="button" className={`mac-switch${allDay ? ' on' : ''}`} onClick={toggleAllDay} aria-label="Весь день">
+                        <span className="mac-switch-knob" />
+                      </button>
+                    </div>
+                    <div className="mac-seg">
+                      <button type="button" className={!usePeriod ? 'on' : ''} onClick={() => setPeriod(false)}>
+                        День
+                      </button>
+                      <button type="button" className={usePeriod ? 'on' : ''} onClick={() => setPeriod(true)}>
+                        Период
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-5">
+                  <div className="flex-1 min-w-0 flex flex-col gap-4">
+                    <div className="mac-datehead select-none">
+                      {!usePeriod && date && (
+                        <motion.div
+                          key={`single-${date.year}-${date.month}-${date.day}`}
+                          initial={{ opacity: 0, y: 14, rotateX: 55, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
+                          transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+                          style={{ transformPerspective: 640 }}
+                        >
+                          <div className={`mac-dow${isSameDay(date.toDate(getLocalTimeZone()), TODAY) ? ' today' : ''}`}>
+                            {WEEKDAYS_FULL[date.toDate(getLocalTimeZone()).getDay()]}
+                          </div>
+                          <div className="mac-date-big">
+                            {date.day} {MONTHS_GEN[date.month - 1]}
+                          </div>
+                          <div className="mac-date-sub">{fmtExact(date.hour * 60 + date.minute)}</div>
+                        </motion.div>
+                      )}
+                      {usePeriod && periodStage === 0 && (
+                        <div className="mac-hint">
+                          <span className="mac-dot" />
+                          Выберите дату начала
+                        </div>
+                      )}
+                      {usePeriod && periodStage === 1 && date && (
+                        <motion.div
+                          key={`pick-${date.year}-${date.month}-${date.day}`}
+                          initial={{ opacity: 0, y: 14, rotateX: 55, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
+                          transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+                          style={{ transformPerspective: 640 }}
+                        >
+                          <div className="mac-dow">
+                            Начало · {WEEKDAYS_FULL[date.toDate(getLocalTimeZone()).getDay()]}
+                          </div>
+                          <div className="mac-date-big">
+                            {date.day} {MONTHS_GEN[date.month - 1]}
+                          </div>
+                          <div className="mac-hint" style={{ marginTop: 12 }}>
+                            <span className="mac-dot" />
+                            Выберите дату окончания
+                          </div>
+                        </motion.div>
+                      )}
+                      {usePeriod && periodStage === 2 && date && endDate && (
+                        <motion.div
+                          key={`range-${date.year}-${date.month}-${date.day}-${endDate.day}`}
+                          initial={{ opacity: 0, y: 14, rotateX: 55, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
+                          transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+                          style={{ transformPerspective: 640 }}
+                        >
+                          <div className="mac-dow">
+                            {WEEKDAYS_FULL[date.toDate(getLocalTimeZone()).getDay()]} —{' '}
+                            {WEEKDAYS_FULL[endDate.toDate(getLocalTimeZone()).getDay()]}
+                          </div>
+                          <div className="mac-date-big">
+                            {date.month === endDate.month
+                              ? `${date.day} — ${endDate.day} ${MONTHS_GEN[endDate.month - 1]}`
+                              : `${date.day} ${MONTHS_GEN[date.month - 1]} — ${endDate.day} ${MONTHS_GEN[endDate.month - 1]}`}
+                          </div>
+                          {dayCount && (
+                            <div className="mac-date-sub" style={{ marginTop: 8 }}>
+                              <span className="mac-days">{pluralDays(dayCount)}</span>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </div>
+
+                    <div className="mac-presets">
+                      {PRESETS.map((p) => (
+                        <button key={p.key} type="button" className="mac-preset" onClick={() => applyPreset(p.key)}>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {!allDay && date && (
+                      <div className="mt-auto">
+                        <div ref={pickerWrapRef} className="relative">
+                          <div className="mac-time">
+                            <button
+                              type="button"
+                              onClick={() => setPicker(picker === 'start' ? null : 'start')}
+                              className={`mac-time-pill${picker === 'start' ? ' on' : ''}`}
+                            >
+                              {usePeriod && <span className="mac-time-label">с</span>}
+                              {fmtExact(date.hour * 60 + date.minute)}
+                            </button>
+                            {usePeriod && endDate && (
+                              <>
+                                <span className="mac-time-arrow">—</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setPicker(picker === 'end' ? null : 'end')}
+                                  className={`mac-time-pill${picker === 'end' ? ' on' : ''}`}
+                                >
+                                  <span className="mac-time-label">по</span>
+                                  {fmtExact(endDate.hour * 60 + endDate.minute)}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                          <AnimatePresence>
+                            {picker && date && (!usePeriod || endDate) && (
+                              <motion.div
+                                key="time-popover"
+                                initial={{ opacity: 0, y: -10, scale: 0.96 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                                className="mac-picker"
+                              >
+                                <TimeWheel
+                                  options={HOURS}
+                                  value={(picker === 'start' ? date : endDate!).hour}
+                                  onChange={(h) => setTime(picker, { hour: h })}
+                                />
+                                <span className="text-[20px] font-bold text-[rgba(245,245,247,0.35)]">:</span>
+                                <TimeWheel
+                                  options={MINUTES}
+                                  value={(picker === 'start' ? date : endDate!).minute}
+                                  onChange={(m) => setTime(picker, { minute: m })}
+                                />
+                                <button type="button" onClick={() => setPicker(null)} className="mac-picker-done">
+                                  Готово
+                                </button>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {date && endDate && (
+                    <MacCalendar
+                      mode={usePeriod ? 'range' : 'single'}
+                      start={date}
+                      end={endDate}
+                      periodStage={periodStage}
+                      month={calMonth}
+                      onMonthChange={setCalMonth}
+                      onPick={pickDay}
+                      hover={calHover}
+                      onHover={setCalHover}
+                    />
+                  )}
+                </div>
+              </motion.div>
+
+              <motion.div variants={ADD_MODAL_ITEM}>
+                <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-2 flex items-center gap-1.5">
+                  <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
+                  Проекты
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {Object.entries(projects).map(([key, p]) => {
+                    const on = newTags.includes(key)
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => toggleNewTag(key)}
+                        className="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[10px] font-semibold transition-all select-none"
+                        style={{
+                          background: on ? `${p.color}22` : 'rgba(255,255,255,0.03)',
+                          color: on ? p.color : 'rgba(255,255,255,0.4)',
+                          border: `1px solid ${on ? `${p.color}88` : 'rgba(255,255,255,0.08)'}`,
+                          boxShadow: on ? `0 0 10px ${p.color}30` : undefined,
+                        }}
+                      >
+                        <span
+                          className="size-[6px] rounded-full"
+                          style={{ background: on ? p.color : 'rgba(255,255,255,0.3)', boxShadow: on ? `0 0 6px ${p.color}` : undefined }}
+                        />
+                        {p.label}
+                      </button>
+                    )
+                  })}
+                  {newProjOpen ? (
+                    <div className="flex items-center gap-1.5 rounded-full pl-2 pr-1.5 py-1 border transition-colors" style={{ borderColor: 'rgba(255,77,77,0.35)', background: 'rgba(255,255,255,0.03)' }}>
+                      <input
+                        autoFocus
+                        value={newProjName}
+                        onChange={(e) => setNewProjName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') addProject(TAG_PALETTE[0])
+                          if (e.key === 'Escape') setNewProjOpen(false)
+                        }}
+                        placeholder="Название проекта"
+                        className="input-base w-[110px] text-[10px] font-semibold"
+                      />
+                      <div className="flex items-center gap-1">
+                        {TAG_PALETTE.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            title={c}
+                            onClick={() => addProject(c)}
+                            className="size-[14px] rounded-full transition-transform hover:scale-125"
+                            style={{ background: c, boxShadow: `0 0 6px ${c}66`, border: '1px solid rgba(0,0,0,0.3)' }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setNewProjOpen(true)}
+                      className="flex items-center gap-1 h-7 px-2.5 rounded-full text-[10px] font-semibold transition-all select-none"
+                      style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.45)', border: '1px dashed rgba(255,255,255,0.18)' }}
+                    >
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                      Новый
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+
+              <motion.div variants={ADD_MODAL_ITEM} className="flex items-center gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="btn h-11 px-5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110"
+                  style={{ color: '#ff8f8f', background: 'rgba(255,77,77,0.1)', border: '1px solid rgba(255,77,77,0.35)' }}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="btn flex-1 h-11 rounded-xl text-[13px] font-semibold justify-center gap-2 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.99]"
+                  style={{
+                    background: 'linear-gradient(135deg, #22c55e, #15803d)',
+                    color: '#fff',
+                    boxShadow: '0 4px 22px rgba(34,197,94,0.45), inset 0 1px 0 rgba(255,255,255,0.2)',
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Добавить задачу
+                </button>
+              </motion.div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
 }
 
 const contentVariants = {
@@ -394,16 +987,6 @@ export function GanttTimeline() {
   const [extraProjects, setExtraProjects] = useState<Record<string, { label: string; color: string }>>({})
   const [mockTasks, setMockTasks] = useState<GanttTaskEx[]>(MOCK_TASKS)
   const [adding, setAdding] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newDate, setNewDate] = useState(() => new Date(TODAY))
-  const [newStartH, setNewStartH] = useState(9)
-  const [newStartMin, setNewStartMin] = useState(0)
-  const [newEndDate, setNewEndDate] = useState(() => new Date(TODAY))
-  const [newEndH, setNewEndH] = useState(9)
-  const [newEndMin, setNewEndMin] = useState(30)
-  const [newTags, setNewTags] = useState<string[]>(['ritual'])
-  const [newProjOpen, setNewProjOpen] = useState(false)
-  const [newProjName, setNewProjName] = useState('')
   const pendingScrollMin = useRef<number | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ key: number; x: number; y: number; task: GanttTaskEx } | null>(null)
   const ctxAnchorRef = useRef<HTMLDivElement>(null)
@@ -875,30 +1458,7 @@ export function GanttTimeline() {
   const renderTasks = [...prevDayTasks, ...mainDayTasks, ...nextDayTasks]
 
   const openAdd = () => {
-    const isToday = isSameDay(currentDay, new Date())
-    const m = isToday ? nowMinute : 9 * 60
-    setNewStartH(Math.floor(m / 60))
-    setNewStartMin(Math.round((m % 60) / 5) * 5 % 60)
-    setNewEndDate(new Date(currentDay))
-    setNewEndH(Math.floor(Math.min(24 * 60 - 1, m + 30) / 60))
-    setNewEndMin(Math.round(((m + 30) % 60) / 5) * 5 % 60)
-    setNewDate(new Date(currentDay))
-    setNewTags(['ritual'])
     setAdding(true)
-  }
-
-  const toggleNewTag = (key: string) => {
-    setNewTags((prev) => (prev.includes(key) ? prev.filter((t) => t !== key) : [...prev, key]))
-  }
-
-  const addProject = (color: string) => {
-    const name = newProjName.trim()
-    if (!name) return
-    const key = `custom-${Date.now()}`
-    setExtraProjects((prev) => ({ ...prev, [key]: { label: name, color } }))
-    setNewTags((prev) => [...prev, key])
-    setNewProjName('')
-    setNewProjOpen(false)
   }
 
   const allProjects = useMemo(
@@ -906,35 +1466,22 @@ export function GanttTimeline() {
     [extraProjects]
   )
 
-  const addTask = () => {
-    const trimmed = newTitle.trim()
-    if (!trimmed) return
-    let startMin = newStartH * 60 + newStartMin
-    let endMin = newEndH * 60 + newEndMin
-    let sd = new Date(newDate)
-    let ed = new Date(newEndDate)
-    if (ed < sd) {
-      ;[sd, ed] = [ed, sd]
-      ;[startMin, endMin] = [endMin, startMin]
-    }
-    const sameDay = isSameDay(sd, ed)
-    const endMinute = sameDay && endMin <= startMin ? Math.min(24 * 60, startMin + 30) : endMin
-    const tags: string[] = newTags.length > 0 ? newTags : ['ritual']
+  const handleAddTask = (data: AddTaskData) => {
     setMockTasks((ts) => [
       ...ts,
       {
         id: `new-${Date.now()}`,
-        title: trimmed,
-        startDate: sd,
-        endDate: ed,
+        title: data.title,
+        startDate: data.startDate,
+        endDate: data.endDate,
         progress: 0,
         assignees: [],
-        startMinute: startMin,
-        endMinute: endMinute,
-        tags,
+        startMinute: data.startMinute,
+        endMinute: data.endMinute,
+        tags: data.tags,
       },
     ])
-    tags.forEach((tag) => {
+    data.tags.forEach((tag) => {
       setHiddenProjects((prev) => {
         if (!prev.has(tag)) return prev
         const next = new Set(prev)
@@ -942,19 +1489,9 @@ export function GanttTimeline() {
         return next
       })
     })
-    if (isSameDay(sd, currentDay)) pendingScrollMin.current = startMin
-    setNewTitle('')
+    if (isSameDay(data.startDate, currentDay)) pendingScrollMin.current = data.startMinute
     setAdding(false)
   }
-
-  useEffect(() => {
-    if (!adding) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setAdding(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [adding])
 
   const maxY = renderTasks.reduce((m, p) => Math.max(m, p.y + TASK_H), 0)
   const contentH = maxY > 0 ? maxY + TASK_GAP : '100%'
@@ -1383,231 +1920,14 @@ export function GanttTimeline() {
         </Dropdown.Popover>
       </Dropdown.Root>
 
-      <AnimatePresence>
-        {adding && (
-          <motion.div key="add-modal" className="fixed inset-0 z-50">
-            <motion.div
-              className="absolute inset-0"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.35 }}
-              style={{ background: 'rgba(4,5,8,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-              onClick={() => setAdding(false)}
-            />
-            <motion.div
-              layoutId="add-modal"
-              variants={ADD_MODAL_VARIANTS}
-              initial="hidden"
-              animate="show"
-              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-              transition={{ type: 'spring', stiffness: 250, damping: 30 }}
-              className="absolute inset-0 overflow-y-auto px-6 py-8"
-              style={{ background: 'linear-gradient(165deg, #171a21 0%, #0d0e13 60%, #101318 100%)' }}
-            >
-              <motion.div
-                className="absolute w-[460px] h-[460px] rounded-full pointer-events-none"
-                style={{
-                  background: 'radial-gradient(circle, rgba(255,77,77,0.16) 0%, transparent 65%)',
-                  filter: 'blur(28px)',
-                }}
-                animate={{ x: [0, 46, -32, 0], y: [0, -34, 26, 0], scale: [1, 1.16, 0.94, 1] }}
-                transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
-              />
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  addTask()
-                }}
-                className="relative w-full max-w-[680px] m-auto flex flex-col gap-5"
-              >
-                <motion.div variants={ADD_MODAL_ITEM} className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#fff] leading-none">
-                      Новая задача
-                    </h2>
-                    <p className="text-[11px] text-[var(--text-dim)] mt-1.5">
-                      {(() => {
-                        let s = newStartH * 60 + newStartMin
-                        let e = newEndH * 60 + newEndMin
-                        let sd = new Date(newDate)
-                        let ed = new Date(newEndDate)
-                        if (ed < sd) {
-                          ;[sd, ed] = [ed, sd]
-                          ;[s, e] = [e, s]
-                        }
-                        const sameDay = isSameDay(sd, ed)
-                        const e2 = sameDay && e <= s ? Math.min(24 * 60, s + 30) : e
-                        if (sameDay) return `${fmtDate(sd)} · ${fmtExact(s)} – ${fmtExact(e2)}`
-                        return `${fmtDate(sd)} ${fmtExact(s)} – ${fmtDate(ed)} ${fmtExact(e2)}`
-                      })()}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setAdding(false)}
-                    title="Закрыть (Esc)"
-                    className="flex items-center justify-center size-9 rounded-xl btn-icon border transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M6 6l12 12M18 6l-12 12" />
-                    </svg>
-                  </button>
-                </motion.div>
-
-                <motion.div variants={ADD_MODAL_ITEM}>
-                  <div
-                    className="flex items-center rounded-xl border transition-colors px-4"
-                    style={{ borderColor: 'rgba(255,77,77,0.3)', background: 'rgba(255,255,255,0.02)' }}
-                  >
-                    <input
-                      autoFocus
-                      value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      placeholder="Что добавить в расписание?"
-                      className="input-base flex-1 py-3.5 text-[15px] focus:outline-none"
-                    />
-                    <span className="text-[10px] text-[var(--text-faint)] shrink-0">задача</span>
-                  </div>
-                </motion.div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <motion.div
-                    variants={ADD_MODAL_ITEM}
-                    className="rounded-2xl p-4"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-                  >
-                    <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-3 flex items-center gap-1.5">
-                      <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
-                      Начало
-                    </div>
-                    <MonthCalendar value={newDate} onChange={setNewDate} />
-                    <div className="flex items-center justify-center gap-3 mt-3">
-                      <TimeWheel options={Array.from({ length: 24 }, (_, h) => h)} value={newStartH} onChange={setNewStartH} suffix="ч" />
-                      <span className="text-[22px] font-bold text-[var(--text-faint)] -mt-5">:</span>
-                      <TimeWheel options={Array.from({ length: 60 }, (_, m) => m)} value={newStartMin} onChange={setNewStartMin} suffix="" />
-                    </div>
-                  </motion.div>
-
-                  <motion.div
-                    variants={ADD_MODAL_ITEM}
-                    className="rounded-2xl p-4"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-                  >
-                    <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-3 flex items-center gap-1.5">
-                      <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
-                      Конец
-                    </div>
-                    <MonthCalendar value={newEndDate} onChange={setNewEndDate} />
-                    <div className="flex items-center justify-center gap-3 mt-3">
-                      <TimeWheel options={Array.from({ length: 24 }, (_, h) => h)} value={newEndH} onChange={setNewEndH} suffix="ч" />
-                      <span className="text-[22px] font-bold text-[var(--text-faint)] -mt-5">:</span>
-                      <TimeWheel options={Array.from({ length: 60 }, (_, m) => m)} value={newEndMin} onChange={setNewEndMin} suffix="" />
-                    </div>
-                  </motion.div>
-                </div>
-
-                <motion.div variants={ADD_MODAL_ITEM}>
-                  <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-2 flex items-center gap-1.5">
-                    <span className="size-[5px] rounded-full" style={{ background: '#ff4d4d', boxShadow: '0 0 6px rgba(255,77,77,0.8)' }} />
-                    Проекты
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {Object.entries(allProjects).map(([key, p]) => {
-                      const on = newTags.includes(key)
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => toggleNewTag(key)}
-                          className="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[10px] font-semibold transition-all select-none"
-                          style={{
-                            background: on ? `${p.color}22` : 'rgba(255,255,255,0.03)',
-                            color: on ? p.color : 'rgba(255,255,255,0.4)',
-                            border: `1px solid ${on ? `${p.color}88` : 'rgba(255,255,255,0.08)'}`,
-                            boxShadow: on ? `0 0 10px ${p.color}30` : undefined,
-                          }}
-                        >
-                          <span
-                            className="size-[6px] rounded-full"
-                            style={{ background: on ? p.color : 'rgba(255,255,255,0.3)', boxShadow: on ? `0 0 6px ${p.color}` : undefined }}
-                          />
-                          {p.label}
-                        </button>
-                      )
-                    })}
-                    {newProjOpen ? (
-                      <div className="flex items-center gap-1.5 rounded-full pl-2 pr-1.5 py-1 border transition-colors" style={{ borderColor: 'rgba(255,77,77,0.35)', background: 'rgba(255,255,255,0.03)' }}>
-                        <input
-                          autoFocus
-                          value={newProjName}
-                          onChange={(e) => setNewProjName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') addProject(TAG_PALETTE[0])
-                            if (e.key === 'Escape') setNewProjOpen(false)
-                          }}
-                          placeholder="Название проекта"
-                          className="input-base w-[110px] text-[10px] font-semibold"
-                        />
-                        <div className="flex items-center gap-1">
-                          {TAG_PALETTE.map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              title={c}
-                              onClick={() => addProject(c)}
-                              className="size-[14px] rounded-full transition-transform hover:scale-125"
-                              style={{ background: c, boxShadow: `0 0 6px ${c}66`, border: '1px solid rgba(0,0,0,0.3)' }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setNewProjOpen(true)}
-                        className="flex items-center gap-1 h-7 px-2.5 rounded-full text-[10px] font-semibold transition-all select-none"
-                        style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.45)', border: '1px dashed rgba(255,255,255,0.18)' }}
-                      >
-                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                        Новый
-                      </button>
-                    )}
-                  </div>
-                </motion.div>
-
-                <motion.div variants={ADD_MODAL_ITEM} className="flex items-center gap-2.5 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setAdding(false)}
-                    className="btn h-11 px-5 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110"
-                    style={{ color: '#ff8f8f', background: 'rgba(255,77,77,0.1)', border: '1px solid rgba(255,77,77,0.35)' }}
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn flex-1 h-11 rounded-xl text-[13px] font-semibold justify-center gap-2 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.99]"
-                    style={{
-                      background: 'linear-gradient(135deg, #22c55e, #15803d)',
-                      color: '#fff',
-                      boxShadow: '0 4px 22px rgba(34,197,94,0.45), inset 0 1px 0 rgba(255,255,255,0.2)',
-                    }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                      <path d="M12 5v14M5 12h14" />
-                    </svg>
-                    Добавить задачу
-                  </button>
-                </motion.div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AddTaskModal
+        open={adding}
+        initialDay={currentDay}
+        projects={allProjects}
+        onClose={() => setAdding(false)}
+        onAdd={handleAddTask}
+        onAddProject={(key, p) => setExtraProjects((prev) => ({ ...prev, [key]: p }))}
+      />
     </motion.div>
   )
 }

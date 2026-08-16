@@ -178,3 +178,459 @@ body::before {
 
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+.modal-glass {
+  background: rgba(30, 31, 38, 0.78);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 44px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.add-glow {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  filter: blur(46px);
+}
+
+/* ---------- date & time: macOS style ---------- */
+
+.mac-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+}
+
+.mac-section-title::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0a84ff;
+  box-shadow: 0 0 8px rgba(10, 132, 255, 0.7);
+}
+
+.mac-seg {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 9px;
+  padding: 2px;
+}
+
+.mac-seg button {
+  border: none;
+  background: transparent;
+  color: rgba(245, 245, 247, 0.55);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 160ms;
+  font-family: inherit;
+}
+
+.mac-seg button:hover { color: #fff; }
+
+.mac-seg button.on {
+  background: #0a84ff;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(10, 132, 255, 0.4);
+}
+
+.mac-switch {
+  width: 40px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.36);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  cursor: pointer;
+  transition: background 180ms;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.mac-switch .mac-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 180ms cubic-bezier(0.3, 0.9, 0.4, 1);
+}
+
+.mac-switch.on { background: #30d158; }
+.mac-switch.on .mac-switch-knob { transform: translateX(16px); }
+
+.mac-datehead { display: flex; flex-direction: column; gap: 2px; }
+
+.mac-dow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(245, 245, 247, 0.4);
+}
+
+.mac-dow.today { color: #ff453a; }
+
+.mac-date-big {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: #f5f5f7;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mac-date-sub { font-size: 12px; color: rgba(245, 245, 247, 0.5); }
+
+.mac-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(245, 245, 247, 0.55);
+  font-size: 13px;
+}
+
+.mac-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0a84ff;
+  box-shadow: 0 0 8px rgba(10, 132, 255, 0.8);
+  animation: mac-pulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes mac-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+.mac-days {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(10, 132, 255, 0.14);
+  color: #6fb3ff;
+  border: 1px solid rgba(10, 132, 255, 0.4);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mac-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.mac-preset {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 245, 247, 0.75);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 160ms;
+  font-family: inherit;
+}
+
+.mac-preset:hover {
+  background: rgba(10, 132, 255, 0.15);
+  border-color: rgba(10, 132, 255, 0.4);
+  color: #fff;
+}
+
+.mac-preset:active { transform: scale(0.96); }
+
+.mac-time { display: flex; align-items: center; gap: 8px; }
+
+.mac-time-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f5f5f7;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: all 160ms;
+  font-family: inherit;
+}
+
+.mac-time-pill:hover { background: rgba(255, 255, 255, 0.09); }
+
+.mac-time-pill.on {
+  background: rgba(10, 132, 255, 0.16);
+  border-color: rgba(10, 132, 255, 0.55);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(10, 132, 255, 0.25);
+}
+
+.mac-time-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(245, 245, 247, 0.4);
+  margin-right: 7px;
+}
+
+.mac-time-arrow { color: rgba(245, 245, 247, 0.3); font-size: 15px; font-weight: 700; }
+
+.mac-picker {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #26272e;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  padding: 14px 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 4px 14px rgba(0, 0, 0, 0.4);
+  transform-origin: top left;
+}
+
+.mac-picker-done {
+  margin-left: 8px;
+  padding: 9px 16px;
+  border-radius: 9px;
+  background: #0a84ff;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 160ms;
+  border: none;
+  font-family: inherit;
+}
+
+.mac-picker-done:hover { filter: brightness(1.15); }
+
+/* ---------- time wheel: iOS style ---------- */
+
+.mac-wheel { position: relative; width: 68px; }
+
+.mac-wheel-list {
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mac-wheel-list::-webkit-scrollbar { display: none; }
+
+.mac-wheel-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+}
+
+.mac-wheel-val {
+  font-size: 17px;
+  font-weight: 400;
+  color: rgba(245, 245, 247, 0.3);
+  font-variant-numeric: tabular-nums;
+  transition: color 150ms, transform 150ms;
+  user-select: none;
+}
+
+.mac-wheel-val.on { color: #fff; font-weight: 600; transform: scale(1.06); }
+
+.mac-wheel-bar {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 6px);
+  height: 36px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+
+.mac-wheel-mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 24px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.mac-wheel-mask.top { top: 0; background: linear-gradient(180deg, #26272e 0%, rgba(38, 39, 46, 0) 100%); }
+.mac-wheel-mask.bottom { bottom: 0; background: linear-gradient(0deg, #26272e 0%, rgba(38, 39, 46, 0) 100%); }
+
+/* ---------- calendar: macOS style ---------- */
+
+.mac-cal-wrap {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 12px 14px 14px;
+  width: 340px;
+  flex-shrink: 0;
+}
+
+.mac-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.mac-cal-today {
+  border: none;
+  background: transparent;
+  color: #0a84ff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 160ms;
+  font-family: inherit;
+}
+
+.mac-cal-today:hover { background: rgba(10, 132, 255, 0.12); }
+
+.mac-cal-title { font-size: 13px; font-weight: 600; color: #f5f5f7; }
+
+.mac-cal-nav { display: flex; gap: 2px; }
+
+.mac-cal-nav button {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 245, 247, 0.6);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 160ms;
+  font-family: inherit;
+}
+
+.mac-cal-nav button:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.mac-cal-nav button:active { transform: scale(0.9); }
+
+.mac-cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+
+.mac-cal-week div {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(245, 245, 247, 0.38);
+  padding: 4px 0;
+}
+
+.mac-cal-week div.we { color: rgba(245, 245, 247, 0.22); }
+
+.mac-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 2px;
+}
+
+.mac-cal-day {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.mac-cal-bar {
+  position: absolute;
+  inset: 4px -1px;
+  background: rgba(10, 132, 255, 0.22);
+}
+
+.mac-cal-bar.prev { background: rgba(10, 132, 255, 0.1); }
+
+.mac-cal-num {
+  position: relative;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(245, 245, 247, 0.75);
+  transition: background 140ms, color 140ms, transform 140ms, box-shadow 140ms;
+  font-variant-numeric: tabular-nums;
+}
+
+.mac-cal-day:hover .mac-cal-num {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.mac-cal-num.today {
+  color: #ff453a;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 69, 58, 0.85);
+}
+
+.mac-cal-num.sel {
+  background: #0a84ff;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 3px 12px rgba(10, 132, 255, 0.5);
+  animation: mac-pop 0.25s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.mac-cal-num.preview {
+  background: rgba(10, 132, 255, 0.55);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.5);
+}
+
+@keyframes mac-pop {
+  from { transform: scale(0.6); }
+  to { transform: scale(1); }
+}
+
+.mac-cal-day:active .mac-cal-num { transform: scale(0.85); }
