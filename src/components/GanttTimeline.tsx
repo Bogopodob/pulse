@@ -1,5 +1,5 @@
 import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue, useMotionTemplate } from 'framer-motion'
 import { Dropdown } from '@heroui/react/dropdown'
 import { CalendarDateTime, getLocalTimeZone } from '@internationalized/date'
 import type { GanttTask } from '../types'
@@ -145,6 +145,25 @@ const ADD_MODAL_ITEM = {
   show: { opacity: 1, y: 0, transition: { duration: 0.42, ease: 'easeOut' as const } },
 }
 
+const MAC_GRID_VARIANTS = {
+  hidden: (dir: number) => ({ opacity: 0, x: dir * 34 }),
+  show: {
+    opacity: 1,
+    x: 0,
+    transition: { type: 'spring' as const, stiffness: 320, damping: 30, staggerChildren: 0.011, delayChildren: 0.04 },
+  },
+}
+
+const MAC_CELL_VARIANTS = {
+  hidden: { opacity: 0, y: 16, scale: 0.6 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: 'spring' as const, stiffness: 480, damping: 26 },
+  },
+}
+
 const TAG_PALETTE = ['#ff4d4d', '#ff9d5c', '#4fd4c4', '#4c8dff', '#a78bfa', '#ffd43b', '#69db7c', '#f783ac']
 
 const WHEEL_ITEM_H = 40
@@ -245,9 +264,8 @@ function MacCalendar({
   const m = month.getMonth()
   const offset = (new Date(y, m, 1).getDay() + 6) % 7
   const dim = new Date(y, m + 1, 0).getDate()
-  const rows = Math.ceil((offset + dim) / 7)
   const cells: (Date | null)[] = []
-  for (let i = 0; i < rows * 7; i++) {
+  for (let i = 0; i < 6 * 7; i++) {
     const d = i - offset + 1
     cells.push(d >= 1 && d <= dim ? new Date(y, m, d) : null)
   }
@@ -265,6 +283,16 @@ function MacCalendar({
   if (month.getTime() !== prevMonthKey.current) {
     monthDir.current = month.getTime() > prevMonthKey.current ? 1 : -1
     prevMonthKey.current = month.getTime()
+  }
+
+  const spotX = useMotionValue(50)
+  const spotY = useMotionValue(50)
+  const spotBg = useMotionTemplate`radial-gradient(150px circle at ${spotX}% ${spotY}%, rgba(10,132,255,0.14), transparent 70%)`
+
+  const onSpotMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    spotX.set(((e.clientX - r.left) / r.width) * 100)
+    spotY.set(((e.clientY - r.top) / r.height) * 100)
   }
 
   return (
@@ -297,9 +325,10 @@ function MacCalendar({
       </div>
       <motion.div
         key={`grid-${y}-${m}`}
-        initial={{ opacity: 0, x: monthDir.current * 30 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+        custom={monthDir.current}
+        variants={MAC_GRID_VARIANTS}
+        initial="hidden"
+        animate="show"
       >
         <div className="mac-cal-week">
           {WEEKDAYS_SHORT.map((w, i) => (
@@ -308,7 +337,8 @@ function MacCalendar({
             </div>
           ))}
         </div>
-        <div className="mac-cal-grid" onMouseLeave={() => onHover(null)}>
+        <div className="mac-cal-grid" onMouseLeave={() => onHover(null)} onMouseMove={onSpotMove}>
+          <div className="mac-cal-spot" style={{ background: spotBg } as unknown as React.CSSProperties} />
           {cells.map((d, i) => {
             if (!d) return <div key={i} className="mac-cal-day" />
             const t = d.getTime()
@@ -320,20 +350,27 @@ function MacCalendar({
             const inPill = hasRange && rangeEnd && t >= lo && t <= hi
             const hasPill = inPill && !(lo === hi && t === lo)
             return (
-              <button
+              <motion.button
                 key={i}
+                variants={MAC_CELL_VARIANTS}
                 type="button"
                 className="mac-cal-day"
                 onClick={() => onPick(d)}
                 onMouseEnter={() => onHover(d)}
               >
-                {hasPill && <span className={`mac-cal-bar${previewEnd ? ' prev' : ''}`} />}
+                {hasPill && (
+                  <span
+                    key={periodStage}
+                    className={`mac-cal-bar${previewEnd ? ' prev' : ''}`}
+                    style={previewEnd ? undefined : { animationDelay: `${Math.min(280, ((t - lo) / 86400000) * 20)}ms` }}
+                  />
+                )}
                 <span
                   className={`mac-cal-num${isStart || isEnd || selSingle ? ' sel' : ''}${isPreview ? ' preview' : ''}${today ? ' today' : ''}`}
                 >
                   {d.getDate()}
                 </span>
-              </button>
+              </motion.button>
             )
           })}
         </div>
@@ -657,10 +694,24 @@ function AddTaskModal({
                     </div>
                     <div className="mac-seg">
                       <button type="button" className={!usePeriod ? 'on' : ''} onClick={() => setPeriod(false)}>
-                        День
+                        {!usePeriod && (
+                          <motion.span
+                            layoutId="mac-seg-thumb"
+                            className="mac-seg-thumb"
+                            transition={{ type: 'spring', stiffness: 520, damping: 34 }}
+                          />
+                        )}
+                        <span className="mac-seg-label">День</span>
                       </button>
                       <button type="button" className={usePeriod ? 'on' : ''} onClick={() => setPeriod(true)}>
-                        Период
+                        {usePeriod && (
+                          <motion.span
+                            layoutId="mac-seg-thumb"
+                            className="mac-seg-thumb"
+                            transition={{ type: 'spring', stiffness: 520, damping: 34 }}
+                          />
+                        )}
+                        <span className="mac-seg-label">Период</span>
                       </button>
                     </div>
                   </div>
@@ -724,7 +775,7 @@ function AddTaskModal({
                             {WEEKDAYS_FULL[date.toDate(getLocalTimeZone()).getDay()]} —{' '}
                             {WEEKDAYS_FULL[endDate.toDate(getLocalTimeZone()).getDay()]}
                           </div>
-                          <div className="mac-date-big">
+                          <div className="mac-date-big mac-sheen">
                             {date.month === endDate.month
                               ? `${date.day} — ${endDate.day} ${MONTHS_GEN[endDate.month - 1]}`
                               : `${date.day} ${MONTHS_GEN[date.month - 1]} — ${endDate.day} ${MONTHS_GEN[endDate.month - 1]}`}
