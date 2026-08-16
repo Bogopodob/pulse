@@ -18,7 +18,6 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const dragStartX = useRef(0)
   const dragStartOffset = useRef(0)
   const barsRef = useRef<HTMLDivElement>(null)
-  const lensRef = useRef<HTMLDivElement>(null)
   const markersRef = useRef<HTMLDivElement>(null)
   const rulerRef = useRef<HTMLDivElement>(null)
   const playheadTimeRef = useRef<HTMLDivElement>(null)
@@ -49,7 +48,6 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     const style = `translateX(${tx}px) rotateX(${tilt}deg)`
 
     if (barsRef.current) barsRef.current.style.transform = style
-    if (lensRef.current) lensRef.current.style.transform = `translateX(${tx}px)`
     if (markersRef.current) markersRef.current.style.transform = `translateX(${tx}px)`
     if (rulerRef.current) rulerRef.current.style.transform = `translateX(${tx}px)`
     if (barsRef.current) {
@@ -118,11 +116,11 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const animateTo = useCallback((min: number) => {
     const target = (min - rhythm.nowMinutes) / STEP_MIN * PITCH
     const onDone = () => {
-      ;[barsRef, lensRef, markersRef, rulerRef].forEach((ref) => {
+      ;[barsRef, markersRef, rulerRef].forEach((ref) => {
         if (ref.current) ref.current.style.transition = 'none'
       })
     }
-    ;[barsRef, lensRef, markersRef, rulerRef].forEach((ref) => {
+    ;[barsRef, markersRef, rulerRef].forEach((ref) => {
       if (ref.current) ref.current.style.transition = 'transform 0.6s cubic-bezier(0.2,0.9,0.25,1)'
     })
     offsetRef.current = target
@@ -226,35 +224,9 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
           ))}
         </div>
 
-        <div className="absolute left-0 top-[30px] bottom-[62px] left-1/2 -translate-x-1/2 w-[170px] overflow-hidden pointer-events-none z-[4] rounded-[14px]"
-          style={{
-            boxShadow: '0 0 0 1px rgba(255,255,255,0.12), 0 0 40px rgba(76,141,255,0.18), inset 0 0 30px rgba(255,255,255,0.03)',
-            background: 'rgba(255,255,255,0.025)',
-            backdropFilter: 'blur(0.3px)',
-          }}
-        >
-          <div ref={lensRef} className="flex items-end will-change-transform" style={{ width: rowWidth, marginLeft: -1000 }}>
-            {bars.map((bar, i) => (
-              <div
-                key={i}
-                style={{
-                  width: PITCH - 2,
-                  marginRight: 1,
-                  height: bar.height * 1.32,
-                  background: bar.type === 'focus' ? 'linear-gradient(180deg, var(--focus-2), var(--focus))'
-                    : bar.type === 'rest' ? 'linear-gradient(180deg, var(--rest-2), var(--rest))'
-                    : bar.type === 'lunch' ? 'linear-gradient(180deg, var(--lunch-2), var(--lunch))'
-                    : 'var(--off)',
-                  opacity: bar.type === 'off' ? 0.55 : 1,
-                  filter: 'saturate(1.4) brightness(1.2)',
-                  transformOrigin: 'bottom',
-                  borderRadius: '3px 3px 1px 1px',
-                  flexShrink: 0,
-                }}
-              />
-            ))}
-          </div>
-        </div>
+        <div className="absolute left-1/2 -translate-x-1/2 top-[30px] bottom-[62px] w-[200px] pointer-events-none z-[4]"
+          style={{ background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.06), transparent 70%)' }}
+        />
 
         <div ref={markersRef} className="absolute left-0 top-[4px] h-[20px] will-change-transform z-[3]" style={{ width: rowWidth }}>
           {segments.filter(s => s.type === 'rest' || s.type === 'lunch').map((s) => {
