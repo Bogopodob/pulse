@@ -134,6 +134,7 @@ function RuleRow({
   onDraftChange: (d: Draft) => void
 }) {
   const drag = useDragControls()
+  const [dragging, setDragging] = useState(false)
   const a = ACCENTS[rule.color]
 
   return (
@@ -141,8 +142,17 @@ function RuleRow({
       value={rule}
       dragListener={false}
       dragControls={drag}
-      whileDrag={{ scale: 1.015, boxShadow: '0 14px 34px rgba(0,0,0,0.4)', zIndex: 40, borderRadius: '14px' }}
-      className="group flex items-center gap-3 px-6 py-3 border-t border-[var(--stroke)] first:border-t-0 bg-[var(--surface)]"
+      onDragStart={() => setDragging(true)}
+      onDragEnd={() => setDragging(false)}
+      onPointerUp={() => setDragging(false)}
+      onPointerCancel={() => setDragging(false)}
+      style={{
+        scale: dragging ? 1.02 : 1,
+        zIndex: dragging ? 40 : 1,
+        boxShadow: dragging ? '0 14px 34px rgba(0,0,0,0.4)' : 'none',
+        borderRadius: dragging ? '14px' : '0px',
+      }}
+      className="group flex items-center gap-3 px-6 py-3 border-t border-[var(--stroke)] first:border-t-0 bg-[var(--surface)] transition-[border-radius,box-shadow] duration-150"
     >
       <button
         onPointerDown={(e) => drag.start(e)}
