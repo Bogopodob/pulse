@@ -135,6 +135,14 @@ function pluralDays(n: number) {
   return `${n} дней`
 }
 
+function pluralTasks(n: number) {
+  const m10 = n % 10
+  const m100 = n % 100
+  if (m10 === 1 && m100 !== 11) return `${n} задача`
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return `${n} задачи`
+  return `${n} задач`
+}
+
 const ADD_MODAL_VARIANTS = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { duration: 0.35, delayChildren: 0.28, staggerChildren: 0.07 } },
@@ -245,6 +253,8 @@ function MacCalendar({
   end,
   periodStage,
   month,
+  tasks,
+  projects,
   onMonthChange,
   onPick,
   hover,
@@ -255,6 +265,8 @@ function MacCalendar({
   end: CalendarDateTime
   periodStage: 0 | 1 | 2
   month: Date
+  tasks: GanttTaskEx[]
+  projects: Record<string, { label: string; color: string }>
   onMonthChange: (m: Date) => void
   onPick: (d: Date) => void
   hover: Date | null
@@ -277,6 +289,15 @@ function MacCalendar({
   const rangeEnd = previewEnd ?? finalEnd
   const lo = rangeEnd ? Math.min(sT, rangeEnd.getTime()) : 0
   const hi = rangeEnd ? Math.max(sT, rangeEnd.getTime()) : 0
+
+  const taskColor = (t: GanttTaskEx) => (t.tags[0] ? projects[t.tags[0]]?.color : undefined) ?? 'rgba(255,255,255,0.45)'
+
+  const dayTasksFor = (d: Date) => tasks.filter((t) => d >= t.startDate && d <= t.endDate)
+
+  const selDate = start.toDate(getLocalTimeZone())
+  const footFrom = selDate
+  const footTo = mode === 'range' && periodStage === 2 ? end.toDate(getLocalTimeZone()) : selDate
+  const footCount = tasks.filter((t) => t.startDate <= footTo && t.endDate >= footFrom).length
 
   const monthDir = useRef(0)
   const prevMonthKey = useRef(month.getTime())
@@ -315,11 +336,25 @@ function MacCalendar({
           {MONTHS_NOM[m]} {y}
         </motion.div>
         <div className="mac-cal-nav">
-          <button type="button" onClick={() => onMonthChange(new Date(y, m - 1, 1))} aria-label="Предыдущий месяц">
-            ‹
+          <button
+            type="button"
+            className="mac-cal-nav-btn"
+            onClick={() => onMonthChange(new Date(y, m - 1, 1))}
+            aria-label="Предыдущий месяц"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
           </button>
-          <button type="button" onClick={() => onMonthChange(new Date(y, m + 1, 1))} aria-label="Следующий месяц">
-            ›
+          <button
+            type="button"
+            className="mac-cal-nav-btn"
+            onClick={() => onMonthChange(new Date(y, m + 1, 1))}
+            aria-label="Следующий месяц"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
           </button>
         </div>
       </div>
@@ -347,8 +382,10 @@ function MacCalendar({
             const isEnd = finalEnd ? t === finalEnd.getTime() : false
             const isPreview = previewEnd ? t === previewEnd.getTime() : false
             const selSingle = mode === 'single' && isSameDay(d, start.toDate(getLocalTimeZone()))
+            const selected = isStart || isEnd || selSingle
             const inPill = hasRange && rangeEnd && t >= lo && t <= hi
             const hasPill = inPill && !(lo === hi && t === lo)
+            const dayTasks = dayTasksFor(d)
             return (
               <motion.button
                 key={i}
@@ -366,15 +403,44 @@ function MacCalendar({
                   />
                 )}
                 <span
-                  className={`mac-cal-num${isStart || isEnd || selSingle ? ' sel' : ''}${isPreview ? ' preview' : ''}${today ? ' today' : ''}`}
+                  className={`mac-cal-num${selected ? ' sel' : ''}${isPreview ? ' preview' : ''}${today ? ' today' : ''}`}
                 >
                   {d.getDate()}
                 </span>
+                {selected && <span className="mac-cal-ripple" />}
+                {dayTasks.length > 0 && (
+                  <span className="mac-cal-dots">
+                    {dayTasks.slice(0, 3).map((tk) => (
+                      <span key={tk.id} className="mac-cal-dot" style={{ background: taskColor(tk) }} />
+                    ))}
+                  </span>
+                )}
               </motion.button>
             )
           })}
         </div>
       </motion.div>
+      <div className="mac-cal-foot">
+        {mode === 'range' && periodStage === 0 && (
+          <span className="mac-cal-hint">
+            <span className="mac-dot" />
+            Выберите дату начала
+          </span>
+        )}
+        {mode === 'range' && periodStage === 1 && (
+          <span className="mac-cal-hint">
+            <span className="mac-dot" />
+            Выберите дату окончания
+          </span>
+        )}
+        {!(mode === 'range' && periodStage < 2) && footCount > 0 && (
+          <span className="mac-cal-foot-info">
+            <span className="mac-foot-dot" />
+            {pluralTasks(footCount)}
+            {mode === 'range' ? ' в периоде' : ' на этот день'}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -392,6 +458,7 @@ function AddTaskModal({
   open,
   initialDay,
   projects,
+  tasks,
   onClose,
   onAdd,
   onAddProject,
@@ -399,6 +466,7 @@ function AddTaskModal({
   open: boolean
   initialDay: Date
   projects: Record<string, { label: string; color: string }>
+  tasks: GanttTaskEx[]
   onClose: () => void
   onAdd: (data: AddTaskData) => void
   onAddProject: (key: string, project: { label: string; color: string }) => void
@@ -862,6 +930,8 @@ function AddTaskModal({
                       end={endDate}
                       periodStage={periodStage}
                       month={calMonth}
+                      tasks={tasks}
+                      projects={projects}
                       onMonthChange={setCalMonth}
                       onPick={pickDay}
                       hover={calHover}
@@ -1975,6 +2045,7 @@ export function GanttTimeline() {
         open={adding}
         initialDay={currentDay}
         projects={allProjects}
+        tasks={mockTasks}
         onClose={() => setAdding(false)}
         onAdd={handleAddTask}
         onAddProject={(key, p) => setExtraProjects((prev) => ({ ...prev, [key]: p }))}
