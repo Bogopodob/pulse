@@ -151,7 +151,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   }
 
   return (
-    <div className="card card-lift relative z-[1] p-0 overflow-hidden">
+    <div className="card card-lift relative z-[1] h-full flex flex-col p-0 overflow-hidden">
       <div className="flex items-center justify-between px-6 pt-5 pb-1">
         <h3 className="font-[var(--font-display)] text-[15.5px] font-semibold">Ритм дня</h3>
         <div className="flex items-center gap-2.5">
@@ -173,7 +173,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
 
       <div
         ref={viewportRef}
-        className="timeline-viewport relative h-[220px] mt-3 overflow-hidden cursor-grab"
+        className="timeline-viewport relative flex-1 min-h-[220px] mt-3 overflow-hidden cursor-grab"
         style={{ perspective: '1000px' }}
         onMouseDown={(e) => {
           setIsDragging(true)

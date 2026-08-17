@@ -26,7 +26,7 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     : `до ${fmtHM(cur.end)}`
 
   return (
-    <div className={`card card-lift relative z-[1] overflow-hidden p-6 flex flex-col ${resting ? 'resting' : ''}`}>
+    <div className={`card card-lift relative z-[1] h-full overflow-hidden p-6 flex flex-col ${resting ? 'resting' : ''}`}>
       <div
         className="absolute w-[460px] h-[460px] left-1/2 -translate-x-1/2 top-[-260px] pointer-events-none rounded-full transition-all duration-600"
         style={{
@@ -48,7 +48,7 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         />
       </div>
 
-      <div className="relative flex flex-col items-center text-center">
+      <div className="relative flex-1 flex flex-col items-center text-center justify-center">
         <div className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-faint)] font-semibold">
           {resting ? 'Сейчас' : 'Дальше по плану'}
         </div>
@@ -136,8 +136,7 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
           </div>
         )}
 
-        <div className="flex gap-2 mt-5 w-full">
-          <motion.button
+        <div className="flex gap-2 mt-auto pt-5 w-full">          <motion.button
             whileTap={{ scale: 0.96 }}
             className="btn btn-ghost flex-1"
             onClick={() => {
