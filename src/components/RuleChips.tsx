@@ -232,7 +232,7 @@ function BlockCreator({
               </div>
 
               <div className="mt-1">
-                <DurationSlider value={presetMin} accent={acc} onChange={setPresetMin} />
+                <DurationSlider value={presetMin} max={240} accent={acc} onChange={setPresetMin} />
               </div>
 
               <div className="flex items-center gap-2 mt-0.5 text-[10.5px] text-[var(--text-faint)]">
@@ -388,7 +388,7 @@ function BlockCreator({
                   </div>
                 </div>
 
-                <DurationSlider value={customMin} accent={ACCENTS[custom.color]} onChange={setCustomMin} />
+                <DurationSlider value={customMin} max={1080} accent={ACCENTS[custom.color]} onChange={setCustomMin} />
               </div>
             </motion.div>
           )}
