@@ -189,7 +189,7 @@ src/
     │   ├── useTheme.tsx           # тёмная/светлая тема
     │   └── useI18n.tsx            # локализация
     ├── ui/
-    │   ├── charts/                # bklit area-chart (shadcn-регистр, visx + motion)
+    │   ├── charts/                # bklit area/bar/pie/ring-chart (shadcn-регистр, visx + motion)
     │   └── shimmering-text.tsx    # мерцающий текст (bklit)
     ├── lib/
     │   └── utils.ts               # cn()
