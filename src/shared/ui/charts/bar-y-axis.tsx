@@ -20,6 +20,13 @@ interface BarYAxisLabelProps {
   isHovered: boolean;
 }
 
+type YAxisLabelItem = {
+  label: string;
+  y: number;
+  bandHeight?: number;
+  index?: number;
+};
+
 function BarYAxisLabel({
   label,
   y,
@@ -80,12 +87,23 @@ const BarYAxisInner = memo(function BarYAxisInner({
   maxLabels = 20,
   container,
 }: BarYAxisProps & { container: HTMLDivElement }) {
-  const { margin, barScale, bandWidth, barXAccessor, data, hoveredBarIndex } =
-    useChart();
+  const {
+    margin,
+    barScale,
+    bandWidth,
+    barXAccessor,
+    data,
+    hoveredBarIndex,
+    yScale,
+    innerHeight,
+    orientation,
+  } = useChart();
 
-  // Generate labels for each bar
-  const labelsToShow = useMemo(() => {
-    if (!(barScale && bandWidth && barXAccessor)) {
+  const isHorizontal = orientation === "horizontal";
+
+  // Horizontal orientation: category labels down the left gutter, one per band.
+  const categoryLabels = useMemo((): YAxisLabelItem[] => {
+    if (!(isHorizontal && barScale && bandWidth && barXAccessor)) {
       return [];
     }
 
@@ -113,7 +131,27 @@ const BarYAxisInner = memo(function BarYAxisInner({
     margin.top,
     showAllLabels,
     maxLabels,
+    isHorizontal,
   ]);
+
+  // Vertical orientation: numeric value ticks along the left gutter.
+  const valueTicks = useMemo((): YAxisLabelItem[] => {
+    if (isHorizontal) {
+      return [];
+    }
+    const ticks = (yScale?.ticks?.(Math.min(maxLabels, 6)) ?? [])
+      .filter((t: number) => Number.isFinite(t))
+      .map((t: number) => ({
+        label: String(Math.round(t)),
+        y: (yScale(t) ?? innerHeight) + margin.top,
+      }));
+    if (ticks.length === 0) {
+      return [{ label: "0", y: innerHeight + margin.top }];
+    }
+    return ticks;
+  }, [isHorizontal, yScale, innerHeight, margin.top, maxLabels]);
+
+  const labelsToShow = isHorizontal ? categoryLabels : valueTicks;
 
   return createPortal(
     <div
@@ -125,7 +163,7 @@ const BarYAxisInner = memo(function BarYAxisInner({
     >
       {labelsToShow.map((item) => (
         <BarYAxisLabel
-          bandHeight={item.bandHeight}
+          bandHeight={item.bandHeight ?? 0}
           isHovered={hoveredBarIndex === item.index}
           key={`${item.label}-${item.y}`}
           label={item.label}
