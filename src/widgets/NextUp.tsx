@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { useRhythm, fmtHM } from '../hooks/useRhythm'
-import { ACCENTS, ICON_PATHS } from '../lib/activities'
+import { useRhythm, fmtHM } from '../entities/rhythm/useRhythm'
+import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 const CIRC = 2 * Math.PI * 43
 

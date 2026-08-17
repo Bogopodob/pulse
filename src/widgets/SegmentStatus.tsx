@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
-import { useRhythm, fmtHM } from '../hooks/useRhythm'
-import { ACCENTS, ICON_PATHS } from '../lib/activities'
+import { useRhythm, fmtHM } from '../entities/rhythm/useRhythm'
+import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 export function SegmentStatus({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const { cur, resting, remain, total, nextSegment } = rhythm

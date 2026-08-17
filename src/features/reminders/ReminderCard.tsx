@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import type { Reminder } from '../types'
+import type { Reminder } from '../../shared/types'
 
 interface ReminderCardProps {
   reminder: Reminder

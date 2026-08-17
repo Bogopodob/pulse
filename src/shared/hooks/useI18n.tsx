@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { Locale } from '../types'
-import { t as translateFn } from '../i18n'
+import type { Locale } from '../types/index'
+import { t as translateFn } from '../config/i18n'
 
 interface I18nContextValue {
   locale: Locale

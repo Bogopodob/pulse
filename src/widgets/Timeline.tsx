@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react'
-import { useRhythm, fmtHM, buildBars } from '../hooks/useRhythm'
-import { ACCENTS, ICON_PATHS } from '../lib/activities'
+import { useRhythm, fmtHM, buildBars } from '../entities/rhythm/useRhythm'
+import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 function fmtDur(min: number): string {
   const h = Math.floor(min / 60)

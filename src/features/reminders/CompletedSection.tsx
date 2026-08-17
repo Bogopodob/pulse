@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { useReminders } from '../hooks/useReminders'
+import { useReminders } from './model/useReminders'
 
 function ago(ms: number): string {
   const s = Math.floor(ms / 1000)

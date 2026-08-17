@@ -2,7 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo, mem
 import { motion, AnimatePresence, useMotionValue, useMotionTemplate } from 'framer-motion'
 import { Dropdown } from '@heroui/react/dropdown'
 import { CalendarDateTime, getLocalTimeZone } from '@internationalized/date'
-import type { GanttTask } from '../types'
+import type { GanttTask } from '../shared/types'
 
 const BASE_HOUR_W = 160
 const BASE_PX_MIN = BASE_HOUR_W / 60

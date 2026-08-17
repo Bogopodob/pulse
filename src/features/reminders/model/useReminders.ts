@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import type { Reminder, ReminderStatus } from '../types'
+import type { Reminder, ReminderStatus } from '../../../shared/types'
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 
 const STORAGE_KEY = 'pulse-reminders'

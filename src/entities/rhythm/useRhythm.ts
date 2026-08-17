@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { RESTING_TYPES } from '../lib/activities'
-import type { Rule } from '../lib/activities'
+import { RESTING_TYPES } from './activities'
+import type { Rule } from './activities'
 
 const DAY_START = 0
 const DAY_END = 1440
 const STEP_MIN = 2
 const PITCH = 7
 const SIM_SPEED = 2
-const CHAIN_START = 540
+export const CHAIN_START = 540
 
 export interface Segment {
   start: number

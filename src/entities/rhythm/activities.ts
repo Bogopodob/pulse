@@ -1,5 +1,7 @@
 export type RuleColor = 'blue' | 'amber' | 'teal' | 'violet' | 'rose'
 
+export type Accent = (typeof ACCENTS)[RuleColor]
+
 export interface Rule {
   id: string
   type: string

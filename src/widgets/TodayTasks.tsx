@@ -1,4 +1,4 @@
-import { useRhythm, fmtHM } from '../hooks/useRhythm'
+import { useRhythm, fmtHM } from '../entities/rhythm/useRhythm'
 
 export function TodayTasks({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const { nowMinutes, segments } = rhythm

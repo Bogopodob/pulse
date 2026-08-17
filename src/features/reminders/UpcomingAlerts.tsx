@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useReminders } from '../hooks/useReminders'
+import { useReminders } from './model/useReminders'
 
 function fmt(seconds: number): string {
   if (seconds <= 0) return '00:00'

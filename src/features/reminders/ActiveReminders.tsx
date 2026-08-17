@@ -1,5 +1,5 @@
 import { AnimatePresence } from 'framer-motion'
-import { useReminders } from '../hooks/useReminders'
+import { useReminders } from './model/useReminders'
 import { ReminderCard } from './ReminderCard'
 
 export function ActiveReminders() {

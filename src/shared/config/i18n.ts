@@ -1,4 +1,4 @@
-import type { Locale } from './types'
+import type { Locale } from '../types'
 
 const translations: Record<Locale, Record<string, string>> = {
   ru: {
