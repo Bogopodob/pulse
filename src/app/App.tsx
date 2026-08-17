@@ -80,7 +80,7 @@ function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25 }}
-                className="max-w-3xl mx-auto w-full flex items-center justify-center h-[200px]"
+                className="max-w-5xl mx-auto w-full"
               >
                 <Stats />
               </motion.div>

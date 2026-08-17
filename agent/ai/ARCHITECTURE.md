@@ -161,7 +161,7 @@ src/
 ├── pages/
 │   ├── Today.tsx                  # СЕГОДНЯ: header, сетка NextUp/Timeline/TodayTasks/RuleChips
 │   ├── Schedule.tsx               # РАСПИСАНИЕ: GanttTimeline
-│   └── Stats.tsx                  # СТАТИСТИКА: заглушка
+│   └── Stats.tsx                  # СТАТИСТИКА: AreaChart (bklit) + сводные карточки
 ├── widgets/
 │   ├── TitleBar.tsx               # верхняя панель (статус rest/focus/idle)
 │   ├── Sidebar.tsx                # навигация по страницам
@@ -188,6 +188,11 @@ src/
     ├── hooks/
     │   ├── useTheme.tsx           # тёмная/светлая тема
     │   └── useI18n.tsx            # локализация
+    ├── ui/
+    │   ├── charts/                # bklit area-chart (shadcn-регистр, visx + motion)
+    │   └── shimmering-text.tsx    # мерцающий текст (bklit)
+    ├── lib/
+    │   └── utils.ts               # cn()
     ├── config/
     │   └── i18n.ts                # переводы (ru/en)
     └── types/
@@ -196,6 +201,7 @@ src/
 
 Особенности:
 - **Пат-алиасов нет** — только относительные импорты; слои соединяются `../../`-путями.
+- Алиас `@/` → `./src/*` добавлен исключительно для bklit-чартов (tsconfig.app.json paths + vite resolve.alias + components.json).
 - Импорты направлены строго вниз (entities → shared, features → entities/shared, widgets → entities/shared).
 - `RuleChips`/`Timeline`/`BarsLayer` обёрнуты в `memo`, `buildBars` — чистая функция вне хука, `useRhythm` пишет DOM напрямую в rAF и обновляет состояние не чаще 1 раза за 0.1 мин симуляции.
 - Устаревшие компоненты (Header, reminders, QuickActions, QuickCreate, StatsBar, SegmentStatus) перемещены, но не подключены — удалять только по согласованию.
