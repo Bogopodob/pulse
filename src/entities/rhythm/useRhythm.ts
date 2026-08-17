@@ -7,6 +7,7 @@ const DAY_END = 1440
 const STEP_MIN = 2
 const PITCH = 7
 const SIM_SPEED = 2
+export const SIM_SPEED_MIN_PER_SEC = SIM_SPEED
 export const CHAIN_START = 540
 
 export interface Segment {
@@ -84,7 +85,7 @@ export function useRhythm(rules: Rule[]) {
   useEffect(() => {
     let raf: number
     let acc = 0
-    const TICK = 0.1
+    const TICK = SIM_SPEED
     const loop = (ts: number) => {
       if (!lastTsRef.current) lastTsRef.current = ts
       const dt = (ts - lastTsRef.current) / 1000

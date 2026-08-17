@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react'
-import { useRhythm, fmtHM, buildBars } from '../entities/rhythm/useRhythm'
+import { useRhythm, fmtHM, buildBars, SIM_SPEED_MIN_PER_SEC } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 function fmtDur(min: number): string {
@@ -42,13 +42,19 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     return t
   }, [segments])
 
-  const homeOffsetPx = ((rhythm.nowMinutes - DAY_START) / STEP_MIN) * PITCH
+  const baseRef = useRef({ min: rhythm.nowMinutes, ts: performance.now() })
+  const smoothNowRef = useRef(rhythm.nowMinutes)
+
+  useEffect(() => {
+    baseRef.current = { min: rhythm.nowMinutes, ts: performance.now() }
+  }, [rhythm.nowMinutes])
 
   const viewportCenterPx = useCallback(() => {
     return viewportRef.current ? viewportRef.current.clientWidth / 2 : 300
   }, [])
 
-  const applyTransform = useCallback(() => {
+  const applyTransform = useCallback((min: number) => {
+    const homeOffsetPx = ((min - DAY_START) / STEP_MIN) * PITCH
     const total = homeOffsetPx + offsetRef.current
     const tx = viewportCenterPx() - total
     const tilt = Math.max(-8, Math.min(8, velocityRef.current * 0.12))
@@ -64,33 +70,33 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
 
     const minuteAtCenter = DAY_START + total / PITCH * STEP_MIN
     if (playheadTimeRef.current) playheadTimeRef.current.textContent = fmtHM(minuteAtCenter)
+  }, [viewportCenterPx, DAY_START, PITCH, STEP_MIN])
 
-    setShowJump(Math.abs(offsetRef.current) > 4)
-  }, [homeOffsetPx, viewportCenterPx, DAY_START, PITCH, STEP_MIN])
+  useEffect(() => {
+    let raf = 0
+    let last = 0
+    const loop = (ts: number) => {
+      if (ts - last >= 33) {
+        last = ts
+        smoothNowRef.current = baseRef.current.min + (ts - baseRef.current.ts) / 1000 * SIM_SPEED_MIN_PER_SEC
+        applyTransform(smoothNowRef.current)
+      }
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [applyTransform])
 
   const physicsLoop = useCallback(() => {
     if (Math.abs(velocityRef.current) > 0.02) {
       offsetRef.current += velocityRef.current
       velocityRef.current *= 0.90
-      applyTransform()
+      applyTransform(smoothNowRef.current)
       rafRef.current = requestAnimationFrame(physicsLoop)
     } else {
       velocityRef.current = 0
     }
   }, [applyTransform])
-
-  const applyRef = useRef(applyTransform)
-  applyRef.current = applyTransform
-
-  useEffect(() => {
-    let raf = 0
-    const loop = () => {
-      applyRef.current()
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [])
 
   useEffect(() => {
     const vp = viewportRef.current
@@ -111,7 +117,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     if (!isDragging) return
     const onMove = (e: MouseEvent) => {
       offsetRef.current = dragStartOffset.current - (e.clientX - dragStartX.current)
-      applyTransform()
+      applyTransform(smoothNowRef.current)
     }
     const onUp = () => setIsDragging(false)
     window.addEventListener('mousemove', onMove)
@@ -120,8 +126,8 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   }, [isDragging, applyTransform])
 
   useEffect(() => {
-    applyTransform()
-  }, [bars])
+    setShowJump(Math.abs(offsetRef.current) > 4)
+  }, [rhythm.nowMinutes])
 
   useEffect(() => {
     return () => cancelAnimationFrame(rafRef.current)
@@ -139,7 +145,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     })
     offsetRef.current = target
     velocityRef.current = 0
-    applyTransform()
+    applyTransform(smoothNowRef.current)
     setTimeout(onDone, 620)
   }, [applyTransform, rhythm.nowMinutes, STEP_MIN, PITCH])
 

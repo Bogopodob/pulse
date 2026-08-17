@@ -1,16 +1,4 @@
-interface TitleBarProps {
-  status: 'focus' | 'rest' | 'idle'
-}
-
-const statusConfig = {
-  focus: { label: 'Pulse — фокус, ещё', dotColor: '#4c8dff' },
-  rest: { label: 'Pulse — отдых', dotColor: '#ff9d5c' },
-  idle: { label: 'Pulse — ритм дня', dotColor: '#5c6068' },
-}
-
-export function TitleBar({ status }: TitleBarProps) {
-  const cfg = statusConfig[status]
-
+export function TitleBar() {
   return (
     <div
       data-tauri-drag-region
@@ -23,15 +11,12 @@ export function TitleBar({ status }: TitleBarProps) {
         <span className="w-[12px] h-[12px] rounded-full bg-[#28c840]" />
       </div>
 
-      <div className={`flex items-center gap-2 text-[13px] text-[var(--text-dim)] font-medium ${status === 'rest' ? 'resting' : ''}`}>
+      <div className="flex items-center gap-2 text-[13px] text-[var(--text-dim)] font-medium">
         <span
           className="w-[6px] h-[6px] rounded-full transition-all duration-300"
-          style={{
-            background: cfg.dotColor,
-            boxShadow: `0 0 0 3px ${cfg.dotColor}33`,
-          }}
+          style={{ background: '#5c6068', boxShadow: '0 0 0 3px #5c606833' }}
         />
-        {cfg.label}
+        Pulse — ритм дня
       </div>
 
       <div className="w-[68px]" />

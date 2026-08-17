@@ -2,11 +2,9 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { TitleBar } from '../widgets/TitleBar'
 import { Sidebar } from '../widgets/Sidebar'
-import { Toast } from '../widgets/Toast'
 import { Today } from '../pages/Today'
 import { Schedule } from '../pages/Schedule'
 import { Stats } from '../pages/Stats'
-import { useRhythm } from '../entities/rhythm/useRhythm'
 import { DEFAULT_RULES } from '../entities/rhythm/activities'
 import type { Rule } from '../entities/rhythm/activities'
 
@@ -23,7 +21,6 @@ const pageMeta: Record<Page, { title: string; desc: string }> = {
 
 function App() {
   const [rules, setRules] = useState<Rule[]>(DEFAULT_RULES)
-  const rhythm = useRhythm(rules)
   const [page, setPage] = useState<Page>('today')
   const [clockStr, setClockStr] = useState('')
 
@@ -43,7 +40,7 @@ function App() {
 
   return (
     <div className="h-dvh w-screen flex flex-col">
-      <TitleBar status={rhythm.resting ? 'rest' : rhythm.cur.type === 'off' ? 'idle' : 'focus'} />
+      <TitleBar />
 
       <div className="flex-1 flex min-h-0">
         <Sidebar page={page} onPageChange={setPage} />
@@ -59,7 +56,7 @@ function App() {
                 transition={{ duration: 0.25 }}
                 className="w-full"
               >
-                <Today title={meta.title} desc={meta.desc} rhythm={rhythm} rules={rules} onRulesChange={setRules} clockStr={clockStr} />
+                <Today title={meta.title} desc={meta.desc} rules={rules} onRulesChange={setRules} clockStr={clockStr} />
               </motion.div>
             )}
 
@@ -91,10 +88,6 @@ function App() {
           </AnimatePresence>
         </main>
       </div>
-
-      <AnimatePresence>
-        {rhythm.toast && <Toast title={rhythm.toast.title} text={rhythm.toast.text} />}
-      </AnimatePresence>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { AnimatePresence } from 'framer-motion'
 import { useRhythm } from '../entities/rhythm/useRhythm'
 import { ACCENTS } from '../entities/rhythm/activities'
 import type { Rule } from '../entities/rhythm/activities'
@@ -5,22 +6,22 @@ import { NextUp } from '../widgets/NextUp'
 import { Timeline } from '../widgets/Timeline'
 import { TodayTasks } from '../widgets/TodayTasks'
 import { RuleChips } from '../features/add-rule'
+import { Toast } from '../widgets/Toast'
 
 export function Today({
   title,
   desc,
-  rhythm,
   rules,
   onRulesChange,
   clockStr,
 }: {
   title: string
   desc: string
-  rhythm: ReturnType<typeof useRhythm>
   rules: Rule[]
   onRulesChange: (rules: Rule[]) => void
   clockStr: string
 }) {
+  const rhythm = useRhythm(rules)
   const todayStatus = (() => {
     const a = ACCENTS[rhythm.cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
     if (rhythm.cur.type === 'off')
@@ -61,6 +62,9 @@ export function Today({
         <div className="relative z-[1] min-w-0 order-3"><TodayTasks rhythm={rhythm} /></div>
         <div className="relative z-[1] min-w-0 order-4"><RuleChips rules={rules} onChange={onRulesChange} /></div>
       </div>
+      <AnimatePresence>
+        {rhythm.toast && <Toast title={rhythm.toast.title} text={rhythm.toast.text} />}
+      </AnimatePresence>
     </>
   )
 }
