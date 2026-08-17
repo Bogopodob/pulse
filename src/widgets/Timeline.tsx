@@ -79,6 +79,19 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     }
   }, [applyTransform])
 
+  const applyRef = useRef(applyTransform)
+  applyRef.current = applyTransform
+
+  useEffect(() => {
+    let raf = 0
+    const loop = () => {
+      applyRef.current()
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
@@ -109,13 +122,6 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   useEffect(() => {
     applyTransform()
   }, [bars])
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      applyTransform()
-    }, 1000)
-    return () => clearInterval(id)
-  }, [applyTransform])
 
   useEffect(() => {
     return () => cancelAnimationFrame(rafRef.current)

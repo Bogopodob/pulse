@@ -865,7 +865,7 @@ function AddTaskModal({
                 e.preventDefault()
                 submit()
               }}
-              className="modal-glass relative z-10 w-full max-w-[840px] p-7 flex flex-col gap-5"
+              className="modal-glass relative z-10 w-full max-w-[920px] p-7 flex flex-col gap-5"
             >
               <motion.div variants={ADD_MODAL_ITEM} className="flex items-start justify-between">
                 <div>
