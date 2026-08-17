@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { useRhythm, fmtHM } from '../hooks/useRhythm'
+import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react'
+import { useRhythm, fmtHM, buildBars } from '../hooks/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../lib/activities'
 
 function fmtDur(min: number): string {
@@ -28,7 +28,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
 
   const { DAY_START, DAY_END, STEP_MIN, PITCH, segments } = rhythm
 
-  const bars = rhythm.buildBars()
+  const bars = useMemo(() => buildBars(segments), [segments])
   const totalBars = bars.length
   const rowWidth = totalBars * PITCH
 
@@ -214,19 +214,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         })()}
 
         <div ref={barsRef} className="absolute left-0 top-[30px] bottom-[62px] flex items-end will-change-transform" style={{ width: rowWidth, transformStyle: 'preserve-3d' }}>
-          {bars.map((bar, i) => (
-            <div
-              key={i}
-              className={`shrink-0 rounded-t-[3px] rounded-b-[1px] ${bar.type}`}
-              style={{
-                width: PITCH - 2,
-                marginRight: 1,
-                height: bar.height,
-                background: bar.type === 'off' ? 'var(--off)' : (ACCENTS[bar.color as keyof typeof ACCENTS] ?? ACCENTS.blue).gradient,
-                opacity: bar.type === 'off' ? 0.55 : 1,
-              }}
-            />
-          ))}
+          <BarsLayer bars={bars} pitch={PITCH} />
         </div>
 
         <div className="absolute left-1/2 -translate-x-1/2 top-[30px] bottom-[62px] w-[200px] pointer-events-none z-[4]"
@@ -342,5 +330,25 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     </div>
   )
 }
+
+const BarsLayer = memo(function BarsLayer({ bars, pitch }: { bars: { type: string; height: number; color: string }[]; pitch: number }) {
+  return (
+    <>
+      {bars.map((bar, i) => (
+        <div
+          key={i}
+          className={`shrink-0 rounded-t-[3px] rounded-b-[1px] ${bar.type}`}
+          style={{
+            width: pitch - 2,
+            marginRight: 1,
+            height: bar.height,
+            background: bar.type === 'off' ? 'var(--off)' : (ACCENTS[bar.color as keyof typeof ACCENTS] ?? ACCENTS.blue).gradient,
+            opacity: bar.type === 'off' ? 0.55 : 1,
+          }}
+        />
+      ))}
+    </>
+  )
+})
 
 

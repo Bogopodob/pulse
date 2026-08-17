@@ -51,6 +51,27 @@ function segAt(min: number, segs: Segment[]): Segment {
   return segs[segs.length - 1]
 }
 
+export function buildBars(segments: Segment[]): { type: string; height: number; color: string }[] {
+  const bars: { type: string; height: number; color: string }[] = []
+  for (let m = DAY_START; m < DAY_END; m += STEP_MIN) {
+    const s = segAt(m, segments)
+    const local = (m - s.start) / Math.max(1, s.end - s.start)
+    let intensity: number
+    const idx = Math.floor((m - DAY_START) / STEP_MIN)
+    const noise = Math.sin(idx * 12.9898) * 43758.5453
+    const frac = noise - Math.floor(noise)
+    if (s.type === 'focus') intensity = 0.32 + 0.55 * local + 0.10 * Math.sin(idx * 0.85) * local
+    else if (s.type === 'off') intensity = 0.10 + 0.06 * frac
+    else if (s.type === 'break' || s.type === 'smoke') intensity = 0.42 + 0.22 * Math.sin(idx * 0.6)
+    else if (s.type === 'lunch' || s.type === 'breakfast' || s.type === 'dinner') intensity = 0.28 + 0.08 * Math.sin(idx * 0.4)
+    else intensity = 0.38 + 0.12 * Math.sin(idx * 0.5)
+    intensity = Math.max(0.08, Math.min(1, intensity))
+    const h = Math.round(8 + intensity * 70)
+    bars.push({ type: s.type, height: h, color: s.color })
+  }
+  return bars
+}
+
 export function useRhythm(rules: Rule[]) {
   const [nowMinutes, setNowMinutes] = useState(() => {
     const d = new Date()
@@ -62,15 +83,22 @@ export function useRhythm(rules: Rule[]) {
 
   useEffect(() => {
     let raf: number
+    let acc = 0
+    const TICK = 0.1
     const loop = (ts: number) => {
       if (!lastTsRef.current) lastTsRef.current = ts
       const dt = (ts - lastTsRef.current) / 1000
       lastTsRef.current = ts
-      setNowMinutes((prev) => {
-        let next = prev + dt * SIM_SPEED / 60 * 60
-        if (next >= DAY_END - 5) next = DAY_START + 90
-        return next
-      })
+      acc += dt * SIM_SPEED
+      if (acc >= TICK) {
+        const step = Math.floor(acc / TICK) * TICK
+        acc -= step
+        setNowMinutes((prev) => {
+          let next = prev + step
+          if (next >= DAY_END - 5) next = DAY_START + 90
+          return next
+        })
+      }
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
@@ -103,27 +131,6 @@ export function useRhythm(rules: Rule[]) {
   const totalBars = Math.ceil((DAY_END - DAY_START) / STEP_MIN)
   const rowWidth = totalBars * PITCH
 
-  function buildBars() {
-    const bars: { type: string; height: number; color: string }[] = []
-    for (let m = DAY_START; m < DAY_END; m += STEP_MIN) {
-      const s = segAt(m, segments)
-      const local = (m - s.start) / Math.max(1, s.end - s.start)
-      let intensity: number
-      const idx = Math.floor((m - DAY_START) / STEP_MIN)
-      const noise = Math.sin(idx * 12.9898) * 43758.5453
-      const frac = noise - Math.floor(noise)
-      if (s.type === 'focus') intensity = 0.32 + 0.55 * local + 0.10 * Math.sin(idx * 0.85) * local
-      else if (s.type === 'off') intensity = 0.10 + 0.06 * frac
-      else if (s.type === 'break' || s.type === 'smoke') intensity = 0.42 + 0.22 * Math.sin(idx * 0.6)
-      else if (s.type === 'lunch' || s.type === 'breakfast' || s.type === 'dinner') intensity = 0.28 + 0.08 * Math.sin(idx * 0.4)
-      else intensity = 0.38 + 0.12 * Math.sin(idx * 0.5)
-      intensity = Math.max(0.08, Math.min(1, intensity))
-      const h = Math.round(8 + intensity * 70)
-      bars.push({ type: s.type, height: h, color: s.color })
-    }
-    return bars
-  }
-
   return {
     nowMinutes,
     segments,
@@ -134,7 +141,6 @@ export function useRhythm(rules: Rule[]) {
     progress,
     totalBars,
     rowWidth,
-    buildBars,
     toast,
     setToast,
     DAY_START,

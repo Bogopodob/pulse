@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { memo, useRef, useState } from 'react'
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion'
 import {
   ACTIVITIES,
@@ -572,7 +572,7 @@ function RuleRow({
   )
 }
 
-export function RuleChips({ rules, onChange }: { rules: Rule[]; onChange: (rules: Rule[]) => void }) {
+export const RuleChips = memo(function RuleChips({ rules, onChange }: { rules: Rule[]; onChange: (rules: Rule[]) => void }) {
   const [dragging, setDragging] = useState(false)
   const [edit, setEdit] = useState<EditState | null>(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -701,4 +701,4 @@ export function RuleChips({ rules, onChange }: { rules: Rule[]; onChange: (rules
       </div>
     </div>
   )
-}
+})
