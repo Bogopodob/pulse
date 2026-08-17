@@ -11,14 +11,7 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
 
   const curAccent = ACCENTS[cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
 
-  const upcoming: typeof segments = (() => {
-    const out: typeof segments = []
-    const idx = segments.findIndex((s) => s.start > cur.start)
-    for (let i = idx; i < segments.length && out.length < 2; i++) {
-      if (segments[i].type !== 'off') out.push(segments[i])
-    }
-    return out
-  })()
+  const upcoming = segments.filter((s) => s.start > cur.start && s.type !== 'off').slice(0, 2)
 
   const urgent = !resting && remain < 600
 
