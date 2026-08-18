@@ -1,6 +1,6 @@
 import { GanttTimeline } from '../widgets/GanttTimeline'
 
-export function Schedule({ title, desc, clockStr }: { title: string; desc: string; clockStr: string }) {
+export function Schedule({ title, desc, clockStr, onNewTask }: { title: string; desc: string; clockStr: string; onNewTask: () => void }) {
   return (
     <>
       <div className="flex items-end justify-between px-6 sm:px-8 md:px-10 pb-3">
@@ -18,7 +18,7 @@ export function Schedule({ title, desc, clockStr }: { title: string; desc: strin
           </div>
         </div>
       </div>
-      <GanttTimeline />
+      <GanttTimeline onNewTask={onNewTask} />
     </>
   )
 }

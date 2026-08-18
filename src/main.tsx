@@ -6,6 +6,8 @@ import { ThemeProvider } from './shared/hooks/useTheme'
 import { I18nProvider } from './shared/hooks/useI18n'
 import { SettingsProvider } from './shared/hooks/useSettings'
 import { TemplatesProvider } from './entities/templates/useTemplates'
+import { TasksProvider } from './entities/tasks/useTasks'
+import { TeamProvider } from './entities/team/useTeam'
 import App from './app/App'
 
 createRoot(document.getElementById('root')!).render(
@@ -15,7 +17,11 @@ createRoot(document.getElementById('root')!).render(
         <I18nProvider>
           <SettingsProvider>
             <TemplatesProvider>
-              <App />
+              <TasksProvider>
+                <TeamProvider>
+                  <App />
+                </TeamProvider>
+              </TasksProvider>
             </TemplatesProvider>
           </SettingsProvider>
         </I18nProvider>

@@ -1,6 +1,8 @@
+type SidebarPage = 'today' | 'schedule' | 'stats' | 'settings' | 'templates' | 'new-task'
+
 interface SidebarProps {
-  page: 'today' | 'schedule' | 'stats' | 'settings' | 'templates'
-  onPageChange: (page: 'today' | 'schedule' | 'stats' | 'settings' | 'templates') => void
+  page: SidebarPage
+  onPageChange: (page: SidebarPage) => void
 }
 
 const items = [

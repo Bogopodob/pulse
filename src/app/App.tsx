@@ -7,13 +7,15 @@ import { Schedule } from '../pages/Schedule'
 import { Stats } from '../pages/Stats'
 import { Settings } from '../pages/Settings'
 import { Templates } from '../pages/Templates'
+import { AddTaskForm } from '../features/tasks/ui/AddTaskForm'
+import { useTasks } from '../entities/tasks/useTasks'
 import { DEFAULT_RULES } from '../entities/rhythm/activities'
 import type { Rule } from '../entities/rhythm/activities'
 import { fmtClock } from '../shared/lib/date'
 import { useSettings } from '../shared/hooks/useSettings'
 import { useTemplates } from '../entities/templates/useTemplates'
 
-type Page = 'today' | 'schedule' | 'stats' | 'settings' | 'templates'
+type Page = 'today' | 'schedule' | 'stats' | 'settings' | 'templates' | 'new-task'
 
 const pageMeta: Record<Page, { title: string; desc: string }> = {
   today: { title: 'Сегодня', desc: 'Ближайшее событие и ритм всего дня в одном месте' },
@@ -21,6 +23,7 @@ const pageMeta: Record<Page, { title: string; desc: string }> = {
   stats: { title: 'Статистика', desc: 'Продуктивность и прогресс за всё время' },
   settings: { title: 'Настройки', desc: 'Профиль, параметры и подключённые сервисы' },
   templates: { title: 'Шаблоны', desc: 'Графики дня для разных дней недели' },
+  'new-task': { title: 'Новая задача', desc: 'Создание групповой задачи с участниками' },
 }
 
 function App() {
@@ -29,6 +32,7 @@ function App() {
   const [fallbackRules, setFallbackRules] = useState<Rule[]>(DEFAULT_RULES)
   const { timezone, timeFormat, dateFormat, chainStartMin } = useSettings()
   const { templates, activeTemplate, isOverridden, selectForToday, updateTemplate } = useTemplates()
+  const { tasks, addTask, projects, addProject } = useTasks()
 
   useEffect(() => {
     function update() {
@@ -99,7 +103,12 @@ function App() {
                 transition={{ duration: 0.25 }}
                 className="-mx-6 sm:-mx-8 md:-mx-10 flex-1 flex flex-col min-h-0"
               >
-                <Schedule title={meta.title} desc={meta.desc} clockStr={clockStr} />
+                <Schedule
+                  title={meta.title}
+                  desc={meta.desc}
+                  clockStr={clockStr}
+                  onNewTask={() => setPage('new-task')}
+                />
               </motion.div>
             )}
 
@@ -126,6 +135,29 @@ function App() {
                 className="w-full"
               >
                 <Settings />
+              </motion.div>
+            )}
+
+            {page === 'new-task' && (
+              <motion.div
+                key="new-task"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+                className="w-full max-w-[920px] mx-auto"
+              >
+                <AddTaskForm
+                  initialDay={new Date(2026, 7, 21)}
+                  tasks={tasks}
+                  projects={projects}
+                  onAdd={(data) => {
+                    addTask(data)
+                    setPage('schedule')
+                  }}
+                  onAddProject={addProject}
+                  onBack={() => setPage('schedule')}
+                />
               </motion.div>
             )}
 
