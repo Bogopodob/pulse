@@ -520,6 +520,18 @@ export function AddTaskForm({
   }, [initialDay])
 
   useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPicker(null)
+        setNewProjOpen(false)
+        onBack()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onBack])
+
+  useEffect(() => {
     if (!picker) return
     const onDown = (e: MouseEvent) => {
       if (pickerWrapRef.current && !pickerWrapRef.current.contains(e.target as Node)) setPicker(null)
@@ -711,36 +723,38 @@ export function AddTaskForm({
         e.preventDefault()
         submit()
       }}
-      className="modal-glass relative z-10 w-full max-w-[920px] p-7 flex flex-col gap-5 mx-auto my-6"
+      className="w-full flex flex-col h-full min-h-0"
     >
-      <motion.div variants={ADD_MODAL_ITEM} className="flex items-start justify-between">
-        <div>
+      <div className="shrink-0 flex items-center justify-between gap-3 px-6 sm:px-8 md:px-10 py-3.5 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(10,12,18,0.6)', backdropFilter: 'blur(14px)' }}>
+        <div className="flex items-center gap-4 min-w-0">
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1.5 mb-2 text-[11.5px] font-semibold transition-colors"
-            style={{ color: 'rgba(245,245,247,0.45)' }}
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors shrink-0"
+            style={{ color: 'rgba(245,245,247,0.55)', background: 'rgba(255,255,255,0.04)' }}
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 18l-6-6 6-6" />
             </svg>
             Расписание
           </button>
-          <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#fff] leading-none">Новая задача</h2>
+          <h2 className="text-[19px] font-semibold tracking-[-0.02em] text-[#fff] leading-none truncate">Новая задача</h2>
         </div>
         <button
           type="button"
           onClick={onBack}
           title="Закрыть (Esc)"
-          className="flex items-center justify-center size-9 rounded-xl btn-icon border transition-colors"
+          className="flex items-center justify-center size-9 rounded-xl btn-icon border transition-colors shrink-0"
           style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}
         >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M6 6l12 12M18 6l-12 12" />
           </svg>
         </button>
-      </motion.div>
+      </div>
 
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 md:px-10">
+        <div className="max-w-[1000px] mx-auto py-6 flex flex-col gap-5">
       <motion.div variants={ADD_MODAL_ITEM}>
         <div
           className="flex items-center rounded-xl border transition-colors px-4"
@@ -1138,8 +1152,10 @@ export function AddTaskForm({
           })}
         </div>
       </motion.div>
+        </div>
+      </div>
 
-      <motion.div variants={ADD_MODAL_ITEM} className="flex items-center gap-2.5 pt-1">
+      <div className="shrink-0 flex items-center justify-end gap-2.5 px-6 sm:px-8 md:px-10 py-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(10,12,18,0.6)', backdropFilter: 'blur(14px)' }}>
         <button
           type="button"
           onClick={onBack}
@@ -1150,7 +1166,7 @@ export function AddTaskForm({
         </button>
         <button
           type="submit"
-          className="btn flex-1 h-11 rounded-xl text-[13px] font-semibold justify-center gap-2 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.99]"
+          className="btn h-11 px-6 rounded-xl text-[13px] font-semibold justify-center gap-2 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.99]"
           style={{
             background: 'linear-gradient(135deg, #22c55e, #15803d)',
             color: '#fff',
@@ -1162,7 +1178,7 @@ export function AddTaskForm({
           </svg>
           Создать задачу
         </button>
-      </motion.div>
+      </div>
     </motion.form>
   )
 }

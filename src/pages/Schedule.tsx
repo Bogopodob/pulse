@@ -1,6 +1,15 @@
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { GanttTimeline } from '../widgets/GanttTimeline'
+import { AddTaskForm } from '../features/tasks/ui/AddTaskForm'
+import { useTasks } from '../entities/tasks/useTasks'
 
-export function Schedule({ title, desc, clockStr, onNewTask }: { title: string; desc: string; clockStr: string; onNewTask: () => void }) {
+const TODAY = new Date(2026, 7, 21)
+
+export function Schedule({ title, desc, clockStr }: { title: string; desc: string; clockStr: string }) {
+  const [creating, setCreating] = useState(false)
+  const { tasks, addTask, projects, addProject } = useTasks()
+
   return (
     <>
       <div className="flex items-end justify-between px-6 sm:px-8 md:px-10 pb-3">
@@ -18,7 +27,43 @@ export function Schedule({ title, desc, clockStr, onNewTask }: { title: string; 
           </div>
         </div>
       </div>
-      <GanttTimeline onNewTask={onNewTask} />
+      <div className="flex-1 flex min-h-0 relative">
+        <AnimatePresence mode="wait">
+          {creating ? (
+            <motion.div
+              key="add-task"
+              className="w-full flex flex-col min-h-0"
+              initial={{ opacity: 0, y: 28 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+            >
+              <AddTaskForm
+                initialDay={TODAY}
+                tasks={tasks}
+                projects={projects}
+                onAdd={(data) => {
+                  addTask(data)
+                  setCreating(false)
+                }}
+                onAddProject={addProject}
+                onBack={() => setCreating(false)}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="timeline"
+              className="flex-1 flex min-h-0"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.26, ease: [0.32, 0.72, 0, 1] }}
+            >
+              <GanttTimeline onNewTask={() => setCreating(true)} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </>
   )
 }

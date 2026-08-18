@@ -1,4 +1,4 @@
-type SidebarPage = 'today' | 'schedule' | 'stats' | 'settings' | 'templates' | 'new-task'
+type SidebarPage = 'today' | 'schedule' | 'stats' | 'settings' | 'templates'
 
 interface SidebarProps {
   page: SidebarPage
