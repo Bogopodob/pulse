@@ -198,7 +198,7 @@ export function BlockCreator({
               transition={{ duration: 0.2, ease: 'easeInOut' }}
               className="overflow-hidden"
             >
-              <div className="px-3 pb-3 flex flex-col gap-2.5">
+              <div className="px-3 pt-1 pb-3 flex flex-col gap-2.5">
                 <div className="flex items-center gap-2">
                   <input
                     value={custom.name}
@@ -217,7 +217,7 @@ export function BlockCreator({
                       }
                     }}
                     placeholder="Название, например «Спортзал»"
-                    className="flex-1 min-w-0 rounded-lg bg-[var(--surface-2)] px-2.5 py-2 text-[12px] outline-none border border-[var(--stroke)] transition-colors focus:border-[var(--focus)] placeholder:text-[var(--text-faint)]"
+                    className="relative z-[1] flex-1 min-w-0 rounded-lg bg-[var(--surface-2)] px-2.5 py-2 text-[12px] outline-none border border-[var(--stroke)] transition-[border-color,box-shadow] focus:border-[var(--focus)] focus:shadow-[0_0_0_1px_var(--focus),0_0_12px_rgba(76,141,255,0.25)] placeholder:text-[var(--text-faint)]"
                   />
                   <motion.button
                     whileTap={{ scale: 0.94 }}

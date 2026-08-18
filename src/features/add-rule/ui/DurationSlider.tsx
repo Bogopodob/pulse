@@ -55,7 +55,10 @@ export function DurationSlider({
       onPointerUp={() => (dragRef.current = false)}
       onPointerCancel={() => (dragRef.current = false)}
     >
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-[var(--surface-3)]" />
+      <div
+        className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full"
+        style={{ background: 'rgba(19,20,24,0.55)', border: '1px solid rgba(255,255,255,0.06)' }}
+      />
       <div
         className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full"
         style={{ width: `${pct}%`, background: accent.gradient, boxShadow: `0 0 8px rgba(${accent.glow},0.45)` }}
