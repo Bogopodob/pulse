@@ -3,6 +3,41 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../shared/hooks/useSettings'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useI18n } from '../shared/hooks/useI18n'
+import { fmtClock, tzOffsetLabel, type DateFormat, type TimeFormat } from '../shared/lib/date'
+
+const TIMEZONES: string[] = [
+  'Europe/Kaliningrad',
+  'Europe/Moscow',
+  'Europe/Samara',
+  'Europe/Yekaterinburg',
+  'Asia/Omsk',
+  'Asia/Novosibirsk',
+  'Asia/Krasnoyarsk',
+  'Asia/Irkutsk',
+  'Asia/Yakutsk',
+  'Asia/Vladivostok',
+  'Asia/Magadan',
+  'Asia/Kamchatka',
+  'UTC',
+  'Europe/London',
+  'Europe/Berlin',
+  'Europe/Paris',
+  'Europe/Kiev',
+  'Europe/Minsk',
+  'Asia/Tbilisi',
+  'Asia/Yerevan',
+  'Asia/Almaty',
+  'Asia/Tashkent',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Shanghai',
+  'Asia/Tokyo',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Sao_Paulo',
+]
 
 type Tab = 'profile' | 'general' | 'rhythm' | 'services' | 'about'
 
@@ -288,7 +323,7 @@ export function Settings() {
         })}
       </nav>
 
-      <section className="flex-1 min-w-0 border-l border-[var(--stroke)] pl-10 pb-10">
+      <section className="flex-1 min-w-0 border-l border-[var(--stroke)] pl-12 pb-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
@@ -313,7 +348,8 @@ export function Settings() {
 }
 
 function ProfileBody() {
-  const { name, updateName } = useSettings()
+  const { name, email, updateName, updateEmail } = useSettings()
+  const [confirmOut, setConfirmOut] = useState(false)
 
   const initials = useMemo(
     () =>
@@ -328,55 +364,119 @@ function ProfileBody() {
     [name],
   )
 
-  const chips = [
-    { label: 'Всего фокуса', value: '167 ч', color: '#4c8dff' },
-    { label: 'Серия', value: '3 дн', color: '#4fd4c4' },
-    { label: 'Цель достигнута', value: '12 дн', color: '#ff9d5c' },
-  ]
+  const fieldCls =
+    'w-[240px] bg-[var(--surface-2)] border border-[var(--surface-3)] rounded-md px-2.5 py-[7px] text-[13px] text-[var(--text)] outline-none transition-colors'
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center gap-6 py-5">
+      <div className="relative rounded-2xl overflow-hidden" style={{ border: '1px solid var(--stroke)' }}>
         <div
-          className="relative size-[72px] rounded-full grid place-items-center shrink-0 font-[var(--font-display)] text-[24px] font-bold text-[#0b0e13]"
+          className="h-[96px]"
+          style={{
+            background:
+              'linear-gradient(160deg, rgba(76,141,255,0.22), rgba(76,141,255,0.05) 45%, rgba(79,212,196,0.08) 75%, transparent)',
+          }}
+        />
+        <div
+          className="absolute -top-24 left-1/2 -translate-x-1/2 w-[380px] h-[380px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(76,141,255,0.18), transparent 70%)' }}
+        />
+      </div>
+
+      <div className="flex flex-col items-center -mt-[44px] gap-1 pb-6">
+        <div
+          className="relative size-[88px] rounded-full grid place-items-center font-[var(--font-display)] text-[30px] font-bold text-[#0b0e13]"
           style={{
             background: 'linear-gradient(135deg, var(--focus-2), var(--focus))',
-            boxShadow: '0 0 26px rgba(76,141,255,0.4)',
+            boxShadow: '0 0 30px rgba(76,141,255,0.45), 0 4px 14px rgba(0,0,0,0.4)',
+            border: '3px solid var(--surface-1)',
           }}
         >
           {initials}
         </div>
-        <div className="flex-1 min-w-0">
-          <input
-            value={name}
-            onChange={(e) => updateName(e.target.value)}
-            placeholder="Ваше имя"
-            className="w-full max-w-[300px] bg-transparent outline-none font-[var(--font-display)] text-[18px] font-semibold text-[var(--text)] placeholder:text-[var(--text-faint)] rounded-md border border-transparent hover:border-[var(--surface-3)] focus:border-[rgba(76,141,255,0.4)] px-2.5 py-1.5 transition-colors"
-          />
-          <div className="flex items-center gap-2 px-2.5 mt-1 text-[12px] text-[var(--text-faint)]">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3.5 2" />
-            </svg>
-            Участник Pulse
-          </div>
+        <div className="font-[var(--font-display)] text-[21px] font-semibold tracking-[-0.01em] mt-2">
+          {name.trim() || 'Гость'}
         </div>
+        <div className="text-[12.5px] text-[var(--text-faint)] font-mono">{email}</div>
+        <span
+          className="mt-1.5 flex items-center gap-1.5 rounded-full px-3 py-[4px] text-[10.5px] font-bold uppercase tracking-[0.08em]"
+          style={{
+            color: '#ffd76a',
+            background: 'rgba(255,215,106,0.1)',
+            border: '1px solid rgba(255,215,106,0.3)',
+            boxShadow: '0 0 14px rgba(255,215,106,0.12)',
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2 15.6 5.6 20.5 5.5l-.1 4.9L24 12l-3.6 1.6.1 4.9-4.9-.1L12 22l-3.6-3.6-4.9.1.1-4.9L0 12l3.6-1.6-.1-4.9 4.9.1L12 2Z" />
+          </svg>
+          Бесплатный план
+        </span>
       </div>
 
-      <div className="flex flex-wrap gap-2.5 py-4">
-        {chips.map((c) => (
-          <span
-            key={c.label}
-            className="flex items-center gap-2 rounded-[9px] px-3.5 py-[7px] text-[12px]"
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--surface-3)' }}
-          >
-            <span className="size-[6px] rounded-full" style={{ background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
-            <span className="text-[var(--text-faint)]">{c.label}</span>
-            <span className="font-mono font-semibold tabular-nums" style={{ color: c.color }}>
-              {c.value}
+      <div className="flex flex-col">
+        <Row
+          title="Имя"
+          hint="Как вас видно другим"
+          control={
+            <input
+              value={name}
+              onChange={(e) => updateName(e.target.value)}
+              placeholder="Ваше имя"
+              className={fieldCls}
+            />
+          }
+        />
+        <Row
+          title="Email"
+          hint="Для уведомлений и входа"
+          control={
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => updateEmail(e.target.value)}
+              placeholder="you@pulse.app"
+              className={fieldCls}
+            />
+          }
+        />
+        <Row
+          title="План"
+          hint="Бесплатный — без ограничений по ритму"
+          control={
+            <span
+              className="rounded-full px-3 py-[5px] text-[11.5px] font-semibold"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--surface-3)', color: 'var(--text-dim)' }}
+            >
+              Free
             </span>
-          </span>
-        ))}
+          }
+        />
+        <div className="pt-6 pb-2 flex">
+          <button
+            onClick={() => {
+              if (confirmOut) {
+                updateName('Гость')
+                updateEmail('you@pulse.app')
+                setConfirmOut(false)
+              } else {
+                setConfirmOut(true)
+                setTimeout(() => setConfirmOut(false), 3000)
+              }
+            }}
+            className="flex items-center gap-2 rounded-lg px-3.5 py-2 text-[12.5px] font-medium cursor-pointer transition-all"
+            style={
+              confirmOut
+                ? { background: 'rgba(255,99,99,0.15)', color: '#ff6b6b', border: '1px solid rgba(255,99,99,0.4)' }
+                : { background: 'transparent', color: 'var(--text-faint)', border: '1px solid var(--surface-3)' }
+            }
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+            </svg>
+            {confirmOut ? 'Точно выйти?' : 'Выйти из аккаунта'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -385,6 +485,7 @@ function ProfileBody() {
 function GeneralBody() {
   const { theme, setTheme } = useTheme()
   const { locale, setLocale } = useI18n()
+  const { weekStart, setWeekStart } = useSettings()
 
   return (
     <div className="flex flex-col">
@@ -415,6 +516,20 @@ function GeneralBody() {
             onChange={(l) => setLocale(l as 'ru' | 'en')}
           />
         }
+      />
+      <Row
+        title="Первый день недели"
+        hint="Начало недели в календарях и статистике"
+        control={
+          <Segmented
+            options={[
+              { key: 'mon', label: 'Понедельник' },
+              { key: 'sun', label: 'Воскресенье' },
+            ]}
+            value={weekStart}
+            onChange={(w) => setWeekStart(w as 'mon' | 'sun')}
+          />
+        }
         last
       />
     </div>
@@ -422,8 +537,24 @@ function GeneralBody() {
 }
 
 function RhythmBody() {
-  const { dailyGoalMin, setDailyGoalMin, chainStartMin, setChainStartMin } = useSettings()
+  const {
+    dailyGoalMin,
+    setDailyGoalMin,
+    chainStartMin,
+    setChainStartMin,
+    dateFormat,
+    setDateFormat,
+    timeFormat,
+    setTimeFormat,
+    timezone,
+    setTimezone,
+  } = useSettings()
   const goalHours = Math.round(dailyGoalMin / 60)
+
+  const preview = useMemo(
+    () => fmtClock(new Date(), { timezone, timeFormat, dateFormat }),
+    [timezone, timeFormat, dateFormat],
+  )
 
   return (
     <div className="flex flex-col">
@@ -463,8 +594,64 @@ function RhythmBody() {
         title="Начало дня"
         hint="Первый блок ритма стартует в это время"
         control={<input type="time" value={fmtHM(chainStartMin)} onChange={(e) => setChainStartMin(parseHM(e.target.value))} />}
-        last
       />
+      <Row
+        title="Формат даты"
+        hint="Как дата отображается в интерфейсе"
+        control={
+          <Segmented
+            options={[
+              { key: 'DD.MM.YYYY', label: 'ДД.ММ.ГГГГ' },
+              { key: 'MM/DD/YYYY', label: 'ММ/ДД/ГГГГ' },
+              { key: 'YYYY.MM.DD', label: 'ГГГГ.ММ.ДД' },
+            ]}
+            value={dateFormat}
+            onChange={(f) => setDateFormat(f as DateFormat)}
+          />
+        }
+      />
+      <Row
+        title="Формат времени"
+        hint="24 часа или 12 с AM/PM"
+        control={
+          <Segmented
+            options={[
+              { key: '24h', label: '24 ч' },
+              { key: '12h', label: '12 ч' },
+            ]}
+            value={timeFormat}
+            onChange={(f) => setTimeFormat(f as TimeFormat)}
+          />
+        }
+      />
+      <Row
+        title="Часовой пояс"
+        hint="По умолчанию для отображения времени"
+        control={
+          <select
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            className="settings-select"
+          >
+            {TIMEZONES.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz.replace(/_/g, ' ')} · {tzOffsetLabel(tz)}
+              </option>
+            ))}
+          </select>
+        }
+      />
+      <div
+        className="mt-5 flex items-center gap-2.5 rounded-xl px-4 py-3"
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--surface-3)' }}
+      >
+        <span
+          className="size-[7px] rounded-full shrink-0"
+          style={{ background: 'var(--focus)', boxShadow: '0 0 8px var(--focus)' }}
+        />
+        <span className="text-[12.5px] text-[var(--text-faint)]">Сейчас в этом формате:</span>
+        <span className="font-mono text-[13px] font-semibold tabular-nums text-[var(--text)]">{preview}</span>
+      </div>
     </div>
   )
 }
@@ -476,9 +663,36 @@ function ServicesBody() {
     localStorage.setItem(SERVICES_KEY, JSON.stringify(connected))
   }, [connected])
 
+  const connectedCount = SERVICES.filter((s) => connected[s.key]).length
+
+  const sorted = useMemo(
+    () =>
+      [...SERVICES].sort((a, b) => Number(!!connected[b.key]) - Number(!!connected[a.key])),
+    [connected],
+  )
+
   return (
     <div className="flex flex-col">
-      {SERVICES.map((s, i) => {
+      <div className="flex items-center justify-between py-3">
+        <div className="text-[12px] text-[var(--text-faint)]">
+          {connectedCount === 0
+            ? 'Ничего не подключено'
+            : `Подключено ${connectedCount} из ${SERVICES.length}`}
+        </div>
+        <div className="flex gap-1.5">
+          {SERVICES.map((s) => (
+            <span
+              key={s.key}
+              className="size-[7px] rounded-full"
+              style={{
+                background: connected[s.key] ? s.color : 'var(--surface-3)',
+                boxShadow: connected[s.key] ? `0 0 6px ${s.color}` : 'none',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      {sorted.map((s, i) => {
         const isOn = !!connected[s.key]
         return (
           <Row
@@ -486,11 +700,12 @@ function ServicesBody() {
             title={
               <span className="flex items-center gap-3">
                 <span
-                  className="grid size-[30px] place-items-center rounded-[8px]"
+                  className="grid size-[30px] place-items-center rounded-[8px] transition-all duration-300"
                   style={{
-                    background: `rgba(${s.glow},0.12)`,
-                    border: `1px solid rgba(${s.glow},0.3)`,
-                    color: s.color,
+                    background: isOn ? `rgba(${s.glow},0.16)` : 'var(--surface-2)',
+                    border: `1px solid ${isOn ? `rgba(${s.glow},0.35)` : 'var(--surface-3)'}`,
+                    color: isOn ? s.color : 'var(--text-faint)',
+                    boxShadow: isOn ? `0 0 14px rgba(${s.glow},0.18)` : 'none',
                   }}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -504,7 +719,7 @@ function ServicesBody() {
               </span>
             }
             control={<Switch on={isOn} onChange={() => setConnected((c) => ({ ...c, [s.key]: !c[s.key] }))} />}
-            last={i === SERVICES.length - 1}
+            last={i === sorted.length - 1}
           />
         )
       })}
@@ -516,11 +731,57 @@ function AboutBody() {
   const { reset } = useSettings()
   const { theme } = useTheme()
   const [confirmReset, setConfirmReset] = useState(false)
+  const [checkState, setCheckState] = useState<'idle' | 'checking' | 'up-to-date'>('idle')
 
   return (
     <div className="flex flex-col">
-      <Row title="Версия" hint="Pulse · ритм дня" control={<span className="font-mono text-[12.5px] text-[var(--text-dim)]">0.1.0</span>} />
-      <Row title="Платформа" hint="Desktop" control={<span className="font-mono text-[12.5px] text-[var(--text-dim)]">Tauri 2 · WebKitGTK</span>} />
+      <div className="flex items-center gap-4 py-5">
+        <div
+          className="relative size-[58px] rounded-2xl grid place-items-center shrink-0"
+          style={{
+            background: 'linear-gradient(135deg, var(--focus-2), var(--focus))',
+            boxShadow: '0 0 24px rgba(76,141,255,0.35)',
+          }}
+        >
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0b0e13" strokeWidth="2.2" strokeLinecap="round">
+            <path d="M3 12h4l2.5-6 5 12 2.5-6h4" />
+          </svg>
+        </div>
+        <div>
+          <div className="font-[var(--font-display)] text-[19px] font-semibold tracking-[-0.01em]">Pulse</div>
+          <div className="text-[12px] text-[var(--text-faint)]">Ритм дня · фокус · продуктивность</div>
+        </div>
+      </div>
+      <Row
+        title="Версия"
+        hint="Текущий релиз приложения"
+        control={<span className="font-mono text-[12.5px] text-[var(--text-dim)]">0.1.0</span>}
+      />
+      <Row
+        title="Обновления"
+        hint="Проверка актуальной версии"
+        control={
+          <button
+            onClick={() => {
+              setCheckState('checking')
+              setTimeout(() => setCheckState('up-to-date'), 1200)
+            }}
+            className="rounded-lg px-3.5 py-2 text-[12px] font-medium cursor-pointer transition-all"
+            style={{
+              background: checkState === 'up-to-date' ? 'rgba(79,212,196,0.12)' : 'var(--surface-2)',
+              color: checkState === 'up-to-date' ? '#4fd4c4' : 'var(--text-dim)',
+              border: `1px solid ${checkState === 'up-to-date' ? 'rgba(79,212,196,0.4)' : 'var(--surface-3)'}`,
+            }}
+          >
+            {checkState === 'checking' ? 'Проверяем…' : checkState === 'up-to-date' ? 'Актуальная версия ✓' : 'Проверить'}
+          </button>
+        }
+      />
+      <Row
+        title="Платформа"
+        hint="Desktop · нативные компоненты"
+        control={<span className="font-mono text-[12.5px] text-[var(--text-dim)]">Tauri 2 · WebKitGTK</span>}
+      />
       <Row
         title="Режим интерфейса"
         hint="Текущее оформление"

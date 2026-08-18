@@ -1082,6 +1082,30 @@ input[type='date']::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
+.settings-select {
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  min-width: 280px;
+}
+.settings-select:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.settings-select:focus {
+  border-color: rgba(76, 141, 255, 0.5);
+}
+.settings-select option {
+  background: var(--surface-1);
+  color: var(--text);
+}
+
 input[type='time'] {
   background: var(--surface-2);
   border: 1px solid var(--surface-3);
