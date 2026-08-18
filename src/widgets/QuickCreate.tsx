@@ -1,5 +1,8 @@
 import { useState, type RefObject } from 'react'
 import { motion } from 'framer-motion'
+import { Select } from '@heroui/react/select'
+import { ListBox } from '@heroui/react/list-box'
+import { ListBoxItem } from '@heroui/react/list-box-item'
 
 interface QuickCreateProps {
   onAdd: (title: string, description: string, duration: number) => void
@@ -9,6 +12,38 @@ interface QuickCreateProps {
 
 const HOURS = Array.from({ length: 13 }, (_, i) => i)
 const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+
+function NumberSelect({
+  value,
+  items,
+  onChange,
+}: {
+  value: number
+  items: number[]
+  onChange: (v: number) => void
+}) {
+  return (
+    <Select.Root selectedKey={String(value)} onSelectionChange={(k) => onChange(Number(k))} className="w-[58px]">
+      <Select.Trigger className="min-w-0">
+        <Select.Value />
+        <Select.Indicator>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </Select.Indicator>
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox items={items.map((n) => ({ n }))}>
+          {({ n }) => (
+            <ListBoxItem key={n} id={String(n)} textValue={String(n)}>
+              {n}
+            </ListBoxItem>
+          )}
+        </ListBox>
+      </Select.Popover>
+    </Select.Root>
+  )
+}
 
 export function QuickCreate({ onAdd, inputRef, onClose }: QuickCreateProps) {
   const [title, setTitle] = useState('')
@@ -63,18 +98,12 @@ export function QuickCreate({ onAdd, inputRef, onClose }: QuickCreateProps) {
           </button>
         </div>
         <div className="flex items-center gap-2 px-3 pb-2.5">
-          <div className="flex items-center gap-1 bg-[var(--surface-2)] rounded-md px-2 py-1 border border-[var(--stroke)]">
-            <select value={hours} onChange={(e) => setHours(Number(e.target.value))}
-              className="bg-transparent border-none outline-none text-[10px] text-[var(--text)] font-medium cursor-pointer appearance-none pr-1">
-              {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
-            </select>
+          <div className="flex items-center gap-1.5 bg-[var(--surface-2)] rounded-md px-1.5 py-1 border border-[var(--stroke)]">
+            <NumberSelect value={hours} items={HOURS} onChange={setHours} />
             <span className="text-[8px] text-[var(--text-faint)]">h</span>
           </div>
-          <div className="flex items-center gap-1 bg-[var(--surface-2)] rounded-md px-2 py-1 border border-[var(--stroke)]">
-            <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}
-              className="bg-transparent border-none outline-none text-[10px] text-[var(--text)] font-medium cursor-pointer appearance-none pr-1">
-              {MINUTES.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+          <div className="flex items-center gap-1.5 bg-[var(--surface-2)] rounded-md px-1.5 py-1 border border-[var(--stroke)]">
+            <NumberSelect value={minutes} items={MINUTES} onChange={setMinutes} />
             <span className="text-[8px] text-[var(--text-faint)]">min</span>
           </div>
           <button

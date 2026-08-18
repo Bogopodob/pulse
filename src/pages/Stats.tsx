@@ -18,6 +18,9 @@ import { RingCenter } from '../shared/ui/charts/ring-center'
 import { ACCENTS, DEFAULT_RULES } from '../entities/rhythm/activities'
 import { useSettings } from '../shared/hooks/useSettings'
 import { useTemplates } from '../entities/templates/useTemplates'
+import { CalendarDate } from '@internationalized/date'
+import { DatePicker } from '@heroui/react/date-picker'
+import { Calendar } from '@heroui/react/calendar'
 
 type Period = 'day' | 'week' | 'month' | 'year' | 'custom'
 
@@ -516,9 +519,75 @@ export function Stats() {
         </div>
         {period === 'custom' && (
           <div className="flex items-center gap-2">
-            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+            <DatePicker.Root
+              value={new CalendarDate(Number(customFrom.slice(0, 4)), Number(customFrom.slice(5, 7)), Number(customFrom.slice(8, 10)))}
+              onChange={(d) => {
+                if (d) setCustomFrom(isoDate(new Date(d.year, d.month - 1, d.day)))
+              }}
+              granularity="day"
+            >
+              <DatePicker.Trigger>{customFrom.split('-').reverse().join('.')}</DatePicker.Trigger>
+              <DatePicker.Popover>
+                <Calendar.Root>
+                  <Calendar.Header>
+                    <Calendar.NavButton slot="previous">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M15 18l-6-6 6-6" />
+                      </svg>
+                    </Calendar.NavButton>
+                    <Calendar.Heading />
+                    <Calendar.NavButton slot="next">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                    </Calendar.NavButton>
+                  </Calendar.Header>
+                  <Calendar.Grid>
+                    <Calendar.GridHeader>
+                      {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
+                    </Calendar.GridHeader>
+                    <Calendar.GridBody>
+                      {(date) => <Calendar.Cell date={date}>{date.day}</Calendar.Cell>}
+                    </Calendar.GridBody>
+                  </Calendar.Grid>
+                </Calendar.Root>
+              </DatePicker.Popover>
+            </DatePicker.Root>
             <span className="text-[12px] text-[var(--text-faint)]">—</span>
-            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+            <DatePicker.Root
+              value={new CalendarDate(Number(customTo.slice(0, 4)), Number(customTo.slice(5, 7)), Number(customTo.slice(8, 10)))}
+              onChange={(d) => {
+                if (d) setCustomTo(isoDate(new Date(d.year, d.month - 1, d.day)))
+              }}
+              granularity="day"
+            >
+              <DatePicker.Trigger>{customTo.split('-').reverse().join('.')}</DatePicker.Trigger>
+              <DatePicker.Popover>
+                <Calendar.Root>
+                  <Calendar.Header>
+                    <Calendar.NavButton slot="previous">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M15 18l-6-6 6-6" />
+                      </svg>
+                    </Calendar.NavButton>
+                    <Calendar.Heading />
+                    <Calendar.NavButton slot="next">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                    </Calendar.NavButton>
+                  </Calendar.Header>
+                  <Calendar.Grid>
+                    <Calendar.GridHeader>
+                      {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
+                    </Calendar.GridHeader>
+                    <Calendar.GridBody>
+                      {(date) => <Calendar.Cell date={date}>{date.day}</Calendar.Cell>}
+                    </Calendar.GridBody>
+                  </Calendar.Grid>
+                </Calendar.Root>
+              </DatePicker.Popover>
+            </DatePicker.Root>
           </div>
         )}
       </div>

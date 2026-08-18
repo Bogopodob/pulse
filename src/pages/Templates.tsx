@@ -9,16 +9,11 @@ import type { EditState } from '../features/add-rule/ui/RuleRow'
 import { BlockCreator } from '../features/add-rule/ui/BlockCreator'
 import { TIMEZONES } from '../shared/lib/timezones'
 import { tzOffsetLabel, type TimeFormat } from '../shared/lib/date'
-
-function fmtHM(min: number): string {
-  return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(Math.round(min % 60)).padStart(2, '0')}`
-}
-
-function parseHM(v: string): number {
-  const [h, m] = v.split(':').map(Number)
-  if (Number.isNaN(h) || Number.isNaN(m)) return 540
-  return Math.max(0, Math.min(1439, h * 60 + m))
-}
+import { Time } from '@internationalized/date'
+import { Select } from '@heroui/react/select'
+import { ListBox } from '@heroui/react/list-box'
+import { ListBoxItem } from '@heroui/react/list-box-item'
+import { TimeField } from '@heroui/react/time-field'
 
 function fmtDur(min: number): string {
   const h = Math.floor(min / 60)
@@ -313,11 +308,20 @@ function TemplateEditor({
                 title="Начало дня"
                 hint="Первый блок стартует в это время"
                 control={
-                  <input
-                    type="time"
-                    value={fmtHM(tpl.chainStartMin ?? chainStartMin)}
-                    onChange={(e) => update({ chainStartMin: parseHM(e.target.value) })}
-                  />
+                  <TimeField.Root
+                    value={new Time(Math.floor((tpl.chainStartMin ?? chainStartMin) / 60), Math.round((tpl.chainStartMin ?? chainStartMin) % 60))}
+                    onChange={(t) => {
+                      if (t) update({ chainStartMin: t.hour * 60 + t.minute })
+                    }}
+                    granularity="minute"
+                    hourCycle={(tpl.timeFormat ?? settingsTF) === '12h' ? 12 : 24}
+                  >
+                    <TimeField.Group>
+                      <TimeField.Input>
+                        {(segment) => <TimeField.Segment segment={segment} />}
+                      </TimeField.Input>
+                    </TimeField.Group>
+                  </TimeField.Root>
                 }
               />
               <FieldRow
@@ -338,18 +342,29 @@ function TemplateEditor({
                 title="Часовой пояс"
                 hint="Для отображения времени"
                 control={
-                  <select
-                    value={tpl.timezone ?? settingsTZ}
-                    onChange={(e) => update({ timezone: e.target.value })}
-                    className="settings-select"
-                    style={{ minWidth: 260 }}
+                  <Select.Root
+                    selectedKey={tpl.timezone ?? settingsTZ}
+                    onSelectionChange={(k) => update({ timezone: String(k) })}
+                    className="w-[280px]"
                   >
-                    {TIMEZONES.map((tz) => (
-                      <option key={tz} value={tz}>
-                        {tz.replace(/_/g, ' ')} · {tzOffsetLabel(tz)}
-                      </option>
-                    ))}
-                  </select>
+                    <Select.Trigger>
+                      <Select.Value />
+                      <Select.Indicator>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </Select.Indicator>
+                    </Select.Trigger>
+                    <Select.Popover>
+                      <ListBox items={TIMEZONES.map((tz) => ({ tz }))} className="max-h-[260px] overflow-y-auto">
+                        {({ tz }) => (
+                          <ListBoxItem key={tz} id={tz} textValue={tz}>
+                            {tz.replace(/_/g, ' ')} · {tzOffsetLabel(tz)}
+                          </ListBoxItem>
+                        )}
+                      </ListBox>
+                    </Select.Popover>
+                  </Select.Root>
                 }
               />
             </motion.div>

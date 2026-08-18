@@ -5,6 +5,35 @@ import { useTheme } from '../shared/hooks/useTheme'
 import { useI18n } from '../shared/hooks/useI18n'
 import { fmtClock, tzOffsetLabel, type DateFormat, type TimeFormat } from '../shared/lib/date'
 import { TIMEZONES } from '../shared/lib/timezones'
+import { Time } from '@internationalized/date'
+import { Select } from '@heroui/react/select'
+import { ListBox } from '@heroui/react/list-box'
+import { ListBoxItem } from '@heroui/react/list-box-item'
+import { TimeField } from '@heroui/react/time-field'
+
+function TimezoneSelect({ value, onChange }: { value: string; onChange: (tz: string) => void }) {
+  return (
+    <Select.Root selectedKey={value} onSelectionChange={(k) => onChange(String(k))} className="w-[300px]">
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </Select.Indicator>
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox items={TIMEZONES.map((tz) => ({ tz }))} className="max-h-[260px] overflow-y-auto">
+          {({ tz }) => (
+            <ListBoxItem key={tz} id={tz} textValue={tz}>
+              {tz.replace(/_/g, ' ')} · {tzOffsetLabel(tz)}
+            </ListBoxItem>
+          )}
+        </ListBox>
+      </Select.Popover>
+    </Select.Root>
+  )
+}
 
 type Tab = 'profile' | 'general' | 'rhythm' | 'services' | 'about'
 
@@ -64,16 +93,6 @@ function fmtDur(min: number): string {
   const m = Math.round(min % 60)
   if (h === 0) return `${m} мин`
   return m === 0 ? `${h} ч` : `${h} ч ${m} мин`
-}
-
-function fmtHM(min: number): string {
-  return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(Math.round(min % 60)).padStart(2, '0')}`
-}
-
-function parseHM(v: string): number {
-  const [h, m] = v.split(':').map(Number)
-  if (Number.isNaN(h) || Number.isNaN(m)) return 540
-  return Math.max(0, Math.min(1439, h * 60 + m))
 }
 
 function Segmented({
@@ -560,7 +579,22 @@ function RhythmBody() {
       <Row
         title="Начало дня"
         hint="Первый блок ритма стартует в это время"
-        control={<input type="time" value={fmtHM(chainStartMin)} onChange={(e) => setChainStartMin(parseHM(e.target.value))} />}
+        control={
+          <TimeField.Root
+            value={new Time(Math.floor(chainStartMin / 60), Math.round(chainStartMin % 60))}
+            onChange={(t) => {
+              if (t) setChainStartMin(t.hour * 60 + t.minute)
+            }}
+            granularity="minute"
+            hourCycle={timeFormat === '12h' ? 12 : 24}
+          >
+            <TimeField.Group>
+              <TimeField.Input>
+                {(segment) => <TimeField.Segment segment={segment} />}
+              </TimeField.Input>
+            </TimeField.Group>
+          </TimeField.Root>
+        }
       />
       <Row
         title="Формат даты"
@@ -594,19 +628,7 @@ function RhythmBody() {
       <Row
         title="Часовой пояс"
         hint="По умолчанию для отображения времени"
-        control={
-          <select
-            value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-            className="settings-select"
-          >
-            {TIMEZONES.map((tz) => (
-              <option key={tz} value={tz}>
-                {tz.replace(/_/g, ' ')} · {tzOffsetLabel(tz)}
-              </option>
-            ))}
-          </select>
-        }
+        control={<TimezoneSelect value={timezone} onChange={setTimezone} />}
       />
       <div
         className="mt-5 flex items-center gap-2.5 rounded-xl px-4 py-3"
