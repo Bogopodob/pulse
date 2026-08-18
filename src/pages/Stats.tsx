@@ -17,6 +17,7 @@ import { Ring } from '../shared/ui/charts/ring'
 import { RingCenter } from '../shared/ui/charts/ring-center'
 import { ACCENTS, DEFAULT_RULES } from '../entities/rhythm/activities'
 import { useSettings } from '../shared/hooks/useSettings'
+import { useTemplates } from '../entities/templates/useTemplates'
 
 type Period = 'day' | 'week' | 'month' | 'year' | 'custom'
 
@@ -326,7 +327,16 @@ export function Stats() {
   })
   const [customTo, setCustomTo] = useState(() => isoDate(today))
 
-  const { dailyGoalMin: goal, chainStartMin } = useSettings()
+  const { dailyGoalMin: settingsGoal, chainStartMin: settingsChainStart } = useSettings()
+  const { activeTemplate } = useTemplates()
+  const goal =
+    activeTemplate && !activeTemplate.inheritSettings && activeTemplate.dailyGoalMin != null
+      ? activeTemplate.dailyGoalMin
+      : settingsGoal
+  const chainStartMin =
+    activeTemplate && !activeTemplate.inheritSettings && activeTemplate.chainStartMin != null
+      ? activeTemplate.chainStartMin
+      : settingsChainStart
   const pool = useMemo(() => mockDaily(400), [])
   const hours = useMemo(() => mockHours(), [])
   const day = useMemo(() => dayDistribution(), [])

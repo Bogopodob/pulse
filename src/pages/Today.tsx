@@ -2,7 +2,7 @@ import { AnimatePresence } from 'framer-motion'
 import { useRhythm } from '../entities/rhythm/useRhythm'
 import { ACCENTS } from '../entities/rhythm/activities'
 import type { Rule } from '../entities/rhythm/activities'
-import { useSettings } from '../shared/hooks/useSettings'
+import type { DayTemplate } from '../entities/templates/useTemplates'
 import { NextUp } from '../widgets/NextUp'
 import { Timeline } from '../widgets/Timeline'
 import { TodayTasks } from '../widgets/TodayTasks'
@@ -13,17 +13,28 @@ export function Today({
   title,
   desc,
   rules,
+  chainStart,
   onRulesChange,
   clockStr,
+  templates,
+  activeTemplateId,
+  isOverridden,
+  onSelectTemplate,
+  onOpenTemplates,
 }: {
   title: string
   desc: string
   rules: Rule[]
+  chainStart: number
   onRulesChange: (rules: Rule[]) => void
   clockStr: string
+  templates: DayTemplate[]
+  activeTemplateId: string | null
+  isOverridden: boolean
+  onSelectTemplate: (templateId: string | null) => void
+  onOpenTemplates: () => void
 }) {
-  const { chainStartMin } = useSettings()
-  const rhythm = useRhythm(rules, chainStartMin)
+  const rhythm = useRhythm(rules, chainStart)
   const todayStatus = (() => {
     const a = ACCENTS[rhythm.cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
     if (rhythm.cur.type === 'off')
@@ -62,7 +73,18 @@ export function Today({
         <div className="relative z-[1] min-w-0 order-1"><NextUp rhythm={rhythm} /></div>
         <div className="relative z-[1] min-w-0 order-2"><Timeline rhythm={rhythm} /></div>
         <div className="relative z-[1] min-w-0 order-3"><TodayTasks rhythm={rhythm} /></div>
-        <div className="relative z-[1] min-w-0 order-4"><RuleChips rules={rules} onChange={onRulesChange} /></div>
+        <div className="relative z-[1] min-w-0 order-4">
+          <RuleChips
+            rules={rules}
+            chainStart={chainStart}
+            onChange={onRulesChange}
+            templates={templates}
+            activeTemplateId={activeTemplateId}
+            isOverridden={isOverridden}
+            onSelectTemplate={onSelectTemplate}
+            onOpenTemplates={onOpenTemplates}
+          />
+        </div>
       </div>
       <AnimatePresence>
         {rhythm.toast && <Toast title={rhythm.toast.title} text={rhythm.toast.text} />}

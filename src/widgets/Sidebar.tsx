@@ -1,6 +1,6 @@
 interface SidebarProps {
-  page: 'today' | 'schedule' | 'stats' | 'settings'
-  onPageChange: (page: 'today' | 'schedule' | 'stats' | 'settings') => void
+  page: 'today' | 'schedule' | 'stats' | 'settings' | 'templates'
+  onPageChange: (page: 'today' | 'schedule' | 'stats' | 'settings' | 'templates') => void
 }
 
 const items = [

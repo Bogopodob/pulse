@@ -4,40 +4,7 @@ import { useSettings } from '../shared/hooks/useSettings'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useI18n } from '../shared/hooks/useI18n'
 import { fmtClock, tzOffsetLabel, type DateFormat, type TimeFormat } from '../shared/lib/date'
-
-const TIMEZONES: string[] = [
-  'Europe/Kaliningrad',
-  'Europe/Moscow',
-  'Europe/Samara',
-  'Europe/Yekaterinburg',
-  'Asia/Omsk',
-  'Asia/Novosibirsk',
-  'Asia/Krasnoyarsk',
-  'Asia/Irkutsk',
-  'Asia/Yakutsk',
-  'Asia/Vladivostok',
-  'Asia/Magadan',
-  'Asia/Kamchatka',
-  'UTC',
-  'Europe/London',
-  'Europe/Berlin',
-  'Europe/Paris',
-  'Europe/Kiev',
-  'Europe/Minsk',
-  'Asia/Tbilisi',
-  'Asia/Yerevan',
-  'Asia/Almaty',
-  'Asia/Tashkent',
-  'Asia/Dubai',
-  'Asia/Kolkata',
-  'Asia/Shanghai',
-  'Asia/Tokyo',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Sao_Paulo',
-]
+import { TIMEZONES } from '../shared/lib/timezones'
 
 type Tab = 'profile' | 'general' | 'rhythm' | 'services' | 'about'
 

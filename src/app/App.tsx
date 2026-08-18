@@ -6,25 +6,29 @@ import { Today } from '../pages/Today'
 import { Schedule } from '../pages/Schedule'
 import { Stats } from '../pages/Stats'
 import { Settings } from '../pages/Settings'
+import { Templates } from '../pages/Templates'
 import { DEFAULT_RULES } from '../entities/rhythm/activities'
 import type { Rule } from '../entities/rhythm/activities'
 import { fmtClock } from '../shared/lib/date'
 import { useSettings } from '../shared/hooks/useSettings'
+import { useTemplates } from '../entities/templates/useTemplates'
 
-type Page = 'today' | 'schedule' | 'stats' | 'settings'
+type Page = 'today' | 'schedule' | 'stats' | 'settings' | 'templates'
 
 const pageMeta: Record<Page, { title: string; desc: string }> = {
   today: { title: 'Сегодня', desc: 'Ближайшее событие и ритм всего дня в одном месте' },
   schedule: { title: 'Расписание', desc: 'Проекты и задачи на временной шкале' },
   stats: { title: 'Статистика', desc: 'Продуктивность и прогресс за всё время' },
   settings: { title: 'Настройки', desc: 'Профиль, параметры и подключённые сервисы' },
+  templates: { title: 'Шаблоны', desc: 'Графики дня для разных дней недели' },
 }
 
 function App() {
-  const [rules, setRules] = useState<Rule[]>(DEFAULT_RULES)
   const [page, setPage] = useState<Page>('today')
   const [clockStr, setClockStr] = useState('')
-  const { timezone, timeFormat, dateFormat } = useSettings()
+  const [fallbackRules, setFallbackRules] = useState<Rule[]>(DEFAULT_RULES)
+  const { timezone, timeFormat, dateFormat, chainStartMin } = useSettings()
+  const { templates, activeTemplate, isOverridden, selectForToday, updateTemplate } = useTemplates()
 
   useEffect(() => {
     function update() {
@@ -34,6 +38,21 @@ function App() {
     const id = setInterval(update, 30000)
     return () => clearInterval(id)
   }, [timezone, timeFormat, dateFormat])
+
+  const activeRules = activeTemplate ? activeTemplate.rules : fallbackRules
+  const tplChainStart =
+    activeTemplate && !activeTemplate.inheritSettings && activeTemplate.chainStartMin != null
+      ? activeTemplate.chainStartMin
+      : null
+  const chainStart = tplChainStart ?? chainStartMin
+
+  const setActiveRules = (rs: Rule[]) => {
+    if (activeTemplate) {
+      updateTemplate(activeTemplate.id, { rules: rs })
+    } else {
+      setFallbackRules(rs)
+    }
+  }
 
   const meta = pageMeta[page]
 
@@ -55,7 +74,19 @@ function App() {
                 transition={{ duration: 0.25 }}
                 className="w-full"
               >
-                <Today title={meta.title} desc={meta.desc} rules={rules} onRulesChange={setRules} clockStr={clockStr} />
+                <Today
+                  title={meta.title}
+                  desc={meta.desc}
+                  rules={activeRules}
+                  chainStart={chainStart}
+                  onRulesChange={setActiveRules}
+                  clockStr={clockStr}
+                  templates={templates}
+                  activeTemplateId={activeTemplate?.id ?? null}
+                  isOverridden={isOverridden}
+                  onSelectTemplate={selectForToday}
+                  onOpenTemplates={() => setPage('templates')}
+                />
               </motion.div>
             )}
 
@@ -95,6 +126,19 @@ function App() {
                 className="w-full"
               >
                 <Settings />
+              </motion.div>
+            )}
+
+            {page === 'templates' && (
+              <motion.div
+                key="templates"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+                className="w-full"
+              >
+                <Templates onBack={() => setPage('today')} />
               </motion.div>
             )}
           </AnimatePresence>
