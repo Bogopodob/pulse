@@ -113,6 +113,210 @@ function rulesWithTimes() {
   })
 }
 
+function heatColor(minutes: number): string {
+  if (minutes === 0) return 'var(--surface-3)'
+  if (minutes < 120) return 'rgba(76,141,255,0.25)'
+  if (minutes < 240) return 'rgba(76,141,255,0.45)'
+  if (minutes < 360) return 'rgba(76,141,255,0.7)'
+  return '#4c8dff'
+}
+
+function HeatmapCard({
+  daily,
+  title,
+  sub,
+}: {
+  daily: { date: Date; minutes: number }[]
+  title: string
+  sub: string
+}) {
+  const { weeks, grid, monthCols } = useMemo(() => {
+    if (daily.length === 0) {
+      return { weeks: 0, grid: [] as { date: Date; minutes: number }[][], monthCols: [] as { col: number; label: string }[] }
+    }
+    const byDate = new Map(daily.map((d) => [isoDate(d.date), d.minutes]))
+    const start = new Date(daily[0].date)
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
+    const last = daily[daily.length - 1].date
+    const totalDays = Math.round((last.getTime() - start.getTime()) / 86400000) + 1
+    const cells: { date: Date; minutes: number }[] = []
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(start)
+      d.setDate(start.getDate() + i)
+      cells.push({ date: d, minutes: byDate.get(isoDate(d)) ?? 0 })
+    }
+    const weeksCount = Math.ceil(cells.length / 7)
+    const gridData: { date: Date; minutes: number }[][] = Array.from(
+      { length: 7 },
+      (_, row) =>
+        Array.from({ length: weeksCount }, (_, col) => cells[col * 7 + row]).filter(
+          (c): c is { date: Date; minutes: number } => c !== undefined,
+        ),
+    )
+    const cols: { col: number; label: string }[] = []
+    let lastMonth = -1
+    for (let c = 0; c < weeksCount; c++) {
+      const m = gridData[0][c]?.date.getMonth() ?? -1
+      if (m !== lastMonth) {
+        cols.push({ col: c, label: MONTHS_SHORT[m] })
+        lastMonth = m
+      }
+    }
+    return { weeks: weeksCount, grid: gridData, monthCols: cols }
+  }, [daily])
+
+  const active = useMemo(() => daily.reduce((s, d) => s + d.minutes, 0), [daily])
+
+  if (weeks === 0) return null
+
+  return (
+    <div className="card card-lift p-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-[var(--font-display)] text-[15.5px] font-semibold">{title}</h3>
+        <span className="text-[11px] text-[var(--text-faint)] font-mono">{sub} · {fmtDur(active)}</span>
+      </div>
+      <div className="overflow-x-auto pb-1">
+        <div className="min-w-max">
+          <div className="relative h-[15px] mb-[5px]">
+            {monthCols.map((mc) => (
+              <div
+                key={mc.col}
+                className="absolute text-[9.5px] uppercase tracking-wide text-[var(--text-faint)]"
+                style={{ left: mc.col * 14 }}
+              >
+                {mc.label}
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-[3px]">
+            {Array.from({ length: weeks }, (_, c) => (
+              <div key={c} className="flex flex-col gap-[3px]">
+                {Array.from({ length: 7 }, (_, r) => {
+                  const cell = grid[r][c]
+                  if (!cell) return <div key={r} className="size-[11px] rounded-[3px] bg-[var(--surface-3)]" />
+                  return (
+                    <div
+                      key={r}
+                      title={`${cell.date.getDate()} ${MONTHS_SHORT[cell.date.getMonth()]} — ${cell.minutes === 0 ? 'нет фокуса' : fmtDur(cell.minutes)}`}
+                      className="size-[11px] rounded-[3px]"
+                      style={{
+                        background: heatColor(cell.minutes),
+                        boxShadow: cell.minutes >= 360 ? '0 0 6px rgba(76,141,255,0.6)' : undefined,
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-end gap-1.5 mt-2 text-[10px] text-[var(--text-faint)]">
+        меньше
+        {[0, 119, 239, 359, 500].map((v) => (
+          <span key={v} className="size-[9px] rounded-[2px]" style={{ background: heatColor(v) }} />
+        ))}
+        больше
+      </div>
+    </div>
+  )
+}
+
+function TopDaysCard({
+  daily,
+  goal,
+}: {
+  daily: { date: Date; minutes: number }[]
+  goal: number
+}) {
+  const top = useMemo(() => [...daily].sort((a, b) => b.minutes - a.minutes).slice(0, 5), [daily])
+  const max = top[0]?.minutes ?? 1
+  const weekday = (d: Date) => WEEKDAYS_SHORT[(d.getDay() + 6) % 7]
+  const date = (d: Date) => `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+
+  return (
+    <div className="card card-lift p-6 flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-[var(--font-display)] text-[15.5px] font-semibold">Лучшие дни</h3>
+        <span className="text-[11px] text-[var(--text-faint)] font-mono">топ-5</span>
+      </div>
+      <div className="flex flex-col gap-2.5 flex-1 justify-center">
+        {top.map((d, i) => (
+          <div key={isoDate(d.date)} className="flex items-center gap-3">
+            <span
+              className="font-mono text-[11px] font-bold w-[16px] text-right tabular-nums"
+              style={{
+                color: i === 0 ? '#ffd76a' : i === 1 ? '#b8c4d4' : i === 2 ? '#d08a5a' : 'var(--text-faint)',
+                textShadow: i === 0 ? '0 0 8px rgba(255,215,106,0.5)' : undefined,
+              }}
+            >
+              {i + 1}
+            </span>
+            <span className="text-[12px] w-[42px] text-[var(--text-dim)]">{weekday(d.date)}</span>
+            <div className="flex-1 h-[6px] rounded-full bg-[var(--surface-3)] overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.max(4, (d.minutes / max) * 100)}%`,
+                  background: `linear-gradient(90deg, rgba(76,141,255,0.5), ${d.minutes >= goal ? '#4fd4c4' : '#4c8dff'})`,
+                  boxShadow: `0 0 8px rgba(76,141,255,0.35)`,
+                }}
+              />
+            </div>
+            <span className="font-mono text-[11px] font-semibold tabular-nums w-[44px] text-right" style={{ color: d.minutes >= goal ? C_FOOD : C_FOCUS }}>
+              {fmtDur(d.minutes)}
+            </span>
+            <span className="text-[10px] text-[var(--text-faint)] w-[58px] text-right">{date(d.date)}</span>
+          </div>
+        ))}
+      </div>
+      <div className="text-[11px] text-[var(--text-faint)] mt-3">
+        {daily.filter((d) => d.minutes >= goal).length} дн за период достигли цели
+      </div>
+    </div>
+  )
+}
+
+function GoalProgressCard({ avg, goal }: { avg: number; goal: number }) {
+  const pct = Math.min(100, Math.round((avg / goal) * 100))
+  return (
+    <div className="card card-lift p-6 flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-[var(--font-display)] text-[15.5px] font-semibold">Прогресс к цели</h3>
+        <span className="text-[11px] text-[var(--text-faint)] font-mono">цель · {fmtDur(goal)}</span>
+      </div>
+      <div className="flex-1 flex flex-col justify-center gap-3">
+        <div className="flex items-baseline gap-2">
+          <span
+            className="font-[var(--font-display)] text-[40px] font-bold tabular-nums leading-none"
+            style={{ color: pct >= 100 ? C_FOOD : C_FOCUS, textShadow: pct >= 100 ? '0 0 24px rgba(79,212,196,0.45)' : '0 0 24px rgba(76,141,255,0.35)' }}
+          >
+            {pct}%
+          </span>
+          <span className="text-[12px] text-[var(--text-dim)]">средний день — {fmtDur(avg)}</span>
+        </div>
+        <div className="h-[8px] rounded-full bg-[var(--surface-3)] overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${Math.max(2, pct)}%`,
+              background: pct >= 100
+                ? 'linear-gradient(90deg, #4c8dff, #4fd4c4)'
+                : 'linear-gradient(90deg, rgba(76,141,255,0.4), #4c8dff)',
+              boxShadow: `0 0 12px ${pct >= 100 ? 'rgba(79,212,196,0.5)' : 'rgba(76,141,255,0.4)'}`,
+            }}
+          />
+        </div>
+        <div className="text-[11px] text-[var(--text-faint)]">
+          {pct >= 100
+            ? `Цель превышена на ${fmtDur(avg - goal)} — отличный темп!`
+            : `До цели в среднем не хватает ${fmtDur(goal - avg)}`}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function Stats() {
   const [period, setPeriod] = useState<Period>('day')
   const today = useMemo(() => new Date(), [])
@@ -502,6 +706,21 @@ export function Stats() {
           </div>
         </div>
       </div>
+
+      {period !== 'day' && (
+        <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5">
+          {period === 'year' || period === 'custom' ? (
+            <HeatmapCard
+              daily={activeDaily}
+              title={period === 'year' ? 'Активность за год' : 'Активность за период'}
+              sub={period === 'year' ? '365 дней' : `${activeDaily.length} дн`}
+            />
+          ) : (
+            <GoalProgressCard avg={stats.avg} goal={DAY_GOAL} />
+          )}
+          <TopDaysCard daily={activeDaily} goal={DAY_GOAL} />
+        </div>
+      )}
     </div>
   )
 }
