@@ -2,6 +2,7 @@ import { AnimatePresence } from 'framer-motion'
 import { useRhythm } from '../entities/rhythm/useRhythm'
 import { ACCENTS } from '../entities/rhythm/activities'
 import type { Rule } from '../entities/rhythm/activities'
+import { useSettings } from '../shared/hooks/useSettings'
 import { NextUp } from '../widgets/NextUp'
 import { Timeline } from '../widgets/Timeline'
 import { TodayTasks } from '../widgets/TodayTasks'
@@ -21,7 +22,8 @@ export function Today({
   onRulesChange: (rules: Rule[]) => void
   clockStr: string
 }) {
-  const rhythm = useRhythm(rules)
+  const { chainStartMin } = useSettings()
+  const rhythm = useRhythm(rules, chainStartMin)
   const todayStatus = (() => {
     const a = ACCENTS[rhythm.cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
     if (rhythm.cur.type === 'off')

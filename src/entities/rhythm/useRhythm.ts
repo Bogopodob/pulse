@@ -19,12 +19,12 @@ export interface Segment {
   task?: string
 }
 
-export function buildSegments(rules: Rule[]): Segment[] {
+export function buildSegments(rules: Rule[], chainStart = CHAIN_START): Segment[] {
   const segs: Segment[] = []
-  if (DAY_START < CHAIN_START) {
-    segs.push({ start: DAY_START, end: CHAIN_START, type: 'off', label: 'Вне графика', color: 'gray' })
+  if (DAY_START < chainStart) {
+    segs.push({ start: DAY_START, end: chainStart, type: 'off', label: 'Вне графика', color: 'gray' })
   }
-  let t = CHAIN_START
+  let t = chainStart
   for (const r of rules) {
     const end = Math.min(t + r.minutes, DAY_END)
     if (end > t) {
@@ -73,7 +73,7 @@ export function buildBars(segments: Segment[]): { type: string; height: number; 
   return bars
 }
 
-export function useRhythm(rules: Rule[]) {
+export function useRhythm(rules: Rule[], chainStart = CHAIN_START) {
   const [nowMinutes, setNowMinutes] = useState(() => {
     const d = new Date()
     return d.getHours() * 60 + d.getMinutes()
@@ -106,7 +106,7 @@ export function useRhythm(rules: Rule[]) {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  const segments = useMemo(() => buildSegments(rules), [rules])
+  const segments = useMemo(() => buildSegments(rules, chainStart), [rules, chainStart])
 
   useEffect(() => {
     const cur = segAt(nowMinutes, segments)

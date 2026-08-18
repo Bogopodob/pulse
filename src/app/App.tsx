@@ -5,18 +5,20 @@ import { Sidebar } from '../widgets/Sidebar'
 import { Today } from '../pages/Today'
 import { Schedule } from '../pages/Schedule'
 import { Stats } from '../pages/Stats'
+import { Settings } from '../pages/Settings'
 import { DEFAULT_RULES } from '../entities/rhythm/activities'
 import type { Rule } from '../entities/rhythm/activities'
 
 const days = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
 const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
 
-type Page = 'today' | 'schedule' | 'stats'
+type Page = 'today' | 'schedule' | 'stats' | 'settings'
 
 const pageMeta: Record<Page, { title: string; desc: string }> = {
   today: { title: 'Сегодня', desc: 'Ближайшее событие и ритм всего дня в одном месте' },
   schedule: { title: 'Расписание', desc: 'Проекты и задачи на временной шкале' },
   stats: { title: 'Статистика', desc: 'Продуктивность и прогресс за всё время' },
+  settings: { title: 'Настройки', desc: 'Профиль, параметры и подключённые сервисы' },
 }
 
 function App() {
@@ -83,6 +85,19 @@ function App() {
                 className="mx-auto w-full max-w-[1400px]"
               >
                 <Stats />
+              </motion.div>
+            )}
+
+{page === 'settings' && (
+              <motion.div
+                key="settings"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+                className="w-full"
+              >
+                <Settings />
               </motion.div>
             )}
           </AnimatePresence>

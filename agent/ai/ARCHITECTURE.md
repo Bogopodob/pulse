@@ -20,6 +20,7 @@ src/
 │   ├── ui/
 │   ├── lib/
 │   ├── hooks/
+    │   │   ├── useSettings.tsx        # настройки профиля (имя, цель дня, старт ритма) — localStorage
 │   ├── config/
 │   ├── assets/
 │   └── types/
@@ -183,11 +184,12 @@ src/
 ├── entities/
 │   └── rhythm/                    # бизнес-сущность «Ритм дня»
 │       ├── activities.ts          # Rule, ACCENTS (glow), ACTIVITIES, ICON_PATHS, COLOR_KEYS, DEFAULT_RULES, RESTING_TYPES
-│       └── useRhythm.ts           # useRhythm(rules), buildSegments, buildBars, fmtHM, CHAIN_START=540
+│       └── useRhythm.ts           # useRhythm(rules, chainStart?), buildSegments(rules, chainStart?), buildBars, fmtHM, CHAIN_START=540
 └── shared/
     ├── hooks/
     │   ├── useTheme.tsx           # тёмная/светлая тема
-    │   └── useI18n.tsx            # локализация
+    │   ├── useI18n.tsx            # локализация
+    │   └── useSettings.tsx        # настройки профиля: имя, dailyGoalMin, chainStartMin (localStorage)
     ├── ui/
     │   ├── charts/                # bklit area/bar/pie/ring-chart (shadcn-регистр, visx + motion)
     │   └── shimmering-text.tsx    # мерцающий текст (bklit)

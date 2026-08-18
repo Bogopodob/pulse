@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ACTIVITIES, ACCENTS, ICON_PATHS, CUSTOM_ICONS, COLOR_KEYS } from '../../../entities/rhythm/activities'
 import type { Rule, RuleColor } from '../../../entities/rhythm/activities'
-import { fmtHM, CHAIN_START } from '../../../entities/rhythm/useRhythm'
+import { fmtHM } from '../../../entities/rhythm/useRhythm'
+import { useSettings } from '../../../shared/hooks/useSettings'
 import { DurationSlider } from './DurationSlider'
 
 export function BlockCreator({
@@ -31,8 +32,9 @@ export function BlockCreator({
   onAdd: (rule: Rule) => void
 }) {
   const [showCustom, setShowCustom] = useState(false)
+  const { chainStartMin } = useSettings()
 
-  const start = rules.reduce((t, r) => t + r.minutes, CHAIN_START)
+  const start = rules.reduce((t, r) => t + r.minutes, chainStartMin)
   const anchorName = rules[rules.length - 1]?.name ?? 'старта дня'
   const previewMin = presetType ? presetMin : customMin
   const previewAccent = presetType

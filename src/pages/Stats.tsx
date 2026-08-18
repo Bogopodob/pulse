@@ -16,7 +16,7 @@ import { RingChart } from '../shared/ui/charts/ring-chart'
 import { Ring } from '../shared/ui/charts/ring'
 import { RingCenter } from '../shared/ui/charts/ring-center'
 import { ACCENTS, DEFAULT_RULES } from '../entities/rhythm/activities'
-import { CHAIN_START } from '../entities/rhythm/useRhythm'
+import { useSettings } from '../shared/hooks/useSettings'
 
 type Period = 'day' | 'week' | 'month' | 'year' | 'custom'
 
@@ -37,7 +37,7 @@ const C_FOOD = '#4fd4c4'
 const C_OTHER = '#a78bfa'
 const C_OFF = '#4a4d55'
 
-const DAY_GOAL = 480
+
 
 function fmtDur(min: number): string {
   const h = Math.floor(min / 60)
@@ -104,8 +104,8 @@ function aggregateWeekdays(daily: { date: Date; minutes: number }[]) {
   }))
 }
 
-function rulesWithTimes() {
-  let t = CHAIN_START
+function rulesWithTimes(chainStart: number) {
+  let t = chainStart
   return DEFAULT_RULES.map((r) => {
     const start = t
     t += r.minutes
@@ -326,10 +326,11 @@ export function Stats() {
   })
   const [customTo, setCustomTo] = useState(() => isoDate(today))
 
+  const { dailyGoalMin: goal, chainStartMin } = useSettings()
   const pool = useMemo(() => mockDaily(400), [])
   const hours = useMemo(() => mockHours(), [])
   const day = useMemo(() => dayDistribution(), [])
-  const rules = useMemo(() => rulesWithTimes(), [])
+  const rules = useMemo(() => rulesWithTimes(chainStartMin), [chainStartMin])
 
   const activeDaily = useMemo(() => {
     switch (period) {
@@ -396,7 +397,7 @@ export function Stats() {
 
   const ringData = useMemo(
     () => [
-      { label: 'Фокус', value: day.focus, maxValue: DAY_GOAL, color: C_FOCUS },
+      { label: 'Фокус', value: day.focus, maxValue: goal, color: C_FOCUS },
       { label: 'Паузы', value: day.break, maxValue: 150, color: C_REST },
       { label: 'Еда', value: day.food, maxValue: 120, color: C_FOOD },
     ],
@@ -405,10 +406,10 @@ export function Stats() {
 
   const pills = useMemo(() => {
     if (period === 'day') {
-      const pct = Math.round((stats.total / DAY_GOAL) * 100)
+      const pct = Math.round((stats.total / goal) * 100)
       return [
         { label: 'Фокус сегодня', value: fmtDur(stats.total), color: C_FOCUS, glow: '76,141,255' },
-        { label: 'Цель дня', value: `${pct}% · ${fmtDur(DAY_GOAL)}`, color: C_FOOD, glow: '79,212,196' },
+        { label: 'Цель дня', value: `${pct}% · ${fmtDur(goal)}`, color: C_FOOD, glow: '79,212,196' },
         { label: 'Пиковый час', value: stats.bestLabel, color: C_REST, glow: '255,157,92' },
         { label: 'В среднем за месяц', value: fmtDur(stats.avg), color: C_OTHER, glow: '167,139,250' },
       ]
@@ -605,7 +606,7 @@ export function Stats() {
             <div className="flex flex-col gap-2.5">
               {rules.map((r) => {
                 const acc = ACCENTS[r.color]
-                const pct = Math.round((r.minutes / DAY_GOAL) * 100)
+                const pct = Math.round((r.minutes / goal) * 100)
                 return (
                   <div key={r.id} className="flex items-center gap-3">
                     <span
@@ -634,7 +635,7 @@ export function Stats() {
               })}
             </div>
             <div className="text-[11px] text-[var(--text-faint)] mt-4">
-              Длина блока в % от цели дня ({fmtDur(DAY_GOAL)})
+              Длина блока в % от цели дня ({fmtDur(goal)})
             </div>
           </div>
         ) : (
@@ -716,9 +717,9 @@ export function Stats() {
               sub={period === 'year' ? '365 дней' : `${activeDaily.length} дн`}
             />
           ) : (
-            <GoalProgressCard avg={stats.avg} goal={DAY_GOAL} />
+            <GoalProgressCard avg={stats.avg} goal={goal} />
           )}
-          <TopDaysCard daily={activeDaily} goal={DAY_GOAL} />
+          <TopDaysCard daily={activeDaily} goal={goal} />
         </div>
       )}
     </div>

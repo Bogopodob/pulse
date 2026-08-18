@@ -2,14 +2,14 @@ import { memo, useRef, useState } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { ACTIVITIES } from '../../entities/rhythm/activities'
 import type { Rule, RuleColor } from '../../entities/rhythm/activities'
-import { CHAIN_START } from '../../entities/rhythm/useRhythm'
+import { useSettings } from '../../shared/hooks/useSettings'
 import { RuleRow } from './ui/RuleRow'
 import type { EditState } from './ui/RuleRow'
 import { BlockCreator } from './ui/BlockCreator'
 
-function ruleRanges(rules: Rule[]): { start: number; end: number }[] {
+function ruleRanges(rules: Rule[], chainStart: number): { start: number; end: number }[] {
   const out: { start: number; end: number }[] = []
-  let t = CHAIN_START
+  let t = chainStart
   for (const r of rules) {
     out.push({ start: t, end: t + r.minutes })
     t += r.minutes
@@ -27,7 +27,8 @@ export const RuleChips = memo(function RuleChips({ rules, onChange }: { rules: R
   const [custom, setCustom] = useState({ name: '', icon: 'star', color: 'blue' as RuleColor })
   const [flashId, setFlashId] = useState<string | null>(null)
   const flashTimer = useRef<number | null>(null)
-  const ranges = ruleRanges(rules)
+  const { chainStartMin } = useSettings()
+  const ranges = ruleRanges(rules, chainStartMin)
 
   const save = (rules: Rule[]) => onChange(rules)
 
