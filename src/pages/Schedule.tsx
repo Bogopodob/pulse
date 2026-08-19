@@ -32,7 +32,7 @@ export function Schedule({ title, desc, clockStr }: { title: string; desc: strin
           {creating ? (
             <motion.div
               key="add-task"
-              className="w-full flex flex-col min-h-0"
+              className="w-full flex flex-col min-h-0 min-w-0"
               initial={{ opacity: 0, y: 28 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -53,7 +53,7 @@ export function Schedule({ title, desc, clockStr }: { title: string; desc: strin
           ) : (
             <motion.div
               key="timeline"
-              className="flex-1 flex min-h-0"
+              className="flex-1 flex min-h-0 min-w-0"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}

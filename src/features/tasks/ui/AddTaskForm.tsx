@@ -754,7 +754,7 @@ export function AddTaskForm({
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 md:px-10">
-        <div className="max-w-[1000px] mx-auto py-6 flex flex-col gap-5">
+        <div className="max-w-[1400px] mx-auto py-6 flex flex-col gap-5">
       <motion.div variants={ADD_MODAL_ITEM}>
         <div
           className="flex items-center rounded-xl border transition-colors px-4"
