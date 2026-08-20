@@ -475,16 +475,20 @@ export function AddTaskForm({
   initialDay,
   tasks,
   projects,
+  editing,
   onAdd,
   onAddProject,
   onBack,
+  onDelete,
 }: {
   initialDay: Date
   tasks: Task[]
   projects: Record<string, Project>
+  editing?: Task | null
   onAdd: (data: AddTaskFormData) => void
   onAddProject: (key: string, project: Project) => void
   onBack: () => void
+  onDelete?: () => void
 }) {
   const { team, addUser } = useTeam()
   const [newTitle, setNewTitle] = useState('')
@@ -518,6 +522,24 @@ export function AddTaskForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialDay])
+
+  useEffect(() => {
+    if (!editing) return
+    const cdt = (d: Date) =>
+      new CalendarDateTime(d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes())
+    setNewTitle(editing.title)
+    setDate(cdt(editing.startDate))
+    setEndDate(cdt(editing.endDate))
+    const multiDay = !isSameDay(editing.startDate, editing.endDate)
+    setUsePeriod(multiDay)
+    setPeriodStage(multiDay ? 2 : 0)
+    setAllDay(editing.startMinute === 0 && editing.endMinute >= 24 * 60)
+    setNewTags(editing.tags.length > 0 ? editing.tags : ['ritual'])
+    setAssignees(editing.assignees)
+    setResponsible(editing.responsible)
+    setCalMonth(new Date(editing.startDate.getFullYear(), editing.startDate.getMonth(), 1))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -738,7 +760,12 @@ export function AddTaskForm({
             </svg>
             Расписание
           </button>
-          <h2 className="text-[19px] font-semibold tracking-[-0.02em] text-[#fff] leading-none truncate">Новая задача</h2>
+          <h2 className="text-[19px] font-semibold tracking-[-0.02em] text-[#fff] leading-none truncate">
+            {editing ? editing.title : 'Новая задача'}
+          </h2>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-faint)] shrink-0">
+            {editing ? 'Редактирование' : 'Создание'}
+          </span>
         </div>
         <button
           type="button"
@@ -1155,7 +1182,20 @@ export function AddTaskForm({
         </div>
       </div>
 
-      <div className="shrink-0 flex items-center justify-end gap-2.5 px-6 sm:px-8 md:px-10 py-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(10,12,18,0.6)', backdropFilter: 'blur(14px)' }}>
+      <div className="shrink-0 flex items-center justify-between gap-2.5 px-6 sm:px-8 md:px-10 py-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(10,12,18,0.6)', backdropFilter: 'blur(14px)' }}>
+        <div className="flex items-center gap-2.5">
+          {editing && onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="btn h-11 px-4 rounded-xl text-[12px] font-semibold transition-all hover:brightness-110"
+              style={{ color: '#ff8f8f', background: 'rgba(255,77,77,0.1)', border: '1px solid rgba(255,77,77,0.35)' }}
+            >
+              Удалить
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2.5">
         <button
           type="button"
           onClick={onBack}
@@ -1168,16 +1208,17 @@ export function AddTaskForm({
           type="submit"
           className="btn h-11 px-6 rounded-xl text-[13px] font-semibold justify-center gap-2 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.99]"
           style={{
-            background: 'linear-gradient(135deg, #22c55e, #15803d)',
+            background: editing ? 'linear-gradient(135deg, #4c8dff, #2b6be4)' : 'linear-gradient(135deg, #22c55e, #15803d)',
             color: '#fff',
-            boxShadow: '0 4px 22px rgba(34,197,94,0.45), inset 0 1px 0 rgba(255,255,255,0.2)',
+            boxShadow: editing ? '0 4px 22px rgba(76,141,255,0.45), inset 0 1px 0 rgba(255,255,255,0.2)' : '0 4px 22px rgba(34,197,94,0.45), inset 0 1px 0 rgba(255,255,255,0.2)',
           }}
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-            <path d="M12 5v14M5 12h14" />
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            {editing ? <path d="M5 13l4 4L19 7" /> : <path d="M12 5v14M5 12h14" />}
           </svg>
-          Создать задачу
+          {editing ? 'Сохранить' : 'Создать задачу'}
         </button>
+        </div>
       </div>
     </motion.form>
   )

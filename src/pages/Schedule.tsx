@@ -8,7 +8,11 @@ const TODAY = new Date(2026, 7, 21)
 
 export function Schedule({ title, desc, clockStr }: { title: string; desc: string; clockStr: string }) {
   const [creating, setCreating] = useState(false)
-  const { tasks, addTask, projects, addProject } = useTasks()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const { tasks, addTask, updateTask, deleteTask, projects, addProject } = useTasks()
+
+  const editingTask = editingId ? tasks.find((t) => t.id === editingId) ?? null : null
+  const inForm = creating || editingTask !== null
 
   return (
     <>
@@ -29,9 +33,9 @@ export function Schedule({ title, desc, clockStr }: { title: string; desc: strin
       </div>
       <div className="flex-1 flex min-h-0 relative">
         <AnimatePresence mode="wait">
-          {creating ? (
+          {inForm ? (
             <motion.div
-              key="add-task"
+              key={creating ? 'add-task' : `edit-${editingTask!.id}`}
               className="w-full flex flex-col min-h-0 min-w-0"
               initial={{ opacity: 0, y: 28 }}
               animate={{ opacity: 1, y: 0 }}
@@ -42,12 +46,26 @@ export function Schedule({ title, desc, clockStr }: { title: string; desc: strin
                 initialDay={TODAY}
                 tasks={tasks}
                 projects={projects}
+                editing={creating ? null : editingTask}
                 onAdd={(data) => {
-                  addTask(data)
+                  if (creating) addTask(data)
+                  else if (editingTask) updateTask(editingTask.id, data)
                   setCreating(false)
+                  setEditingId(null)
                 }}
                 onAddProject={addProject}
-                onBack={() => setCreating(false)}
+                onBack={() => {
+                  setCreating(false)
+                  setEditingId(null)
+                }}
+                onDelete={
+                  editingTask
+                    ? () => {
+                        deleteTask(editingTask.id)
+                        setEditingId(null)
+                      }
+                    : undefined
+                }
               />
             </motion.div>
           ) : (
@@ -59,7 +77,7 @@ export function Schedule({ title, desc, clockStr }: { title: string; desc: strin
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.26, ease: [0.32, 0.72, 0, 1] }}
             >
-              <GanttTimeline onNewTask={() => setCreating(true)} />
+              <GanttTimeline onNewTask={() => setCreating(true)} onOpenTask={(id) => setEditingId(id)} />
             </motion.div>
           )}
         </AnimatePresence>

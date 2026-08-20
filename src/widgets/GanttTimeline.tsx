@@ -108,7 +108,7 @@ function NavBtn({ dir, onClick }: { dir: 'prev' | 'next'; onClick: () => void })
   )
 }
 
-export function GanttTimeline({ onNewTask }: { onNewTask: () => void }) {
+export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void; onOpenTask: (id: string) => void }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const indicatorRef = useRef<HTMLDivElement>(null)
   const scrollLeftRef = useRef(0)
@@ -444,7 +444,9 @@ export function GanttTimeline({ onNewTask }: { onNewTask: () => void }) {
       setCtxMenu(null)
       if (!cur) return
       const { task } = cur
-      if (actionKey === 'duplicate') {
+      if (actionKey === 'open' || actionKey === 'edit') {
+        onOpenTask(task.id)
+      } else if (actionKey === 'duplicate') {
         duplicateTask(task.id)
       } else if (actionKey === 'delete') {
         deleteTask(task.id)
@@ -452,7 +454,7 @@ export function GanttTimeline({ onNewTask }: { onNewTask: () => void }) {
         updateTask(task.id, { progress: task.progress >= 1 ? 0 : 1 })
       }
     },
-    [ctxMenu, duplicateTask, deleteTask, updateTask],
+    [ctxMenu, onOpenTask, duplicateTask, deleteTask, updateTask],
   )
 
   const goPrev = () => {
