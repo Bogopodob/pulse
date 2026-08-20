@@ -1,5 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { GanttTask } from '../../shared/types'
+import {
+  apiCreateTask,
+  apiDeleteTask,
+  apiDuplicateTask,
+  apiListTasks,
+  apiUpdateTask,
+  isTauri,
+  toCreateInput,
+  toTask,
+  toUpdateInput,
+} from './api'
 
 export type Task = GanttTask & { tags: string[]; responsible?: string }
 
@@ -99,10 +110,10 @@ function deserialize(raw: string): Task[] {
 
 interface TasksContextValue {
   tasks: Task[]
-  addTask: (input: TaskInput) => Task
-  updateTask: (id: string, patch: Partial<Task>) => void
-  deleteTask: (id: string) => void
-  duplicateTask: (id: string) => void
+  addTask: (input: TaskInput) => Promise<Task>
+  updateTask: (id: string, patch: Partial<Task>) => Promise<void>
+  deleteTask: (id: string) => Promise<void>
+  duplicateTask: (id: string) => Promise<void>
   extraProjects: Record<string, Project>
   projects: Record<string, Project>
   addProject: (key: string, project: Project) => void
@@ -110,16 +121,20 @@ interface TasksContextValue {
 
 const TasksContext = createContext<TasksContextValue | null>(null)
 
+function loadLocal(): Task[] {
+  try {
+    const raw = localStorage.getItem(TASKS_KEY)
+    if (raw) return deserialize(raw)
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_TASKS
+}
+
 export function TasksProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    try {
-      const raw = localStorage.getItem(TASKS_KEY)
-      if (raw) return deserialize(raw)
-    } catch {
-      /* ignore */
-    }
-    return DEFAULT_TASKS
-  })
+  const tauri = useMemo(() => isTauri(), [])
+
+  const [tasks, setTasks] = useState<Task[]>(() => (tauri ? [] : loadLocal()))
 
   const [extraProjects, setExtraProjects] = useState<Record<string, Project>>(() => {
     try {
@@ -132,12 +147,18 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   })
 
   useEffect(() => {
+    if (tauri) {
+      void apiListTasks()
+        .then((views) => setTasks(views.map(toTask)))
+        .catch((e) => console.error('load tasks failed:', e))
+      return
+    }
     try {
       localStorage.setItem(TASKS_KEY, serialize(tasks))
     } catch {
       /* ignore */
     }
-  }, [tasks])
+  }, [tauri, tasks])
 
   useEffect(() => {
     try {
@@ -147,28 +168,63 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     }
   }, [extraProjects])
 
-  const addTask = useCallback((input: TaskInput): Task => {
-    const task: Task = { ...input, id: `t-${Date.now()}`, progress: input.progress ?? 0 }
-    setTasks((prev) => [task, ...prev])
-    return task
-  }, [])
+  const addTask = useCallback(
+    async (input: TaskInput): Promise<Task> => {
+      if (tauri) {
+        const view = await apiCreateTask(toCreateInput(input))
+        const task = toTask(view)
+        setTasks((prev) => [task, ...prev])
+        return task
+      }
+      const task: Task = { ...input, id: `t-${Date.now()}`, progress: input.progress ?? 0 }
+      setTasks((prev) => [task, ...prev])
+      return task
+    },
+    [tauri],
+  )
 
-  const updateTask = useCallback((id: string, patch: Partial<Task>) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
-  }, [])
+  const updateTask = useCallback(
+    async (id: string, patch: Partial<Task>) => {
+      if (tauri) {
+        const view = await apiUpdateTask(id, toUpdateInput(patch))
+        const updated = toTask(view)
+        setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
+        return
+      }
+      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+    },
+    [tauri],
+  )
 
-  const deleteTask = useCallback((id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-  }, [])
+  const deleteTask = useCallback(
+    async (id: string) => {
+      if (tauri) {
+        await apiDeleteTask(id)
+        setTasks((prev) => prev.filter((t) => t.id !== id))
+        return
+      }
+      setTasks((prev) => prev.filter((t) => t.id !== id))
+    },
+    [tauri],
+  )
 
-  const duplicateTask = useCallback((id: string) => {
-    setTasks((prev) => {
-      const src = prev.find((t) => t.id === id)
-      if (!src) return prev
-      const copy: Task = { ...src, id: `${src.id}-dup-${Date.now()}`, title: `${src.title} · копия` }
-      return [copy, ...prev]
-    })
-  }, [])
+  const duplicateTask = useCallback(
+    async (id: string) => {
+      if (tauri) {
+        const view = await apiDuplicateTask(id)
+        const copy = toTask(view)
+        setTasks((prev) => [copy, ...prev])
+        return
+      }
+      setTasks((prev) => {
+        const src = prev.find((t) => t.id === id)
+        if (!src) return prev
+        const copy: Task = { ...src, id: `${src.id}-dup-${Date.now()}`, title: `${src.title} · копия` }
+        return [copy, ...prev]
+      })
+    },
+    [tauri],
+  )
 
   const addProject = useCallback((key: string, project: Project) => {
     setExtraProjects((prev) => ({ ...prev, [key]: project }))

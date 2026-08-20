@@ -485,13 +485,14 @@ export function AddTaskForm({
   tasks: Task[]
   projects: Record<string, Project>
   editing?: Task | null
-  onAdd: (data: AddTaskFormData) => void
+  onAdd: (data: AddTaskFormData) => void | Promise<void>
   onAddProject: (key: string, project: Project) => void
   onBack: () => void
   onDelete?: () => void
 }) {
   const { team, addUser } = useTeam()
   const [newTitle, setNewTitle] = useState('')
+  const [error, setError] = useState<string | null>(null)
   const [date, setDate] = useState<CalendarDateTime | null>(null)
   const [endDate, setEndDate] = useState<CalendarDateTime | null>(null)
   const [usePeriod, setUsePeriod] = useState(false)
@@ -713,24 +714,53 @@ export function AddTaskForm({
     setNewMember('')
   }
 
-  const submit = () => {
+  const submit = async () => {
     const trimmed = newTitle.trim()
-    if (!trimmed || !date || !endDate) return
-    const sd = date.toDate(getLocalTimeZone())
-    const ed = endDate.toDate(getLocalTimeZone())
-    let startMin = allDay ? 0 : date.hour * 60 + date.minute
-    let endMin = allDay ? 24 * 60 : endDate.hour * 60 + endDate.minute
+    const err = validate(trimmed)
+    if (err) {
+      setError(err)
+      return
+    }
+    const sd = date!.toDate(getLocalTimeZone())
+    const ed = endDate!.toDate(getLocalTimeZone())
+    let startMin = allDay ? 0 : date!.hour * 60 + date!.minute
+    let endMin = allDay ? 24 * 60 : endDate!.hour * 60 + endDate!.minute
     if (isSameDay(sd, ed) && endMin <= startMin) endMin = Math.min(24 * 60, startMin + 30)
-    onAdd({
-      title: trimmed,
-      startDate: sd,
-      endDate: ed,
-      startMinute: startMin,
-      endMinute: endMin,
-      tags: newTags.length > 0 ? newTags : ['ritual'],
-      assignees,
-      responsible,
-    })
+    setError(null)
+    try {
+      await onAdd({
+        title: trimmed,
+        startDate: sd,
+        endDate: ed,
+        startMinute: startMin,
+        endMinute: endMin,
+        tags: newTags.length > 0 ? newTags : ['ritual'],
+        assignees,
+        responsible,
+      })
+    } catch (e) {
+      setError(serverMsg(e))
+    }
+  }
+
+  const validate = (trimmed: string): string | null => {
+    if (!trimmed) return 'Введите название задачи'
+    if (!date) return 'Выберите дату'
+    if (usePeriod && !endDate) return 'Выберите дату окончания периода'
+    const sd = date.toDate(getLocalTimeZone())
+    if (endDate && endDate.toDate(getLocalTimeZone()).getTime() < sd.getTime()) {
+      return 'Дата окончания раньше даты начала'
+    }
+    return null
+  }
+
+  const serverMsg = (e: unknown): string => {
+    const m = e instanceof Error ? e.message : String(e)
+    if (m.includes('title must not be empty')) return 'Введите название задачи'
+    if (m.includes('InvalidPeriod')) return 'Дата окончания раньше даты начала'
+    if (m.includes('InvalidMinutes')) return 'Некорректное время начала или окончания'
+    if (m.includes('InvalidProgress')) return 'Некорректный прогресс задачи'
+    return `Не удалось сохранить: ${m}`
   }
 
   const memberOf = (id: string) => team.find((u) => u.id === id)
@@ -785,17 +815,35 @@ export function AddTaskForm({
       <motion.div variants={ADD_MODAL_ITEM}>
         <div
           className="flex items-center rounded-xl border transition-colors px-4"
-          style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}
+          style={{ borderColor: error ? 'rgba(255,77,77,0.55)' : 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}
         >
           <input
             autoFocus
             value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
+            onChange={(e) => {
+              setNewTitle(e.target.value)
+              if (error) setError(null)
+            }}
             placeholder="Что добавить в расписание?"
             className="input-base flex-1 py-3.5 text-[15px] focus:outline-none"
           />
           <span className="text-[10px] text-[var(--text-faint)] shrink-0">задача</span>
         </div>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex items-center gap-1.5 mt-2 text-[12px] font-medium"
+            style={{ color: '#ff8f8f' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              <path d="M12 8v5M12 17.2v.1" />
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+            {error}
+          </motion.p>
+        )}
       </motion.div>
 
       <motion.div

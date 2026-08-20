@@ -47,9 +47,9 @@ export function Schedule({ title, desc, clockStr }: { title: string; desc: strin
                 tasks={tasks}
                 projects={projects}
                 editing={creating ? null : editingTask}
-                onAdd={(data) => {
-                  if (creating) addTask(data)
-                  else if (editingTask) updateTask(editingTask.id, data)
+                onAdd={async (data) => {
+                  if (creating) await addTask(data)
+                  else if (editingTask) await updateTask(editingTask.id, data)
                   setCreating(false)
                   setEditingId(null)
                 }}
