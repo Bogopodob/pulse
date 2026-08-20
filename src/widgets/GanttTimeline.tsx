@@ -123,7 +123,7 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
   const [viewportW, setViewportW] = useState(0)
   const [hoverMin, setHoverMin] = useState<number | null>(null)
   const [hoverX, setHoverX] = useState(0)
-  const { tasks, updateTask, deleteTask, duplicateTask, extraProjects } = useTasks()
+  const { tasks, loadDay, updateTask, deleteTask, duplicateTask, extraProjects } = useTasks()
   const { team } = useTeam()
   const userById = useMemo(() => new Map(team.map((u) => [u.id, u])), [team])
   const [hiddenProjects, setHiddenProjects] = useState<Set<string>>(new Set())
@@ -141,6 +141,10 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
     d.setDate(d.getDate() + 1)
     return d
   }, [currentDay])
+
+  useEffect(() => {
+    void loadDay(currentDay).catch((e) => console.error('load day tasks failed:', e))
+  }, [currentDay, loadDay])
 
   const tasksForDay = useCallback(
     (day: Date) =>

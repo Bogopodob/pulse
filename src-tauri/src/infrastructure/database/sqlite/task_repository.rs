@@ -188,3 +188,118 @@ impl TaskRepository for SqliteTaskRepository {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::task::value_objects::TimeRange;
+    use crate::infrastructure::database::sqlite::SqliteDatabase;
+
+    async fn test_repo() -> SqliteTaskRepository {
+        let dir = std::env::temp_dir().join(format!("pulse-it-{}", uuid::Uuid::new_v4()));
+        let db = SqliteDatabase::init(&dir.join("test.db")).await.unwrap();
+        SqliteTaskRepository::new(db.pool.clone())
+    }
+
+    fn task(id: &str, title: &str) -> Task {
+        Task::new(
+            id.to_string(),
+            title.to_string(),
+            1_700_000_000_000,
+            1_700_086_400_000,
+            9 * 60,
+            18 * 60,
+            0.0,
+            Some("JD".to_string()),
+            vec!["AN".to_string()],
+            vec!["ritual".to_string()],
+            1_700_000_000_000,
+            1_700_000_000_000,
+        )
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn create_save_and_load_roundtrip() {
+        let repo = test_repo().await;
+        repo.save(&task("t1", "Оригинал")).await.unwrap();
+
+        let loaded = repo.find_by_id("t1").await.unwrap().expect("task exists");
+        assert_eq!(loaded.title, "Оригинал");
+        assert_eq!(loaded.responsible_id.as_deref(), Some("JD"));
+        assert_eq!(loaded.assignees, vec!["AN"]);
+        assert_eq!(loaded.tags, vec!["ritual"]);
+    }
+
+    #[tokio::test]
+    async fn update_applies_to_db() {
+        let repo = test_repo().await;
+        repo.save(&task("t2", "Оригинал")).await.unwrap();
+
+        let mut t = repo.find_by_id("t2").await.unwrap().unwrap();
+        t.apply_update(
+            Some("Изменено".to_string()),
+            Some(1_700_000_000_000),
+            Some(1_700_172_800_000),
+            None,
+            None,
+            Some(0.75),
+            Some(Some("MK".to_string())),
+            None,
+            Some(vec!["backend".to_string(), "report".to_string()]),
+        )
+        .unwrap();
+        repo.save(&t).await.unwrap();
+
+        let loaded = repo.find_by_id("t2").await.unwrap().unwrap();
+        assert_eq!(loaded.title, "Изменено");
+        assert_eq!(loaded.period.end, 1_700_172_800_000);
+        assert_eq!(loaded.progress, 0.75);
+        assert_eq!(loaded.responsible_id.as_deref(), Some("MK"));
+        assert_eq!(loaded.tags, vec!["backend", "report"]);
+        assert_eq!(loaded.created_at, 1_700_000_000_000, "created_at не меняется");
+    }
+
+    #[tokio::test]
+    async fn update_rejects_invalid_and_keeps_db_unchanged() {
+        let repo = test_repo().await;
+        repo.save(&task("t3", "Оригинал")).await.unwrap();
+
+        let mut t = repo.find_by_id("t3").await.unwrap().unwrap();
+        let err = t.apply_update(Some("   ".to_string()), None, None, None, None, None, None, None, None);
+        assert!(err.is_err(), "пустое название должно отклоняться");
+
+        let loaded = repo.find_by_id("t3").await.unwrap().unwrap();
+        assert_eq!(loaded.title, "Оригинал", "в БД ничего не поменялось");
+    }
+
+    #[tokio::test]
+    async fn delete_removes_task_and_tags() {
+        let repo = test_repo().await;
+        repo.save(&task("t4", "Удалить меня")).await.unwrap();
+        repo.delete("t4").await.unwrap();
+
+        assert!(repo.find_by_id("t4").await.unwrap().is_none());
+        let tags: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM task_tags WHERE task_id = ?")
+            .bind("t4")
+            .fetch_one(&repo.pool)
+            .await
+            .unwrap();
+        assert_eq!(tags, 0, "теги каскадно удалены");
+    }
+
+    #[tokio::test]
+    async fn list_filters_by_day_range() {
+        let repo = test_repo().await;
+        let mut t = task("t5", "В диапазоне");
+        t.period = TimeRange::new(1_700_000_000_000, 1_700_172_800_000).unwrap();
+        repo.save(&t).await.unwrap();
+        repo.save(&task("t6", "Вне диапазона")).await.unwrap();
+
+        let mut filter = TaskFilter::default();
+        filter.period = Some(TimeRange::new(1_700_100_000_000, 1_700_200_000_000).unwrap());
+        let found = repo.list(&filter).await.unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].id, "t5");
+    }
+}
