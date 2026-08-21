@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import { TitleBar } from '../widgets/TitleBar'
 import { Sidebar } from '../widgets/Sidebar'
 import { Today } from '../pages/Today'
@@ -33,6 +33,14 @@ const paneClass: Record<Page, string> = {
   templates: 'w-full',
 }
 
+/* Мемоизация страниц: при клике по вкладке ре-рендерится только обёртка панели,
+   тяжёлые деревья (таймлайн, графики) не перестраиваются — переключение мгновенное. */
+const MemoToday = memo(Today)
+const MemoSchedule = memo(Schedule)
+const MemoStats = memo(Stats)
+const MemoSettings = memo(Settings)
+const MemoTemplates = memo(Templates)
+
 function App() {
   const [page, setPage] = useState<Page>('today')
   const [visited, setVisited] = useState<Record<Page, boolean>>({ today: true, schedule: false, stats: false, settings: false, templates: false })
@@ -45,10 +53,15 @@ function App() {
   const { timezone, timeFormat, dateFormat, chainStartMin } = useSettings()
   const { templates, activeTemplate, isOverridden, selectForToday, updateTemplate } = useTemplates()
 
-  const openPage = (p: Page) => {
-    if (page !== p) setVisitSeq((s) => ({ ...s, [p]: s[p] + 1 }))
+  const pageRef = useRef(page)
+  pageRef.current = page
+  const visitedRef = useRef(visited)
+  visitedRef.current = visited
+
+  const openPage = useCallback((p: Page) => {
+    if (pageRef.current !== p) setVisitSeq((s) => ({ ...s, [p]: s[p] + 1 }))
     setPage(p)
-    if (!visited[p]) {
+    if (!visitedRef.current[p]) {
       /* Тяжёлую первую отрисовку страницы откладываем на следующий кадр:
          сначала мгновенно переключаем вкладку, потом монтируем контент. */
       requestAnimationFrame(() => {
@@ -57,7 +70,21 @@ function App() {
         })
       })
     }
-  }
+  }, [])
+
+  const openTemplates = useCallback(() => openPage('templates'), [openPage])
+  const backToToday = useCallback(() => openPage('today'), [openPage])
+
+  const setActiveRules = useCallback(
+    (rs: Rule[]) => {
+      if (activeTemplate) {
+        updateTemplate(activeTemplate.id, { rules: rs })
+      } else {
+        setFallbackRules(rs)
+      }
+    },
+    [activeTemplate, updateTemplate],
+  )
 
   /* Прогрев в два этапа, пока виден сплэш:
      1) монтируем страницы по одной (тяжёлый JS-рендер размазан по кадрам);
@@ -115,14 +142,6 @@ function App() {
       : null
   const chainStart = tplChainStart ?? chainStartMin
 
-  const setActiveRules = (rs: Rule[]) => {
-    if (activeTemplate) {
-      updateTemplate(activeTemplate.id, { rules: rs })
-    } else {
-      setFallbackRules(rs)
-    }
-  }
-
   return (
     <div className="h-dvh w-screen flex flex-col">
       <TitleBar />
@@ -137,7 +156,7 @@ function App() {
               className={`${paneClass[p]} page-pane${page === p ? ' active' : ''}${page === p || layoutWarm ? '' : ' hidden'}`}
             >
               {visited[p] && p === 'today' && (
-                <Today
+                <MemoToday
                   title={pageMeta[p].title}
                   desc={pageMeta[p].desc}
                   rules={activeRules}
@@ -148,15 +167,15 @@ function App() {
                   activeTemplateId={activeTemplate?.id ?? null}
                   isOverridden={isOverridden}
                   onSelectTemplate={selectForToday}
-                  onOpenTemplates={() => openPage('templates')}
+                  onOpenTemplates={openTemplates}
                 />
               )}
               {visited[p] && p === 'schedule' && (
-                <Schedule title={pageMeta[p].title} desc={pageMeta[p].desc} clockStr={clockStr} />
+                <MemoSchedule title={pageMeta[p].title} desc={pageMeta[p].desc} clockStr={clockStr} />
               )}
-              {visited[p] && p === 'stats' && <Stats key={`stats-${visitSeq.stats}`} />}
-              {visited[p] && p === 'settings' && <Settings />}
-              {visited[p] && p === 'templates' && <Templates onBack={() => openPage('today')} />}
+              {visited[p] && p === 'stats' && <MemoStats key={`stats-${visitSeq.stats}`} />}
+              {visited[p] && p === 'settings' && <MemoSettings />}
+              {visited[p] && p === 'templates' && <MemoTemplates onBack={backToToday} />}
             </div>
           ))}
         </main>
