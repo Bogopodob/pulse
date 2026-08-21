@@ -2,6 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } fr
 import { motion, AnimatePresence } from 'framer-motion'
 import { Dropdown } from '@heroui/react/dropdown'
 import { useTasks, PROJECTS, type Task } from '../entities/tasks/useTasks'
+import { isTauri } from '../entities/tasks/api'
 import { useTeam } from '../entities/team/useTeam'
 
 const BASE_HOUR_W = 160
@@ -13,8 +14,9 @@ const BUFFER_HOURS = 3
 const VIS_GAP_MIN = 3
 const MIN_TAG_W = 280
 const MAX_TAG_TITLE = 20
-const MAX_SMOOTH_PX = 162
-const SMOOTH_FACTOR = 0.22
+const MAX_SMOOTH_PX = 240
+const SMOOTH_FACTOR = 0.3
+const WHEEL_PIXEL_BOOST = isTauri() ? 1.5 : 1
 const SUPPORTS_SCROLL_TIMELINE =
   typeof CSS !== 'undefined' && typeof ScrollTimeline === 'function' && typeof Element.prototype.animate === 'function'
 const TODAY = new Date(2026, 7, 21)
@@ -391,11 +393,14 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
     const onWheel = (e: WheelEvent) => {
       const dx = e.deltaX
       const dy = e.deltaY
-      if (Math.abs(dx) <= Math.abs(dy)) return
+      const dxDominant = Math.abs(dx) > Math.abs(dy)
+      if (!dxDominant && el.scrollHeight > el.clientHeight + 1) return
       e.preventDefault()
-      const mult = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : 1
+      const d = dxDominant ? dx : dy
+      const mult = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : WHEEL_PIXEL_BOOST
       const max = el.scrollWidth - el.clientWidth
-      smoothTargetRef.current = Math.max(0, Math.min(max, el.scrollLeft + dx * mult))
+      const base = smoothRAFRef.current ? smoothTargetRef.current : el.scrollLeft
+      smoothTargetRef.current = Math.max(0, Math.min(max, base + d * mult))
       if (!smoothRAFRef.current) smoothRAFRef.current = requestAnimationFrame(smoothTick)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
