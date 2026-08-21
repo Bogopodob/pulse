@@ -1,5 +1,6 @@
 //! SQLite: пул, миграции и реализации репозиториев.
 
+pub mod settings_repository;
 pub mod task_repository;
 pub mod template_repository;
 

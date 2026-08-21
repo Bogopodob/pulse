@@ -43,10 +43,17 @@ pub fn run() {
         ));
       let templates = application::template::TemplateService::new(template_repo);
 
+      let settings: Arc<dyn domain::settings::SettingsRepository> = Arc::new(
+        infrastructure::database::sqlite::settings_repository::SqliteSettingsRepository::new(
+          db.pool.clone(),
+        ),
+      );
+
       app.manage(AppState {
         tasks,
         templates,
         sync,
+        settings,
         _db: Arc::new(db.pool),
       });
 
@@ -65,6 +72,8 @@ pub fn run() {
       presentation::commands::template_commands::update_template,
       presentation::commands::template_commands::delete_template,
       presentation::commands::template_commands::duplicate_template,
+      presentation::commands::settings_commands::list_settings,
+      presentation::commands::settings_commands::save_settings,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
