@@ -55,6 +55,8 @@ interface TasksContextValue {
   tasks: Task[]
   /** Загрузить срез задач на конкретный день (границы дня конвертируются в фильтр запроса). */
   loadDay: (day: Date) => Promise<void>
+  /** Загрузить задачи за диапазон [day-1 .. day+1] и объединить с уже загруженными (для растущего полотна). */
+  loadAround: (day: Date) => Promise<void>
   addTask: (input: TaskInput) => Promise<Task>
   updateTask: (id: string, patch: Partial<Task>) => Promise<void>
   deleteTask: (id: string) => Promise<void>
@@ -108,6 +110,31 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       }
       const local = loadLocal()
       setTasks(local.filter((t) => t.startDate.getTime() <= end && t.endDate.getTime() >= start))
+    },
+    [tauri],
+  )
+
+  const loadAround = useCallback(
+    async (day: Date): Promise<void> => {
+      const from = new Date(day.getFullYear(), day.getMonth(), day.getDate())
+      from.setDate(from.getDate() - 1)
+      const to = new Date(day.getFullYear(), day.getMonth(), day.getDate())
+      to.setDate(to.getDate() + 2)
+      const start = from.getTime()
+      const end = to.getTime() - 1
+      const merge = (incoming: Task[]) =>
+        setTasks((prev) => {
+          const map = new Map(prev.map((t) => [t.id, t] as const))
+          for (const t of incoming) map.set(t.id, t)
+          return [...map.values()]
+        })
+      if (tauri) {
+        const views = await apiListTasks({ start_after: start, start_before: end })
+        merge(views.map(toTask))
+        return
+      }
+      const local = loadLocal()
+      merge(local.filter((t) => t.startDate.getTime() <= end && t.endDate.getTime() >= start))
     },
     [tauri],
   )
@@ -203,8 +230,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const projects = useMemo(() => ({ ...PROJECTS, ...extraProjects }), [extraProjects])
 
   const value = useMemo(
-    () => ({ tasks, loadDay, addTask, updateTask, deleteTask, duplicateTask, extraProjects, projects, addProject }),
-    [tasks, loadDay, addTask, updateTask, deleteTask, duplicateTask, extraProjects, projects, addProject],
+    () => ({ tasks, loadDay, loadAround, addTask, updateTask, deleteTask, duplicateTask, extraProjects, projects, addProject }),
+    [tasks, loadDay, loadAround, addTask, updateTask, deleteTask, duplicateTask, extraProjects, projects, addProject],
   )
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>
