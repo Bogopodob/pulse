@@ -2,3 +2,4 @@
 //! отдают сериализованный результат. Никакой бизнес-логики здесь.
 
 pub mod task_commands;
+pub mod template_commands;

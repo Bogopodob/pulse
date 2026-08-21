@@ -37,8 +37,15 @@ pub fn run() {
       let tasks = application::task::TaskService::new(task_repo.clone());
       let sync = infrastructure::sync::SyncService::new(task_repo);
 
+      let template_repo: Arc<dyn domain::template::repository::TemplateRepository> =
+        Arc::new(infrastructure::database::sqlite::template_repository::SqliteTemplateRepository::new(
+          db.pool.clone(),
+        ));
+      let templates = application::template::TemplateService::new(template_repo);
+
       app.manage(AppState {
         tasks,
+        templates,
         sync,
         _db: Arc::new(db.pool),
       });
@@ -52,6 +59,12 @@ pub fn run() {
       presentation::commands::task_commands::update_task,
       presentation::commands::task_commands::delete_task,
       presentation::commands::task_commands::duplicate_task,
+      presentation::commands::template_commands::create_template,
+      presentation::commands::template_commands::get_template,
+      presentation::commands::template_commands::list_templates,
+      presentation::commands::template_commands::update_template,
+      presentation::commands::template_commands::delete_template,
+      presentation::commands::template_commands::duplicate_template,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

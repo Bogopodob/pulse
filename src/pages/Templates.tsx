@@ -405,13 +405,13 @@ function useTemplatesActiveCheck(templateId: string): boolean {
 }
 
 export function Templates({ onBack }: { onBack: () => void }) {
-  const { templates, createTemplate, deleteTemplate, duplicateTemplate } = useTemplates()
+  const { templates, loading, createTemplate, deleteTemplate, duplicateTemplate } = useTemplates()
   const [selectedId, setSelectedId] = useState<string | null>(templates[0]?.id ?? null)
 
   const selected = templates.find((t) => t.id === selectedId) ?? null
 
-  const create = () => {
-    const tpl = createTemplate({
+  const create = async () => {
+    const tpl = await createTemplate({
       name: 'Новый шаблон',
       days: [],
       rules: [],
@@ -477,8 +477,8 @@ export function Templates({ onBack }: { onBack: () => void }) {
                 <div className="text-[10px] text-[var(--text-faint)] mt-1 font-mono">{t.rules.length} блоков</div>
               </button>
               <button
-                onClick={() => {
-                  const copy = duplicateTemplate(t.id)
+                onClick={async () => {
+                  const copy = await duplicateTemplate(t.id)
                   if (copy) setSelectedId(copy.id)
                 }}
                 title="Дублировать шаблон"
@@ -491,7 +491,12 @@ export function Templates({ onBack }: { onBack: () => void }) {
               </button>
             </div>
           ))}
-          {templates.length === 0 && (
+          {loading && (
+            <div className="rounded-xl px-3 py-5 text-center text-[12px] text-[var(--text-faint)]" style={{ background: 'var(--surface-2)', border: '1px dashed var(--stroke)' }}>
+              Загрузка шаблонов…
+            </div>
+          )}
+          {!loading && templates.length === 0 && (
             <div className="rounded-xl px-3 py-5 text-center text-[12px] text-[var(--text-faint)]" style={{ background: 'var(--surface-2)', border: '1px dashed var(--stroke)' }}>
               Пока нет ни одного шаблона
             </div>

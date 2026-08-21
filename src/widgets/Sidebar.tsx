@@ -1,4 +1,4 @@
-type SidebarPage = 'today' | 'schedule' | 'stats' | 'settings' | 'templates'
+type SidebarPage = 'today' | 'schedule' | 'stats' | 'templates' | 'settings'
 
 interface SidebarProps {
   page: SidebarPage
@@ -32,6 +32,16 @@ const items = [
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="20" height="20">
         <path d="M5 19V9M12 19V5M19 19v-7" />
+      </svg>
+    ),
+  },
+  {
+    key: 'templates' as const,
+    title: 'Шаблоны',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" width="20" height="20">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+        <path d="M14 2l6 6M14 14h-4a2 2 0 1 1 0-4h4" />
       </svg>
     ),
   },

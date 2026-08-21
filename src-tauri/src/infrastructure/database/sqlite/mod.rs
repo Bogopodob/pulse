@@ -1,6 +1,7 @@
 //! SQLite: пул, миграции и реализации репозиториев.
 
 pub mod task_repository;
+pub mod template_repository;
 
 use std::path::Path;
 
