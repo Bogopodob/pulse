@@ -88,15 +88,9 @@ html {
   animation: page-in 0.1s ease-out;
 }
 
-@keyframes bar-breathe {
-  0%, 100% {
-    opacity: var(--bar-o, 1);
-    transform: scaleY(1);
-  }
-  50% {
-    opacity: calc(var(--bar-o, 1) * 0.7);
-    transform: scaleY(0.95);
-  }
+@keyframes bars-shimmer {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
 }
 
 body {
@@ -130,15 +124,6 @@ body {
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
-}
-
-body::before {
-  content: "";
-  position: fixed; inset: 0;
-  pointer-events: none;
-  opacity: 0.02;
-  z-index: 999;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .glass-surface {
@@ -1009,7 +994,6 @@ body::before {
   inset: -12px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(76, 141, 255, 0.24), transparent 70%);
-  filter: blur(2px);
   pointer-events: none;
   animation: nu-glow-pulse 3.2s ease-in-out infinite;
 }

@@ -2,12 +2,12 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { RESTING_TYPES } from './activities'
 import type { Rule } from './activities'
 
-const DAY_START = 0
-const DAY_END = 1440
+export const DAY_START = 0
+export const DAY_END = 1440
 /** Жёсткий лимит цепочки правил: сутки. */
 export const DAY_LIMIT = DAY_END
-const STEP_MIN = 2
-const PITCH = 7
+export const STEP_MIN = 2
+export const PITCH = 7
 /** Реальное время: 1 минута за минуту (для плавной интерполяции в Timeline). */
 const SIM_SPEED = 1 / 60
 export const SIM_SPEED_MIN_PER_SEC = SIM_SPEED
