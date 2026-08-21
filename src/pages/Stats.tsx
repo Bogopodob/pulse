@@ -684,34 +684,50 @@ export function Stats() {
               <h3 className="font-[var(--font-display)] text-[15.5px] font-semibold">План дня</h3>
               <span className="text-[11px] text-[var(--text-faint)] font-mono">блоки расписания</span>
             </div>
-            <div className="flex flex-col gap-2.5">
-              {rules.map((r) => {
+            <div className="flex flex-col gap-2">
+              {rules.map((r, ri) => {
                 const acc = ACCENTS[r.color]
                 const pct = Math.round((r.minutes / goal) * 100)
+                const glow = `rgb(${acc.glow})`
                 return (
-                  <div key={r.id} className="flex items-center gap-3">
+                  <motion.div
+                    key={r.id}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.05 * ri, duration: 0.38, ease: [0.32, 0.72, 0, 1] }}
+                    className="group relative flex items-center gap-3 rounded-lg px-2 py-1 -mx-2 cursor-default transition-colors duration-200 hover:bg-white/[0.04]"
+                  >
                     <span
-                      className="size-2 rounded-full shrink-0"
-                      style={{ background: `rgb(${acc.glow})`, boxShadow: `0 0 6px rgb(${acc.glow})` }}
+                      className="size-2 rounded-full shrink-0 transition-transform duration-200 group-hover:scale-150"
+                      style={{ background: glow, boxShadow: `0 0 6px ${glow}` }}
                     />
                     <span className="text-[12px] text-[var(--text)] w-[110px] truncate shrink-0">{r.name}</span>
                     <div className="flex-1 h-[6px] rounded-full bg-[var(--surface-3)] overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.min(100, pct)}%`,
-                          background: `rgb(${acc.glow})`,
-                          boxShadow: `0 0 8px rgb(${acc.glow})aa`,
-                        }}
-                      />
+                      <motion.div
+                        className="relative h-full rounded-full overflow-hidden"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, pct)}%` }}
+                        transition={{ delay: 0.3 + 0.07 * ri, duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
+                        style={{ background: glow, boxShadow: `0 0 8px ${glow}aa` }}
+                      >
+                        <motion.span
+                          className="absolute inset-y-0 w-10 bg-gradient-to-r from-transparent via-white/45 to-transparent"
+                          initial={{ x: '-120%' }}
+                          animate={{ x: '900%' }}
+                          transition={{ delay: 1.15 + 0.09 * ri, duration: 0.65, ease: 'easeInOut' }}
+                        />
+                      </motion.div>
                     </div>
-                    <span className="font-mono text-[11px] text-[var(--text-dim)] tabular-nums w-[86px] text-right shrink-0">
+                    <span className="font-mono text-[11px] text-[var(--text-dim)] tabular-nums w-[86px] text-right shrink-0 transition-colors duration-200 group-hover:text-[var(--text)]">
                       {fmtHM(r.start)}–{fmtHM(r.end)}
                     </span>
-                    <span className="font-mono text-[11px] font-semibold tabular-nums w-[44px] text-right shrink-0" style={{ color: `rgb(${acc.glow})` }}>
+                    <span
+                      className="font-mono text-[11px] font-semibold tabular-nums w-[44px] text-right shrink-0 transition-all duration-200 group-hover:brightness-125"
+                      style={{ color: glow }}
+                    >
                       {r.minutes}м
                     </span>
-                  </div>
+                  </motion.div>
                 )
               })}
             </div>
