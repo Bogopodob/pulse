@@ -73,9 +73,6 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg);
-  background: radial-gradient(circle at 20% -10%, #14161d 0%, transparent 55%),
-              radial-gradient(circle at 90% 10%, #14181e 0%, transparent 45%),
-              var(--bg);
 }
 
 body {
