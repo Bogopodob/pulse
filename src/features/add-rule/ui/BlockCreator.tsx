@@ -5,6 +5,19 @@ import type { Rule, RuleColor } from '../../../entities/rhythm/activities'
 import { fmtHM } from '../../../entities/rhythm/useRhythm'
 import { DurationSlider } from './DurationSlider'
 
+const DAY_END = 24 * 60
+
+/** Процент от суток с защитой от выхода за 0..100%. */
+const dayPct = (m: number) => `${Math.max(0, Math.min(100, (m / DAY_END) * 100))}%`
+
+function fmtFree(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  if (h === 0) return `${m} мин`
+  if (m === 0) return `${h} ч`
+  return `${h} ч ${m} мин`
+}
+
 export function BlockCreator({
   rules,
   onClose,
@@ -36,7 +49,21 @@ export function BlockCreator({
 
   const start = rules.reduce((t, r) => t + r.minutes, chainStart)
   const anchorName = rules[rules.length - 1]?.name ?? 'старта дня'
-  const previewMin = presetType ? presetMin : customMin
+
+  /* Лимит суток: новый блок не может выйти за 24:00. */
+  const remaining = Math.max(0, DAY_END - start)
+  const rawPreviewMin = presetType ? presetMin : customMin
+  const previewMinSafe = Math.min(rawPreviewMin, remaining)
+  const overflowMin = rawPreviewMin - previewMinSafe
+  const pEnd = Math.min(start + previewMinSafe, DAY_END)
+
+  /* Сегменты существующей цепочки в границах суток. */
+  let accT = chainStart
+  const daySegs = rules.map((r) => {
+    const seg = { start: accT, end: Math.min(accT + r.minutes, DAY_END), color: r.color }
+    accT += r.minutes
+    return seg
+  })
   const previewAccent = presetType
     ? ACCENTS[ACTIVITIES[presetType].color]
     : ACCENTS[custom.color]
@@ -77,7 +104,7 @@ export function BlockCreator({
               key={type}
               onClick={() => {
                 setPresetType(type)
-                setPresetMin(a.presets[0])
+                setPresetMin(Math.min(a.presets[0], remaining))
               }}
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.94 }}
@@ -117,45 +144,53 @@ export function BlockCreator({
               style={{ background: acc.bg, border: `1px solid ${acc.border}` }}
             >
               <div className="flex items-center gap-1.5">
-                {a.presets.map((m) => (
-                  <motion.button
-                    key={m}
-                    onClick={() => setPresetMin(m)}
-                    whileTap={{ scale: 0.92 }}
-                    className="rounded-lg px-2 py-1 text-[11px] font-mono"
-                    style={
-                      presetMin === m
-                        ? { background: acc.dot, color: '#131418', fontWeight: 700 }
-                        : { background: 'rgba(19,20,24,0.35)', color: 'var(--text-dim)' }
-                    }
-                  >
-                    {m}
-                  </motion.button>
-                ))}
+                {a.presets.map((m) => {
+                  const fits = m <= remaining
+                  return (
+                    <motion.button
+                      key={m}
+                      onClick={() => fits && setPresetMin(m)}
+                      whileTap={fits ? { scale: 0.92 } : undefined}
+                      className="rounded-lg px-2 py-1 text-[11px] font-mono"
+                      style={
+                        presetMin === m
+                          ? { background: acc.dot, color: '#131418', fontWeight: 700 }
+                          : { background: 'rgba(19,20,24,0.35)', color: fits ? 'var(--text-dim)' : 'var(--text-faint)', opacity: fits ? 1 : 0.45 }
+                      }
+                      title={fits ? undefined : `Не влезает — свободно ${fmtFree(remaining)}`}
+                    >
+                      {m}
+                    </motion.button>
+                  )
+                })}
               </div>
 
               <div className="mt-1">
-                <DurationSlider value={presetMin} max={240} accent={acc} onChange={setPresetMin} />
+                <DurationSlider value={Math.min(presetMin, remaining)} max={Math.min(240, remaining)} accent={acc} onChange={setPresetMin} />
               </div>
 
-              <div className="flex items-center gap-2 mt-0.5 text-[10.5px] text-[var(--text-faint)]">
-                <span className="uppercase tracking-[0.08em] text-[9.5px] font-semibold">Встанет в цепочку</span>
+              <div className="flex items-center gap-2 mt-0.5 text-[10.5px]">
+                <span className="uppercase tracking-[0.08em] text-[9.5px] font-semibold text-[var(--text-faint)]">Встанет в цепочку</span>
                 <span className="font-mono tabular-nums font-semibold" style={{ color: acc.color }}>
-                  {fmtHM(start)} → {fmtHM(start + presetMin)}
+                  {fmtHM(start)} → {fmtHM(Math.min(start + Math.min(presetMin, remaining), DAY_END))}
+                </span>
+                <span className="ml-auto font-mono tabular-nums" style={{ color: presetMin > remaining ? '#ff6b6b' : 'var(--text-faint)' }}>
+                  {presetMin > remaining ? `лимит 24ч` : `свободно ${fmtFree(remaining - Math.min(presetMin, remaining))}`}
                 </span>
               </div>
 
               <motion.button
                 whileTap={{ scale: 0.97 }}
+                disabled={remaining <= 0 || presetMin > remaining}
                 onClick={() => onAdd({
                   id: crypto.randomUUID(),
                   type: presetType,
                   name: a.label,
-                  minutes: presetMin,
+                  minutes: Math.min(presetMin, remaining),
                   color: a.color,
                   icon: a.icon,
                 })}
-                className="mt-2.5 w-full rounded-xl py-2 text-[12px] font-bold flex items-center justify-center gap-1.5"
+                className="mt-2.5 w-full rounded-xl py-2 text-[12px] font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
                   background: acc.gradient,
                   color: '#131418',
@@ -165,7 +200,7 @@ export function BlockCreator({
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
-                Вставить · {presetMin} мин
+                Вставить · {Math.min(presetMin, remaining)} мин
               </motion.button>
             </motion.div>
           )
@@ -204,12 +239,12 @@ export function BlockCreator({
                     value={custom.name}
                     onChange={(e) => setCustom({ ...custom, name: e.target.value })}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && custom.name.trim()) {
+                      if (e.key === 'Enter' && custom.name.trim() && remaining > 0 && customMin > 0) {
                         onAdd({
                           id: crypto.randomUUID(),
                           type: 'focus',
                           name: custom.name.trim(),
-                          minutes: customMin,
+                          minutes: Math.min(customMin, remaining),
                           color: custom.color,
                           icon: custom.icon,
                         })
@@ -222,19 +257,19 @@ export function BlockCreator({
                   <motion.button
                     whileTap={{ scale: 0.94 }}
                     onClick={() => {
-                      if (!custom.name.trim()) return
+                      if (!custom.name.trim() || remaining <= 0 || customMin <= 0) return
                       onAdd({
                         id: crypto.randomUUID(),
                         type: 'focus',
                         name: custom.name.trim(),
-                        minutes: customMin,
+                        minutes: Math.min(customMin, remaining),
                         color: custom.color,
                         icon: custom.icon,
                       })
                       setCustom({ name: '', icon: 'star', color: 'blue' })
                     }}
-                    disabled={!custom.name.trim()}
-                    className="shrink-0 rounded-lg px-3 py-2 text-[11.5px] font-bold disabled:opacity-40"
+                    disabled={!custom.name.trim() || remaining <= 0 || customMin <= 0}
+                    className="shrink-0 rounded-lg px-3 py-2 text-[11.5px] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ background: ACCENTS[custom.color].dot, color: '#131418' }}
                   >
                     Вставить
@@ -291,29 +326,105 @@ export function BlockCreator({
                   </div>
                 </div>
 
-                <DurationSlider value={customMin} max={1080} accent={ACCENTS[custom.color]} onChange={setCustomMin} />
+                <DurationSlider value={Math.min(customMin, remaining)} max={Math.min(1080, remaining)} accent={ACCENTS[custom.color]} onChange={setCustomMin} />
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <div className="flex items-center gap-2.5 mt-2.5">
-        <div className="flex-1 flex h-6 rounded-lg overflow-hidden border border-[var(--stroke)] bg-[var(--surface-3)]">
-          {rules.map((r) => (
-            <div key={r.id} className="h-full" style={{ flex: r.minutes, background: ACCENTS[r.color].gradient, opacity: 0.4 }} />
-          ))}
-          <div className="relative h-full" style={{ flex: previewMin, background: previewAccent.gradient }}>
-            <motion.div
-              animate={{ opacity: [0.35, 0.9, 0.35] }}
-              transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}
-              className="absolute inset-0"
-              style={{ background: `rgba(${previewAccent.glow},0.35)` }}
-            />
-          </div>
+      <div className="mt-3">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[9.5px] uppercase tracking-[0.08em] font-semibold text-[var(--text-faint)]">Сутки · 24 ч</span>
+          {remaining <= 0 ? (
+            <span className="text-[10px] font-mono font-semibold tabular-nums" style={{ color: '#ff6b6b' }}>
+              день заполнен до 24:00
+            </span>
+          ) : overflowMin > 0 ? (
+            <span className="text-[10px] font-mono font-semibold tabular-nums" style={{ color: '#ff6b6b' }}>
+              не влезает · {overflowMin} мин
+            </span>
+          ) : (
+            <span className="text-[10px] font-mono tabular-nums text-[var(--text-faint)]">
+              свободно до 24:00 · {fmtFree(remaining)}
+            </span>
+          )}
         </div>
-        <div className="text-[10px] font-mono text-[var(--text-faint)] whitespace-nowrap tabular-nums">
-          {fmtHM(start)} → {fmtHM(start + previewMin)}
+
+        <motion.div
+          layout
+          className="relative h-[26px] rounded-lg overflow-hidden border"
+          style={{
+            background: 'var(--surface-3)',
+            borderColor: overflowMin > 0 || remaining <= 0 ? 'rgba(255,107,107,0.55)' : 'var(--stroke)',
+          }}
+        >
+          {/* Сетка часов */}
+          {Array.from({ length: 23 }, (_, i) => i + 1).map((h) => (
+            <div
+              key={h}
+              className="absolute top-0 bottom-0 w-px pointer-events-none"
+              style={{ left: dayPct(h * 60), background: h % 6 === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.045)' }}
+            />
+          ))}
+
+          {/* Существующая цепочка блоков */}
+          {daySegs.map((s, i) => (
+            <div
+              key={i}
+              className="absolute top-0 bottom-0"
+              style={{
+                left: dayPct(s.start),
+                width: dayPct(s.end - s.start),
+                background: ACCENTS[s.color as RuleColor]?.gradient ?? 'var(--off)',
+                opacity: 0.75,
+              }}
+            />
+          ))}
+
+          {/* Пульсирующее превью нового блока */}
+          {previewMinSafe > 0 && (
+            <motion.div
+              className="absolute top-0 bottom-0 z-[1]"
+              style={{
+                left: dayPct(start),
+                width: dayPct(pEnd - start),
+                background: previewAccent.gradient,
+                boxShadow: `0 0 12px rgba(${previewAccent.glow},0.5)`,
+              }}
+              animate={{ opacity: [0.8, 1, 0.8] }}
+              transition={{ repeat: Infinity, duration: 1.6, ease: 'easeInOut' }}
+            >
+              <div className="absolute inset-0" style={{ background: `rgba(${previewAccent.glow},0.25)` }} />
+            </motion.div>
+          )}
+
+          {/* Маркер стыка — куда встанет новый блок */}
+          <div
+            className="absolute top-0 bottom-0 w-[2px] z-[2] pointer-events-none"
+            style={{
+              left: dayPct(start),
+              background: '#fff',
+              opacity: 0.75,
+              boxShadow: '0 0 8px rgba(255,255,255,0.9)',
+            }}
+          />
+        </motion.div>
+
+        {/* Подписи часов */}
+        <div className="relative h-[13px] mt-0.5">
+          {[0, 6, 12, 18, 24].map((h) => (
+            <span
+              key={h}
+              className="absolute text-[8.5px] font-mono text-[var(--text-faint)] tabular-nums"
+              style={{
+                left: dayPct(h * 60),
+                transform: h === 0 ? 'none' : h === 24 ? 'translateX(-100%)' : 'translateX(-50%)',
+              }}
+            >
+              {String(h).padStart(2, '0')}:00
+            </span>
+          ))}
         </div>
       </div>
     </div>
