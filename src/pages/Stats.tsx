@@ -595,20 +595,38 @@ export function Stats() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {pills.map((p) => (
-          <div key={p.label} className="card card-lift relative overflow-hidden p-5">
-            <div
+        {pills.map((p, pi) => (
+          <motion.div
+            key={p.label}
+            initial={{ opacity: 0, y: 18, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 0.07 * pi, type: 'spring', stiffness: 300, damping: 26 }}
+            className="card card-lift relative overflow-hidden p-5"
+          >
+            <motion.div
               className="absolute -top-10 -right-10 w-36 h-36 rounded-full pointer-events-none"
               style={{ background: `radial-gradient(circle, rgba(${p.glow},0.14), transparent 70%)` }}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.25 + 0.07 * pi, duration: 0.7, ease: 'easeOut' }}
+            />
+            <motion.span
+              className="absolute inset-y-0 w-16 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent pointer-events-none"
+              initial={{ x: '-120%' }}
+              animate={{ x: '950%' }}
+              transition={{ delay: 0.55 + 0.09 * pi, duration: 0.7, ease: 'easeInOut' }}
             />
             <div className="text-[10.5px] uppercase tracking-[0.1em] font-semibold text-[var(--text-faint)]">{p.label}</div>
-            <div
+            <motion.div
               className="font-[var(--font-display)] text-[24px] font-semibold mt-2 tabular-nums"
-              style={{ color: p.color, textShadow: `0 0 24px rgba(${p.glow},0.35)` }}
+              style={{ color: p.color }}
+              initial={{ textShadow: `0 0 0px rgba(${p.glow},0)` }}
+              animate={{ textShadow: `0 0 24px rgba(${p.glow},0.45)` }}
+              transition={{ delay: 0.35 + 0.07 * pi, duration: 0.8, ease: 'easeOut' }}
             >
               {p.value}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         ))}
       </div>
 
