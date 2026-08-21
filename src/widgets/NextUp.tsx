@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { useRhythm, fmtHM } from '../entities/rhythm/useRhythm'
+import { useRhythm, fmtHM, fmtMS } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 const CIRC = 2 * Math.PI * 43
@@ -90,7 +90,7 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
               className="font-[var(--font-display)] text-[34px] font-semibold tabular-nums leading-none tracking-[-0.02em]"
               style={{ color: urgent ? 'var(--rest)' : 'var(--text)' }}
             >
-              {fmtHM(remain)}
+              {fmtMS(remain)}
             </div>
             <div className="text-[10.5px] text-[var(--text-faint)]">осталось</div>
           </div>

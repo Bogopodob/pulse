@@ -88,6 +88,17 @@ html {
   animation: page-in 0.1s ease-out;
 }
 
+@keyframes bar-breathe {
+  0%, 100% {
+    opacity: var(--bar-o, 1);
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: calc(var(--bar-o, 1) * 0.7);
+    transform: scaleY(0.95);
+  }
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);

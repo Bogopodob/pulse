@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { useRhythm, fmtHM } from '../entities/rhythm/useRhythm'
+import { useRhythm, fmtHM, fmtMS } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 export function SegmentStatus({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
@@ -63,7 +63,7 @@ export function SegmentStatus({ rhythm }: { rhythm: ReturnType<typeof useRhythm>
               className="text-[18px] font-semibold font-[var(--font-display)] tabular-nums tracking-tight"
               style={{ color: cfg.color }}
             >
-              {fmtHM(remain)}
+              {fmtMS(remain)}
             </motion.span>
             <div className="flex items-center gap-2">
               <div className="w-[72px] h-[3px] rounded-full bg-[var(--surface-2)] overflow-hidden">

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react'
-import { useRhythm, fmtHM, buildBars, SIM_SPEED_MIN_PER_SEC } from '../entities/rhythm/useRhythm'
+import { useRhythm, fmtHM, fmtHMS, buildBars, SIM_SPEED_MIN_PER_SEC } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 function fmtDur(min: number): string {
@@ -69,7 +69,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     }
 
     const minuteAtCenter = DAY_START + total / PITCH * STEP_MIN
-    if (playheadTimeRef.current) playheadTimeRef.current.textContent = fmtHM(minuteAtCenter)
+    if (playheadTimeRef.current) playheadTimeRef.current.textContent = fmtHMS(minuteAtCenter)
   }, [viewportCenterPx, DAY_START, PITCH, STEP_MIN])
 
   useEffect(() => {
@@ -277,9 +277,13 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         >
           <div
             ref={playheadTimeRef}
-            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[6] font-mono text-[12px] text-white bg-[var(--surface-3)] border border-[var(--stroke)] px-2 py-0.5 rounded-md whitespace-nowrap"
+            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[6] font-mono text-[12px] text-white bg-[var(--surface-3)] border border-[var(--stroke)] px-2 py-0.5 rounded-md whitespace-nowrap tabular-nums"
           >
-            {fmtHM(rhythm.nowMinutes)}
+            {fmtHMS(rhythm.nowMinutes)}
+          </div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <span className="absolute inset-0 rounded-full bg-white/50 animate-ping" />
+            <span className="relative block h-[6px] w-[6px] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
           </div>
         </div>
 
@@ -355,7 +359,9 @@ const BarsLayer = memo(function BarsLayer({ bars, pitch }: { bars: { type: strin
             marginRight: 1,
             height: bar.height,
             background: bar.type === 'off' ? 'var(--off)' : (ACCENTS[bar.color as keyof typeof ACCENTS] ?? ACCENTS.blue).gradient,
-            opacity: bar.type === 'off' ? 0.55 : 1,
+            ['--bar-o' as string]: bar.type === 'off' ? 0.55 : 1,
+            animation: `bar-breathe 3.6s ease-in-out ${((i % 30) * 0.12).toFixed(2)}s infinite`,
+            transformOrigin: 'bottom',
           }}
         />
       ))}

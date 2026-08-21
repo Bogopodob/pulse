@@ -6,7 +6,8 @@ const DAY_START = 0
 const DAY_END = 1440
 const STEP_MIN = 2
 const PITCH = 7
-const SIM_SPEED = 2
+/** Реальное время: 1 минута за минуту (для плавной интерполяции в Timeline). */
+const SIM_SPEED = 1 / 60
 export const SIM_SPEED_MIN_PER_SEC = SIM_SPEED
 export const CHAIN_START = 540
 
@@ -45,6 +46,24 @@ export function fmtHM(min: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
+export function fmtHMS(min: number): string {
+  min = Math.max(0, min)
+  const h = Math.floor(min / 60)
+  const m = Math.floor(min % 60)
+  const s = Math.floor((min % 1) * 60)
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+/** Обратный отсчёт с секундами: ММ:СС или Ч:ММ:СС. */
+export function fmtMS(min: number): string {
+  const totalS = Math.max(0, Math.round(min * 60))
+  const h = Math.floor(totalS / 3600)
+  const m = Math.floor((totalS % 3600) / 60)
+  const s = totalS % 60
+  const core = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  return h > 0 ? `${h}:${core}` : core
+}
+
 function segAt(min: number, segs: Segment[]): Segment {
   for (const s of segs) {
     if (min >= s.start && min < s.end) return s
@@ -74,37 +93,20 @@ export function buildBars(segments: Segment[]): { type: string; height: number; 
 }
 
 export function useRhythm(rules: Rule[], chainStart = CHAIN_START) {
-  const [nowMinutes, setNowMinutes] = useState(() => {
-    const d = new Date()
-    return d.getHours() * 60 + d.getMinutes()
-  })
+  const [nowClock, setNowClock] = useState(() => new Date())
   const [toast, setToast] = useState<{ title: string; text: string } | null>(null)
   const lastTypeRef = useRef<string>('focus')
-  const lastTsRef = useRef<number | null>(null)
 
+  /** Часы идут по реальному времени, с точностью до секунды. */
   useEffect(() => {
-    let raf: number
-    let acc = 0
-    const TICK = SIM_SPEED
-    const loop = (ts: number) => {
-      if (!lastTsRef.current) lastTsRef.current = ts
-      const dt = (ts - lastTsRef.current) / 1000
-      lastTsRef.current = ts
-      acc += dt * SIM_SPEED
-      if (acc >= TICK) {
-        const step = Math.floor(acc / TICK) * TICK
-        acc -= step
-        setNowMinutes((prev) => {
-          let next = prev + step
-          if (next >= DAY_END - 5) next = DAY_START + 90
-          return next
-        })
-      }
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
+    const sync = () => setNowClock(new Date())
+    sync()
+    const id = setInterval(sync, 1000)
+    return () => clearInterval(id)
   }, [])
+
+  const nowMinutes =
+    nowClock.getHours() * 60 + nowClock.getMinutes() + nowClock.getSeconds() / 60
 
   const segments = useMemo(() => buildSegments(rules, chainStart), [rules, chainStart])
 
