@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { TitleBar } from '../widgets/TitleBar'
 import { Sidebar } from '../widgets/Sidebar'
 import { Today } from '../pages/Today'
@@ -12,8 +11,11 @@ import type { Rule } from '../entities/rhythm/activities'
 import { fmtClock } from '../shared/lib/date'
 import { useSettings } from '../shared/hooks/useSettings'
 import { useTemplates } from '../entities/templates/useTemplates'
+import { markAppWarm } from '../shared/lib/boot'
 
 type Page = 'today' | 'schedule' | 'stats' | 'settings' | 'templates'
+
+const PAGES: Page[] = ['today', 'schedule', 'stats', 'settings', 'templates']
 
 const pageMeta: Record<Page, { title: string; desc: string }> = {
   today: { title: 'Сегодня', desc: 'Ближайшее событие и ритм всего дня в одном месте' },
@@ -23,12 +25,75 @@ const pageMeta: Record<Page, { title: string; desc: string }> = {
   templates: { title: 'Шаблоны', desc: 'Графики дня для разных дней недели' },
 }
 
+const paneClass: Record<Page, string> = {
+  today: 'w-full',
+  schedule: '-mx-6 sm:-mx-8 md:-mx-10 flex-1 flex flex-col min-h-0',
+  stats: 'mx-auto w-full max-w-[1400px]',
+  settings: 'w-full',
+  templates: 'w-full',
+}
+
 function App() {
   const [page, setPage] = useState<Page>('today')
+  const [visited, setVisited] = useState<Record<Page, boolean>>({ today: true, schedule: false, stats: false, settings: false, templates: false })
+  const [layoutWarm, setLayoutWarm] = useState(false)
   const [clockStr, setClockStr] = useState('')
   const [fallbackRules, setFallbackRules] = useState<Rule[]>(DEFAULT_RULES)
   const { timezone, timeFormat, dateFormat, chainStartMin } = useSettings()
   const { templates, activeTemplate, isOverridden, selectForToday, updateTemplate } = useTemplates()
+
+  const openPage = (p: Page) => {
+    setPage(p)
+    if (!visited[p]) {
+      /* Тяжёлую первую отрисовку страницы откладываем на следующий кадр:
+         сначала мгновенно переключаем вкладку, потом монтируем контент. */
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setVisited((v) => (v[p] ? v : { ...v, [p]: true }))
+        })
+      })
+    }
+  }
+
+  /* Прогрев в два этапа, пока виден сплэш:
+     1) монтируем страницы по одной (тяжёлый JS-рендер размазан по кадрам);
+     2) на пару кадров показываем все панели за сплэшем — браузер просчитывает
+        layout, GanttTimeline замеряет ширину и центрируется на «сегодня»,
+        входные анимации карточек доигрывают. В итоге первый клик по любой
+        вкладке — мгновенный composite без пересчёта геометрии. */
+  useEffect(() => {
+    const rest = PAGES.filter((p) => p !== 'today')
+    let i = 0
+    let rafId = 0
+    let timer = 0
+    let cancelled = false
+    const step = () => {
+      if (cancelled) return
+      if (i >= rest.length) {
+        rafId = requestAnimationFrame(() => {
+          if (cancelled) return
+          setLayoutWarm(true)
+          timer = window.setTimeout(() => {
+            if (cancelled) return
+            setLayoutWarm(false)
+            rafId = requestAnimationFrame(() => {
+              if (!cancelled) markAppWarm()
+            })
+          }, 150)
+        })
+        return
+      }
+      const p = rest[i++]
+      setVisited((v) => (v[p] ? v : { ...v, [p]: true }))
+      timer = window.setTimeout(step, 40)
+    }
+    rafId = requestAnimationFrame(step)
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(rafId)
+      window.clearTimeout(timer)
+    }
+  }, [])
 
   useEffect(() => {
     function update() {
@@ -54,29 +119,23 @@ function App() {
     }
   }
 
-  const meta = pageMeta[page]
-
   return (
     <div className="h-dvh w-screen flex flex-col">
       <TitleBar />
 
       <div className="flex-1 flex min-h-0">
-        <Sidebar page={page} onPageChange={setPage} />
+        <Sidebar page={page} onPageChange={openPage} />
 
         <main className="flex-1 min-w-0 flex flex-col p-6 sm:p-8 md:p-10 overflow-y-auto gap-5">
-          <AnimatePresence mode="wait">
-            {page === 'today' && (
-              <motion.div
-                key="today"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="w-full"
-              >
+          {PAGES.map((p) => (
+            <div
+              key={p}
+              className={`${paneClass[p]} page-pane${page === p ? ' active' : ''}${page === p || layoutWarm ? '' : ' hidden'}`}
+            >
+              {visited[p] && p === 'today' && (
                 <Today
-                  title={meta.title}
-                  desc={meta.desc}
+                  title={pageMeta[p].title}
+                  desc={pageMeta[p].desc}
                   rules={activeRules}
                   chainStart={chainStart}
                   onRulesChange={setActiveRules}
@@ -85,64 +144,17 @@ function App() {
                   activeTemplateId={activeTemplate?.id ?? null}
                   isOverridden={isOverridden}
                   onSelectTemplate={selectForToday}
-                  onOpenTemplates={() => setPage('templates')}
+                  onOpenTemplates={() => openPage('templates')}
                 />
-              </motion.div>
-            )}
-
-            {page === 'schedule' && (
-              <motion.div
-                key="schedule"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="-mx-6 sm:-mx-8 md:-mx-10 flex-1 flex flex-col min-h-0"
-              >
-                <Schedule title={meta.title} desc={meta.desc} clockStr={clockStr} />
-              </motion.div>
-            )}
-
-            {page === 'stats' && (
-              <motion.div
-                key="stats"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="mx-auto w-full max-w-[1400px]"
-              >
-                <Stats />
-              </motion.div>
-            )}
-
-{page === 'settings' && (
-              <motion.div
-                key="settings"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="w-full"
-              >
-                <Settings />
-              </motion.div>
-            )}
-
-
-            {page === 'templates' && (
-              <motion.div
-                key="templates"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="w-full"
-              >
-                <Templates onBack={() => setPage('today')} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+              )}
+              {visited[p] && p === 'schedule' && (
+                <Schedule title={pageMeta[p].title} desc={pageMeta[p].desc} clockStr={clockStr} />
+              )}
+              {visited[p] && p === 'stats' && <Stats />}
+              {visited[p] && p === 'settings' && <Settings />}
+              {visited[p] && p === 'templates' && <Templates onBack={() => openPage('today')} />}
+            </div>
+          ))}
         </main>
       </div>
     </div>

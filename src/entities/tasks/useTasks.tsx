@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { GanttTask } from '../../shared/types'
+import { markDataReady } from '../../shared/lib/boot'
 import {
   apiCreateTask,
   apiDeleteTask,
@@ -146,6 +147,19 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
   }, [extraProjects])
+
+  /** Прогрев кэша на старте: грузим окно вокруг сегодня, чтобы вкладки открывались мгновенно. */
+  useEffect(() => {
+    let alive = true
+    loadAround(new Date())
+      .catch(() => {})
+      .finally(() => {
+        if (alive) markDataReady()
+      })
+    return () => {
+      alive = false
+    }
+  }, [loadAround])
 
   /** Браузерный режим: хранилище — полный список, срез дня живёт только в стейте. */
   const persistLocal = (all: Task[]) => {
