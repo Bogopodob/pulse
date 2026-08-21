@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react'
+
 import { TitleBar } from '../widgets/TitleBar'
 import { Sidebar } from '../widgets/Sidebar'
 import { Today } from '../pages/Today'
@@ -42,6 +43,7 @@ const MemoSettings = memo(Settings)
 const MemoTemplates = memo(Templates)
 
 function App() {
+  const mainRef = useRef<HTMLElement>(null)
   const [page, setPage] = useState<Page>('today')
   const [visited, setVisited] = useState<Record<Page, boolean>>({ today: true, schedule: false, stats: false, settings: false, templates: false })
   const [layoutWarm, setLayoutWarm] = useState(false)
@@ -126,6 +128,12 @@ function App() {
     }
   }, [])
 
+  /* Вкладки делят общий скролл-контейнер: при переключении возвращаем его наверх,
+     иначе новая страница открывается «уехавшей» вверх. */
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 })
+  }, [page])
+
   useEffect(() => {
     function update() {
       setClockStr(fmtClock(new Date(), { timezone, timeFormat, dateFormat }))
@@ -149,7 +157,7 @@ function App() {
       <div className="flex-1 flex min-h-0">
         <Sidebar page={page} onPageChange={openPage} />
 
-        <main className="flex-1 min-w-0 flex flex-col p-6 sm:p-8 md:p-10 overflow-y-auto gap-5">
+        <main ref={mainRef} className="flex-1 min-w-0 flex flex-col p-6 sm:p-8 md:p-10 overflow-y-auto gap-5">
           {PAGES.map((p) => (
             <div
               key={p}
