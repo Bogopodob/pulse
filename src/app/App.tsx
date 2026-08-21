@@ -37,12 +37,16 @@ function App() {
   const [page, setPage] = useState<Page>('today')
   const [visited, setVisited] = useState<Record<Page, boolean>>({ today: true, schedule: false, stats: false, settings: false, templates: false })
   const [layoutWarm, setLayoutWarm] = useState(false)
+  /* Счётчик визитов: для Статистики используется как key — при каждом заходе
+     страница монтируется заново и анимации графиков проигрываются снова. */
+  const [visitSeq, setVisitSeq] = useState<Record<Page, number>>({ today: 0, schedule: 0, stats: 0, settings: 0, templates: 0 })
   const [clockStr, setClockStr] = useState('')
   const [fallbackRules, setFallbackRules] = useState<Rule[]>(DEFAULT_RULES)
   const { timezone, timeFormat, dateFormat, chainStartMin } = useSettings()
   const { templates, activeTemplate, isOverridden, selectForToday, updateTemplate } = useTemplates()
 
   const openPage = (p: Page) => {
+    if (page !== p) setVisitSeq((s) => ({ ...s, [p]: s[p] + 1 }))
     setPage(p)
     if (!visited[p]) {
       /* Тяжёлую первую отрисовку страницы откладываем на следующий кадр:
@@ -150,7 +154,7 @@ function App() {
               {visited[p] && p === 'schedule' && (
                 <Schedule title={pageMeta[p].title} desc={pageMeta[p].desc} clockStr={clockStr} />
               )}
-              {visited[p] && p === 'stats' && <Stats />}
+              {visited[p] && p === 'stats' && <Stats key={`stats-${visitSeq.stats}`} />}
               {visited[p] && p === 'settings' && <Settings />}
               {visited[p] && p === 'templates' && <Templates onBack={() => openPage('today')} />}
             </div>
