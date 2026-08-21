@@ -4,6 +4,8 @@ import type { Rule } from './activities'
 
 const DAY_START = 0
 const DAY_END = 1440
+/** Жёсткий лимит цепочки правил: сутки. */
+export const DAY_LIMIT = DAY_END
 const STEP_MIN = 2
 const PITCH = 7
 /** Реальное время: 1 минута за минуту (для плавной интерполяции в Timeline). */

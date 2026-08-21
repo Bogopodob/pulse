@@ -1,4 +1,4 @@
-import { Reorder, useDragControls } from 'framer-motion'
+import { Reorder, useDragControls, motion } from 'framer-motion'
 import { ACCENTS, ICON_PATHS, ACTIVITIES } from '../../../entities/rhythm/activities'
 import type { Rule } from '../../../entities/rhythm/activities'
 import { fmtHM } from '../../../entities/rhythm/useRhythm'
@@ -14,6 +14,7 @@ export function RuleRow({
   range,
   dragging,
   flash,
+  maxMinutes,
   onDragState,
   edit,
   setEdit,
@@ -24,6 +25,8 @@ export function RuleRow({
   range: { start: number; end: number }
   dragging: boolean
   flash: boolean
+  /** Максимум минут для этого правила, чтобы цепочка не вышла за 24 часа. */
+  maxMinutes?: number
   onDragState: (d: boolean) => void
   edit: EditState | null
   setEdit: (e: EditState | null) => void
@@ -34,12 +37,17 @@ export function RuleRow({
   const a = ACCENTS[rule.color]
   const isEditingName = edit?.id === rule.id && edit.field === 'name'
   const isEditingMin = edit?.id === rule.id && edit.field === 'minutes'
+  const parsedMin = isEditingMin ? Number(edit.value) : NaN
+  const overLimit = Number.isFinite(parsedMin) && maxMinutes != null && parsedMin > maxMinutes
 
   const commitEdit = (field: 'name' | 'minutes') => {
     if (!edit) return
     if (field === 'minutes') {
       const n = Number(edit.value)
-      if (Number.isFinite(n) && n > 0) onUpdate(rule.id, { minutes: Math.round(n) })
+      if (Number.isFinite(n) && n > 0) {
+        const capped = maxMinutes != null ? Math.min(Math.round(n), Math.max(1, maxMinutes)) : Math.round(n)
+        onUpdate(rule.id, { minutes: capped })
+      }
     } else if (edit.value.trim()) {
       onUpdate(rule.id, { name: edit.value.trim() })
     }
@@ -128,19 +136,36 @@ export function RuleRow({
       </div>
 
       {isEditingMin ? (
-        <input
-          autoFocus
-          type="number"
-          min={1}
-          value={edit.value}
-          onChange={(e) => setEdit({ ...edit, value: e.target.value })}
-          onBlur={() => commitEdit('minutes')}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commitEdit('minutes')
-            if (e.key === 'Escape') setEdit(null)
-          }}
-          className="w-14 rounded-md bg-[var(--surface-3)] px-1.5 py-0.5 text-[11.5px] text-right outline-none border border-[var(--stroke)] font-mono"
-        />
+        <div className="relative">
+          <input
+            autoFocus
+            type="number"
+            min={1}
+            max={maxMinutes}
+            value={edit.value}
+            onChange={(e) => setEdit({ ...edit, value: e.target.value })}
+            onBlur={() => commitEdit('minutes')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitEdit('minutes')
+              if (e.key === 'Escape') setEdit(null)
+            }}
+            className="w-14 rounded-md bg-[var(--surface-3)] px-1.5 py-0.5 text-[11.5px] text-right outline-none font-mono border transition-colors"
+            style={{
+              borderColor: overLimit ? 'rgba(255,107,107,0.65)' : 'var(--stroke)',
+              color: overLimit ? '#ff6b6b' : undefined,
+            }}
+          />
+          {overLimit && (
+            <motion.span
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="absolute right-0 top-full mt-1 text-[9px] font-mono whitespace-nowrap z-10 px-1.5 py-0.5 rounded-md"
+              style={{ background: 'rgba(255,80,80,0.12)', border: '1px solid rgba(255,107,107,0.4)', color: '#ff6b6b' }}
+            >
+              макс · {maxMinutes}м (24ч)
+            </motion.span>
+          )}
+        </div>
       ) : (
         <button
           onClick={() => setEdit({ id: rule.id, field: 'minutes', value: String(rule.minutes) })}

@@ -159,12 +159,20 @@ export function TemplatesProvider({ children }: { children: ReactNode }) {
 
   const updateTemplate = useCallback(
     async (id: string, patch: Partial<DayTemplate>) => {
-      setTemplates((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+      // Оптимистично обновляем, но при отказе БД (например, «день переполнен»)
+      // откатываем состояние к предыдущему снимку.
+      let snapshot: DayTemplate[] = []
+      setTemplates((ts) => {
+        snapshot = ts
+        return ts.map((t) => (t.id === id ? { ...t, ...patch } : t))
+      })
       if (!tauri) return
       try {
         await apiUpdateTemplate(id, toUpdateInput(patch))
       } catch (e) {
         console.error('update template failed:', e)
+        setTemplates(snapshot)
+        throw e
       }
     },
     [tauri],

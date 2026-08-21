@@ -2,6 +2,7 @@ import { memo, useRef, useState } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { ACTIVITIES } from '../../entities/rhythm/activities'
 import type { Rule, RuleColor } from '../../entities/rhythm/activities'
+import { DAY_LIMIT } from '../../entities/rhythm/useRhythm'
 import { WEEKDAYS } from '../../entities/templates/useTemplates'
 import type { DayTemplate } from '../../entities/templates/useTemplates'
 import { RuleRow } from './ui/RuleRow'
@@ -49,10 +50,22 @@ export const RuleChips = memo(function RuleChips({
   const flashTimer = useRef<number | null>(null)
   const ranges = ruleRanges(rules, chainStart)
 
+  /* Бюджет суток: сумма всех блоков не может превысить 24:00 − начало цепочки. */
+  const budget = Math.max(0, DAY_LIMIT - chainStart)
+  const totalMin = rules.reduce((s, r) => s + r.minutes, 0)
+  const maxMinutesFor = (id: string) =>
+    Math.max(1, budget - (totalMin - (rules.find((r) => r.id === id)?.minutes ?? 0)))
+
   const save = (rules: Rule[]) => onChange(rules)
 
-  const update = (id: string, patch: Partial<Rule>) =>
+  const update = (id: string, patch: Partial<Rule>) => {
+    if (patch.minutes != null) {
+      // При сохранении клампим длительность, чтобы суммарно уложиться в 24 часа
+      const others = rules.filter((x) => x.id !== id).reduce((s, x) => s + x.minutes, 0)
+      patch = { ...patch, minutes: Math.max(1, Math.min(patch.minutes, budget - others)) }
+    }
     save(rules.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+  }
 
   const remove = (id: string) => save(rules.filter((r) => r.id !== id))
 
@@ -63,8 +76,11 @@ export const RuleChips = memo(function RuleChips({
   }
 
   const addRule = (rule: Rule) => {
-    save([...rules, rule])
-    flash(rule.id)
+    const roomLeft = budget - totalMin
+    if (roomLeft <= 0) return
+    const clamped = { ...rule, minutes: Math.max(1, Math.min(rule.minutes, roomLeft)) }
+    save([...rules, clamped])
+    flash(clamped.id)
     if (presetType) setPresetMin(ACTIVITIES[presetType].presets[0])
   }
 
@@ -228,6 +244,7 @@ export const RuleChips = memo(function RuleChips({
             range={ranges[i]}
             dragging={dragging}
             flash={flashId === r.id}
+            maxMinutes={maxMinutesFor(r.id)}
             onDragState={setDragging}
             edit={edit}
             setEdit={setEdit}

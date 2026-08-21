@@ -2,6 +2,24 @@
 
 use super::rule::{Rule, TemplateValidationError};
 
+/// Сутки в минутах — жёсткий потолок для цепочки правил.
+pub const DAY_LIMIT_MIN: i32 = 1440;
+
+/// Цепочка правил целиком обязана помещаться в сутки: от начала цепочки
+/// до 24:00. Используется и при создании, и перед записью обновлений в БД.
+fn validate_rules_within_day(
+    rules: &[Rule],
+    chain_start_min: Option<i32>,
+) -> Result<(), TemplateValidationError> {
+    let start = chain_start_min.unwrap_or(0).clamp(0, DAY_LIMIT_MIN);
+    let total: i32 = rules.iter().map(|r| r.minutes).sum();
+    let limit = DAY_LIMIT_MIN - start;
+    if total > limit {
+        return Err(TemplateValidationError::RulesExceedDay { total, limit });
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 pub struct DayTemplate {
     pub id: String,
@@ -42,6 +60,7 @@ impl DayTemplate {
                 return Err(TemplateValidationError::InvalidDailyGoal(g));
             }
         }
+        validate_rules_within_day(&rules, chain_start_min)?;
         Ok(Self {
             id,
             name,
@@ -96,6 +115,17 @@ impl DayTemplate {
                     return Err(TemplateValidationError::InvalidRuleMinutes(r.minutes));
                 }
             }
+        }
+
+        // Перед записью в БД: цепочка с учётом НОВОГО начала дня обязана
+        // помещаться в сутки. Проверяем только когда правила реально меняются,
+        // чтобы не блокировать правки имён/настроек у легаси-данных.
+        if let Some(rules) = &rules {
+            let next_chain_start = match chain_start_min {
+                Some(v) => v,
+                None => self.chain_start_min,
+            };
+            validate_rules_within_day(rules, next_chain_start)?;
         }
 
         self.name = next_name;
@@ -219,6 +249,83 @@ mod tests {
     fn rejects_bad_chain_start() {
         assert!(DayTemplate::new("t".into(), "A".into(), vec![], vec![], true, Some(1500), None, None, None, 1, 1).is_err());
         assert!(DayTemplate::new("t".into(), "A".into(), vec![], vec![], true, Some(-1), None, None, None, 1, 1).is_err());
+    }
+
+    #[test]
+    fn rejects_rules_over_24h_on_create() {
+        let rules = vec![rule("Работа"), rule("Отдых"), rule("Ещё")]; // 3 × 30 = 90 мин — ок
+        assert!(DayTemplate::new("t".into(), "A".into(), vec![], rules, true, None, None, None, None, 1, 1).is_ok());
+
+        let mut long_rules = Vec::new();
+        for i in 0..50 {
+            long_rules.push(Rule::new(format!("r{i}"), "preset".into(), format!("Блок {i}"), 30, RuleColor::Blue, "star".into()).unwrap());
+        } // 50 × 30 = 1500 мин > 1440
+        assert!(matches!(
+            DayTemplate::new("t".into(), "A".into(), vec![], long_rules, true, None, None, None, None, 1, 1),
+            Err(TemplateValidationError::RulesExceedDay { total: 1500, limit: 1440 })
+        ));
+    }
+
+    #[test]
+    fn rejects_rules_over_24h_with_explicit_chain_start() {
+        // Начало в 18:00 → до полуночи остаётся 360 мин, а блоков на 400
+        let rules = vec![
+            Rule::new("a".into(), "preset".into(), "A".into(), 200, RuleColor::Teal, "star".into()).unwrap(),
+            Rule::new("b".into(), "preset".into(), "B".into(), 200, RuleColor::Rose, "star".into()).unwrap(),
+        ];
+        assert!(matches!(
+            DayTemplate::new("t".into(), "A".into(), vec![], rules.clone(), true, Some(18 * 60), None, None, None, 1, 1),
+            Err(TemplateValidationError::RulesExceedDay { total: 400, limit: 360 })
+        ));
+        // Ровно впритык — разрешено
+        let fits = vec![
+            Rule::new("a".into(), "preset".into(), "A".into(), 200, RuleColor::Teal, "star".into()).unwrap(),
+            Rule::new("b".into(), "preset".into(), "B".into(), 160, RuleColor::Rose, "star".into()).unwrap(),
+        ];
+        assert!(DayTemplate::new("t".into(), "A".into(), vec![], fits, true, Some(18 * 60), None, None, None, 1, 1).is_ok());
+    }
+
+    #[test]
+    fn update_rejects_overbooked_rules_and_stays_atomic() {
+        let mut t = tpl("t1"); // chain_start не задан → лимит 1440
+        let err = t.apply_update(
+            None,
+            None,
+            Some(vec![
+                Rule::new("a".into(), "preset".into(), "A".into(), 800, RuleColor::Teal, "star".into()).unwrap(),
+                Rule::new("b".into(), "preset".into(), "B".into(), 700, RuleColor::Rose, "star".into()).unwrap(),
+            ]),
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(matches!(
+            err,
+            Err(TemplateValidationError::RulesExceedDay { total: 1500, limit: 1440 })
+        ));
+        assert!(t.rules.is_empty()); // состояние не изменилось
+
+        // Обновление chain_start вместе с правилами учитывает новое начало
+        let err2 = t.apply_update(
+            None,
+            None,
+            Some(vec![
+                Rule::new("a".into(), "preset".into(), "A".into(), 200, RuleColor::Teal, "star".into()).unwrap(),
+                Rule::new("b".into(), "preset".into(), "B".into(), 200, RuleColor::Rose, "star".into()).unwrap(),
+            ]),
+            None,
+            Some(Some(18 * 60)),
+            None,
+            None,
+            None,
+        );
+        assert!(matches!(
+            err2,
+            Err(TemplateValidationError::RulesExceedDay { total: 400, limit: 360 })
+        ));
+        assert_eq!(t.chain_start_min, None);
     }
 
     #[test]

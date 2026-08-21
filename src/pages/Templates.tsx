@@ -3,6 +3,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { WEEKDAYS, useTemplates } from '../entities/templates/useTemplates'
 import type { DayTemplate } from '../entities/templates/useTemplates'
 import { useSettings } from '../shared/hooks/useSettings'
+import { DAY_LIMIT } from '../entities/rhythm/useRhythm'
 import type { Rule, RuleColor } from '../entities/rhythm/activities'
 import { RuleRow } from '../features/add-rule/ui/RuleRow'
 import type { EditState } from '../features/add-rule/ui/RuleRow'
@@ -111,11 +112,24 @@ function BlocksEditor({
   const [custom, setCustom] = useState({ name: '', icon: 'star', color: 'blue' as RuleColor })
   const ranges = ruleRanges(tpl.rules, chainStart)
 
+  /* Лимит суток: сумма блоков шаблона не может превысить 24 часа от начала цепочки. */
+  const budget = Math.max(0, DAY_LIMIT - chainStart)
+  const totalMin = tpl.rules.reduce((s, r) => s + r.minutes, 0)
+
   const setRules = (rules: Rule[]) => update({ rules })
-  const updRule = (id: string, patch: Partial<Rule>) =>
+  const updRule = (id: string, patch: Partial<Rule>) => {
+    if (patch.minutes != null) {
+      const others = tpl.rules.filter((x) => x.id !== id).reduce((s, x) => s + x.minutes, 0)
+      patch = { ...patch, minutes: Math.max(1, Math.min(patch.minutes, budget - others)) }
+    }
     setRules(tpl.rules.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+  }
   const delRule = (id: string) => setRules(tpl.rules.filter((r) => r.id !== id))
-  const addRule = (rule: Rule) => setRules([...tpl.rules, rule])
+  const addRule = (rule: Rule) => {
+    const roomLeft = budget - totalMin
+    if (roomLeft <= 0) return
+    setRules([...tpl.rules, { ...rule, minutes: Math.max(1, Math.min(rule.minutes, roomLeft)) }])
+  }
 
   return (
     <div className="flex flex-col">
@@ -135,6 +149,7 @@ function BlocksEditor({
             range={ranges[i]}
             dragging={dragging}
             flash={false}
+            maxMinutes={Math.max(1, budget - (totalMin - r.minutes))}
             onDragState={setDragging}
             edit={edit}
             setEdit={setEdit}

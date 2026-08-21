@@ -66,6 +66,8 @@ pub enum TemplateValidationError {
     EmptyRuleName,
     #[error("rule minutes must be in 1..=1440, got {0}")]
     InvalidRuleMinutes(i32),
+    #[error("day is overbooked: rules take {total} min but only {limit} min fit before 24:00")]
+    RulesExceedDay { total: i32, limit: i32 },
 }
 
 #[cfg(test)]
