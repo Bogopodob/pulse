@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { motion } from 'framer-motion'
 import { AreaChart } from '../shared/ui/charts/area-chart'
 import { Area } from '../shared/ui/charts/area'
 import { Grid } from '../shared/ui/charts/grid'
@@ -323,6 +324,7 @@ function GoalProgressCard({ avg, goal }: { avg: number; goal: number }) {
 
 export function Stats() {
   const [period, setPeriod] = useState<Period>('day')
+  const [hoveredRing, setHoveredRing] = useState<number | null>(null)
   const today = useMemo(() => new Date(), [])
   const [customFrom, setCustomFrom] = useState(() => {
     const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29)
@@ -736,7 +738,7 @@ export function Stats() {
         <div className="card card-lift p-6 flex flex-col">
           <h3 className="font-[var(--font-display)] text-[15.5px] font-semibold">Цели дня</h3>
           <div className="flex items-center justify-center flex-1 gap-8 py-4">
-            <RingChart data={ringData} size={260}>
+            <RingChart data={ringData} size={260} hoveredIndex={hoveredRing} onHoverChange={setHoveredRing}>
               <Ring index={0} showGlow />
               <Ring index={1} showGlow />
               <Ring index={2} showGlow />
@@ -753,26 +755,61 @@ export function Stats() {
                 )}
               </RingCenter>
             </RingChart>
-            <div className="flex flex-col gap-3">
-              {ringData.map((r) => (
-                <div key={r.label} className="flex items-center gap-2.5">
-                  <div className="w-[74px] text-[11px] text-[var(--text-dim)]">{r.label}</div>
-                  <div className="w-[120px] h-[5px] rounded-full overflow-hidden bg-[var(--surface-3)]">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(100, (r.value / r.maxValue) * 100)}%`,
-                        background: r.color,
-                        boxShadow: `0 0 8px ${r.color}aa`,
+            <div className="flex flex-col gap-1 min-w-0">
+              {ringData.map((r, ri) => {
+                const pct = Math.min(100, Math.round((r.value / r.maxValue) * 100))
+                const hot = hoveredRing === ri
+                return (
+                  <motion.div
+                    key={r.label}
+                    onMouseEnter={() => setHoveredRing(ri)}
+                    onMouseLeave={() => setHoveredRing(null)}
+                    animate={{
+                      backgroundColor: hot ? `${r.color}14` : 'rgba(255,255,255,0)',
+                      scale: hot ? 1.03 : 1,
+                    }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+                    className="relative flex items-center gap-2.5 rounded-xl px-2 py-1.5 -mx-2 cursor-default"
+                  >
+                    <motion.span
+                      className="w-[7px] h-[7px] rounded-full shrink-0"
+                      style={{ background: r.color }}
+                      animate={{
+                        scale: hot ? 1.5 : 1,
+                        boxShadow: hot ? `0 0 14px ${r.color}, 0 0 4px ${r.color}` : `0 0 6px ${r.color}66`,
                       }}
+                      transition={{ type: 'spring', stiffness: 420, damping: 22 }}
                     />
-                  </div>
-                  <div className="font-mono text-[11px] font-semibold tabular-nums" style={{ color: r.color }}>
-                    {fmtDur(r.value)}
-                    <span className="text-[var(--text-faint)] font-normal"> / {fmtDur(r.maxValue)}</span>
-                  </div>
-                </div>
-              ))}
+                    <div
+                      className="w-[78px] shrink-0 truncate text-[11px] transition-colors duration-200"
+                      style={{ color: hot ? 'var(--text)' : 'var(--text-dim)' }}
+                      title={r.label}
+                    >
+                      {r.label}
+                    </div>
+                    <div className="flex-1" />
+                    <motion.div
+                      className="w-[40px] shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums"
+                      style={{ color: pct >= 100 ? r.color : 'var(--text-faint)' }}
+                      animate={hot ? { textShadow: [`0 0 0px ${r.color}00`, `0 0 10px ${r.color}`, `0 0 5px ${r.color}`] } : { textShadow: '0 0 0px transparent' }}
+                      transition={hot ? { duration: 0.9, repeat: Infinity } : { duration: 0.2 }}
+                    >
+                      {pct}%
+                    </motion.div>
+                    <motion.span
+                      className="w-[74px] shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums"
+                      style={{ color: r.color }}
+                      animate={{ textShadow: hot ? `0 0 12px ${r.color}cc` : '0 0 0px rgba(0,0,0,0)' }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      {fmtDur(r.value)}
+                    </motion.span>
+                    <span className="w-[82px] shrink-0 text-left font-mono text-[11px] font-normal tabular-nums text-[var(--text-faint)] transition-colors duration-200" style={{ color: hot ? 'var(--text-dim)' : undefined }}>
+                      / {fmtDur(r.maxValue)}
+                    </span>
+                  </motion.div>
+                )
+              })}
               {period !== 'day' && weekdayData.length > 0 && (
                 <div className="text-[11px] text-[var(--text-faint)] mt-1">
                   Лучший день —{' '}
