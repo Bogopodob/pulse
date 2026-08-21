@@ -8,6 +8,7 @@ export function DurationSlider({
   max = 120,
   step = 5,
   accent,
+  disabled = false,
   onChange,
 }: {
   value: number
@@ -15,12 +16,19 @@ export function DurationSlider({
   max?: number
   step?: number
   accent: Accent
+  /** Заблокирован: не реагирует на ввод, значения не эмитятся. */
+  disabled?: boolean
   onChange: (v: number) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const dragRef = useRef(false)
 
-  const pct = ((value - min) / (max - min)) * 100
+  /* Нормализованный диапазон: защита от вырожденных значений (max <= min). */
+  const lo = Math.min(min, max)
+  const hi = Math.max(min, max)
+  const span = hi - lo
+  const clamped = Math.min(hi, Math.max(lo, value))
+  const pct = span > 0 ? ((clamped - lo) / span) * 100 : 0
 
   const fmtVal = (v: number) => {
     const h = Math.floor(v / 60)
@@ -31,19 +39,20 @@ export function DurationSlider({
   }
 
   const update = (clientX: number) => {
+    if (disabled || span <= 0 || step <= 0) return
     const el = ref.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     const p = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
-    const raw = min + p * (max - min)
+    const raw = lo + p * span
     const snapped = Math.round(raw / step) * step
-    onChange(Math.min(max, Math.max(min, snapped)))
+    onChange(Math.min(hi, Math.max(lo, snapped)))
   }
 
   return (
     <div
       ref={ref}
-      className="relative h-10 select-none touch-none cursor-pointer"
+      className={`relative h-10 select-none touch-none ${disabled ? 'pointer-events-none opacity-40' : 'cursor-pointer'}`}
       onPointerDown={(e) => {
         dragRef.current = true
         e.currentTarget.setPointerCapture(e.pointerId)
@@ -61,20 +70,28 @@ export function DurationSlider({
       />
       <div
         className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full"
-        style={{ width: `${pct}%`, background: accent.gradient, boxShadow: `0 0 8px rgba(${accent.glow},0.45)` }}
+        style={{
+          width: `${pct}%`,
+          background: accent.gradient,
+          boxShadow: disabled ? 'none' : `0 0 8px rgba(${accent.glow},0.45)`,
+        }}
       />
-      <motion.div
-        className="absolute -top-1 -translate-x-1/2 -translate-y-full rounded-md px-1.5 py-0.5 text-[10px] font-mono font-semibold whitespace-nowrap"
-        style={{ left: `${pct}%`, background: accent.dot, color: '#131418' }}
-        animate={{ scale: [1, 1.12, 1] }}
-        transition={{ duration: 0.3 }}
-      >
-        {fmtVal(value)}
-      </motion.div>
-      <div
-        className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 size-4 rounded-full border-[3px]"
-        style={{ left: `${pct}%`, background: '#fff', borderColor: accent.dot, boxShadow: `0 0 12px rgba(${accent.glow},0.8)` }}
-      />
+      {!disabled && (
+        <>
+          <motion.div
+            className="absolute -top-1 -translate-x-1/2 -translate-y-full rounded-md px-1.5 py-0.5 text-[10px] font-mono font-semibold whitespace-nowrap"
+            style={{ left: `${pct}%`, background: accent.dot, color: '#131418' }}
+            animate={{ scale: [1, 1.12, 1] }}
+            transition={{ duration: 0.3 }}
+          >
+            {fmtVal(clamped)}
+          </motion.div>
+          <div
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 size-4 rounded-full border-[3px]"
+            style={{ left: `${pct}%`, background: '#fff', borderColor: accent.dot, boxShadow: `0 0 12px rgba(${accent.glow},0.8)` }}
+          />
+        </>
+      )}
     </div>
   )
 }

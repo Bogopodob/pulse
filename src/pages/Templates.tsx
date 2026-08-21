@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { WEEKDAYS, useTemplates } from '../entities/templates/useTemplates'
 import type { DayTemplate } from '../entities/templates/useTemplates'
@@ -418,10 +418,11 @@ function useTemplatesActiveCheck(templateId: string): boolean {
   const { activeTemplate } = useTemplates()
   return activeTemplate?.id === templateId
 }
-
 export function Templates({ onBack }: { onBack: () => void }) {
   const { templates, loading, createTemplate, deleteTemplate, duplicateTemplate } = useTemplates()
-  const [selectedId, setSelectedId] = useState<string | null>(templates[0]?.id ?? null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [dayFilter, setDayFilter] = useState<Set<number>>(new Set())
 
   const selected = templates.find((t) => t.id === selectedId) ?? null
 
@@ -437,9 +438,34 @@ export function Templates({ onBack }: { onBack: () => void }) {
 
   const list = useMemo(() => [...templates].sort((a, b) => a.days.length - b.days.length || a.name.localeCompare(b.name)), [templates])
 
+  /* Поиск по имени + фильтр по дням недели (ИЛИ внутри дней, AND между полями). */
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return list.filter((t) => {
+      if (q && !t.name.toLowerCase().includes(q)) return false
+      if (dayFilter.size > 0 && !t.days.some((d) => dayFilter.has(d))) return false
+      return true
+    })
+  }, [list, query, dayFilter])
+
+  /* Выбранный шаблон скрыт фильтром — сбрасываем выбор. */
+  useEffect(() => {
+    if (selectedId && !filtered.some((t) => t.id === selectedId)) setSelectedId(null)
+  }, [filtered, selectedId])
+
+  const filtersActive = query.trim() !== '' || dayFilter.size > 0
+
+  const toggleDay = (d: number) =>
+    setDayFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(d)) next.delete(d)
+      else next.add(d)
+      return next
+    })
+
   return (
-    <div className="w-full max-w-[1400px] mx-auto flex gap-12">
-      <nav className="w-[240px] shrink-0 flex flex-col pt-1">
+    <div className="w-full max-w-[1400px] mx-auto flex gap-12 h-full min-h-0">
+      <nav className="w-[240px] shrink-0 flex flex-col pt-1 min-h-0">
         <div className="flex items-center gap-2 px-2 pb-2">
           <button
             onClick={onBack}
@@ -452,10 +478,62 @@ export function Templates({ onBack }: { onBack: () => void }) {
           </button>
         </div>
         <div className="px-2 pt-1 pb-2 text-[10px] uppercase tracking-[0.1em] text-[var(--text-faint)] font-semibold">
-          Шаблоны · {templates.length}
+          {filtersActive ? `Найдено ${filtered.length} из ${templates.length}` : `Шаблоны · ${templates.length}`}
         </div>
+
+        {/* Поиск по имени и дням недели */}
+        <div className="px-2 pb-2 flex flex-col gap-1.5 shrink-0">
+          <div className="relative">
+            <svg
+              width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="2" strokeLinecap="round"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20 20l-3.5-3.5" />
+            </svg>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск по названию…"
+              className="w-full rounded-lg bg-[var(--surface-2)] border border-[var(--stroke)] pl-8 pr-7 py-1.5 text-[11.5px] outline-none transition-colors focus:border-[rgba(76,141,255,0.5)] placeholder:text-[var(--text-faint)]"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                title="Очистить"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 grid size-5 place-items-center rounded-md text-[var(--text-faint)] hover:text-[var(--text)] hover:bg-[var(--surface-3)] transition-colors cursor-pointer"
+              >
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <div className="flex gap-[3px]">
+            {WEEKDAYS.map((d, i) => {
+              const on = dayFilter.has(i + 1)
+              return (
+                <button
+                  key={d}
+                  onClick={() => toggleDay(i + 1)}
+                  title={`Фильтр: ${d}`}
+                  className="flex-1 text-center text-[9px] font-semibold rounded-md py-[3px] cursor-pointer transition-colors"
+                  style={
+                    on
+                      ? { background: 'rgba(76,141,255,0.16)', color: 'var(--focus)', border: '1px solid rgba(76,141,255,0.35)' }
+                      : { background: 'var(--surface-2)', color: 'var(--text-faint)', border: '1px solid var(--stroke)' }
+                  }
+                >
+                  {d}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Список шаблонов */}
         <div className="flex flex-col gap-[2px] flex-1 min-h-0 overflow-y-auto pr-1">
-          {list.map((t) => (
+          {filtered.map((t) => (
             <div
               key={t.id}
               className="group relative rounded-lg transition-colors"
@@ -506,6 +584,11 @@ export function Templates({ onBack }: { onBack: () => void }) {
               </button>
             </div>
           ))}
+          {!loading && templates.length > 0 && filtered.length === 0 && (
+            <div className="rounded-xl px-3 py-5 text-center text-[12px] text-[var(--text-faint)]" style={{ background: 'var(--surface-2)', border: '1px dashed var(--stroke)' }}>
+              Ничего не найдено
+            </div>
+          )}
           {loading && (
             <div className="rounded-xl px-3 py-5 text-center text-[12px] text-[var(--text-faint)]" style={{ background: 'var(--surface-2)', border: '1px dashed var(--stroke)' }}>
               Загрузка шаблонов…
@@ -517,10 +600,13 @@ export function Templates({ onBack }: { onBack: () => void }) {
             </div>
           )}
         </div>
-        <div className="pt-2 flex flex-col gap-1">
+
+        {/* Кнопка всегда на виду под списком */}
+        <div className="pt-2 flex flex-col gap-1 shrink-0">
           <button
             onClick={create}
-            className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold transition-colors"
+            disabled={loading}
+            className="flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold transition-colors disabled:opacity-50"
             style={{ background: 'var(--surface-3)', border: '1px solid var(--stroke)', color: 'var(--text-dim)' }}
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -531,7 +617,7 @@ export function Templates({ onBack }: { onBack: () => void }) {
         </div>
       </nav>
 
-      <section className="flex-1 min-w-0 border-l border-[var(--stroke)] pl-12 pb-10">
+      <section className="flex-1 min-w-0 border-l border-[var(--stroke)] pl-12 pb-10 overflow-y-auto min-h-0">
         {selected ? (
           <TemplateEditor tpl={selected} onDelete={() => { deleteTemplate(selected.id); setSelectedId(null) }} />
         ) : (
@@ -545,9 +631,9 @@ export function Templates({ onBack }: { onBack: () => void }) {
                 <path d="M3 9h18M8 2v4M16 2v4M8 13h3M8 17h6" />
               </svg>
             </div>
-            <div className="text-[15px] font-semibold font-[var(--font-display)] text-[var(--text)]">Создайте шаблон</div>
+            <div className="text-[15px] font-semibold font-[var(--font-display)] text-[var(--text)]">Шаблон не выбран</div>
             <div className="text-[12.5px] text-[var(--text-faint)] max-w-[340px]">
-              Один график на будни, другой на выходные — шаблоны подбираются автоматически по дню недели.
+              Выберите шаблон слева или создайте новый — шаблоны подбираются автоматически по дню недели.
             </div>
             <button
               onClick={create}

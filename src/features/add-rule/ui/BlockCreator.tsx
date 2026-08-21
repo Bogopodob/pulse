@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ACTIVITIES, ACCENTS, ICON_PATHS, CUSTOM_ICONS, COLOR_KEYS } from '../../../entities/rhythm/activities'
 import type { Rule, RuleColor } from '../../../entities/rhythm/activities'
@@ -52,6 +52,30 @@ export function BlockCreator({
 
   /* Лимит суток: новый блок не может выйти за 24:00. */
   const remaining = Math.max(0, DAY_END - start)
+  const MIN_BLOCK = 5
+  const canFitBlock = remaining >= MIN_BLOCK
+
+  /* Разблокировка слайдера после заполненного дня → сброс ползунка на начало.
+     Невалидные сохранённые значения (0 или больше остатка) тоже нормализуем. */
+  const wasLockedRef = useRef(!canFitBlock)
+  useEffect(() => {
+    if (!canFitBlock) {
+      wasLockedRef.current = true
+      return
+    }
+    if (wasLockedRef.current) {
+      // Разблокировка после заполненного дня — ползунок на начало
+      setPresetMin(MIN_BLOCK)
+      setCustomMin(MIN_BLOCK)
+      wasLockedRef.current = false
+      return
+    }
+    const normPreset = presetMin < MIN_BLOCK || presetMin > remaining ? MIN_BLOCK : presetMin
+    const normCustom = customMin < MIN_BLOCK || customMin > remaining ? MIN_BLOCK : customMin
+    if (normPreset !== presetMin) setPresetMin(normPreset)
+    if (normCustom !== customMin) setCustomMin(normCustom)
+  }, [canFitBlock, remaining, presetMin, customMin])
+
   const rawPreviewMin = presetType ? presetMin : customMin
   const previewMinSafe = Math.min(rawPreviewMin, remaining)
   const overflowMin = rawPreviewMin - previewMinSafe
@@ -166,7 +190,23 @@ export function BlockCreator({
               </div>
 
               <div className="mt-1">
-                <DurationSlider value={Math.min(presetMin, remaining)} max={Math.min(240, remaining)} accent={acc} onChange={setPresetMin} />
+                {canFitBlock ? (
+                  <DurationSlider
+                    value={Math.min(presetMin, remaining)}
+                    max={Math.min(240, remaining)}
+                    accent={acc}
+                    onChange={(m) => setPresetMin(Math.max(MIN_BLOCK, m))}
+                  />
+                ) : (
+                  <div
+                    className="rounded-lg px-2 py-1.5 text-[10.5px]"
+                    style={{ background: 'rgba(19,20,24,0.35)', color: remaining <= 0 ? '#ff6b6b' : 'var(--text-faint)' }}
+                  >
+                    {remaining <= 0
+                      ? 'День заполнен до 24:00 — освободите место'
+                      : `Свободно ${fmtFree(remaining)} — меньше минимального блока (${MIN_BLOCK} мин)`}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2 mt-0.5 text-[10.5px]">
@@ -181,7 +221,7 @@ export function BlockCreator({
 
               <motion.button
                 whileTap={{ scale: 0.97 }}
-                disabled={remaining <= 0 || presetMin > remaining}
+                disabled={!canFitBlock || presetMin < MIN_BLOCK || presetMin > remaining}
                 onClick={() => onAdd({
                   id: crypto.randomUUID(),
                   type: presetType,
@@ -200,7 +240,7 @@ export function BlockCreator({
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
-                Вставить · {Math.min(presetMin, remaining)} мин
+                {presetMin >= MIN_BLOCK ? `Вставить · ${Math.min(presetMin, remaining)} мин` : 'Вставить'}
               </motion.button>
             </motion.div>
           )
@@ -239,7 +279,7 @@ export function BlockCreator({
                     value={custom.name}
                     onChange={(e) => setCustom({ ...custom, name: e.target.value })}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && custom.name.trim() && remaining > 0 && customMin > 0) {
+                      if (e.key === 'Enter' && custom.name.trim() && canFitBlock && customMin >= MIN_BLOCK) {
                         onAdd({
                           id: crypto.randomUUID(),
                           type: 'focus',
@@ -257,7 +297,7 @@ export function BlockCreator({
                   <motion.button
                     whileTap={{ scale: 0.94 }}
                     onClick={() => {
-                      if (!custom.name.trim() || remaining <= 0 || customMin <= 0) return
+                      if (!custom.name.trim() || !canFitBlock || customMin < MIN_BLOCK) return
                       onAdd({
                         id: crypto.randomUUID(),
                         type: 'focus',
@@ -268,7 +308,7 @@ export function BlockCreator({
                       })
                       setCustom({ name: '', icon: 'star', color: 'blue' })
                     }}
-                    disabled={!custom.name.trim() || remaining <= 0 || customMin <= 0}
+                    disabled={!custom.name.trim() || !canFitBlock || customMin < MIN_BLOCK}
                     className="shrink-0 rounded-lg px-3 py-2 text-[11.5px] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ background: ACCENTS[custom.color].dot, color: '#131418' }}
                   >
@@ -326,7 +366,23 @@ export function BlockCreator({
                   </div>
                 </div>
 
-                <DurationSlider value={Math.min(customMin, remaining)} max={Math.min(1080, remaining)} accent={ACCENTS[custom.color]} onChange={setCustomMin} />
+                {canFitBlock ? (
+                  <DurationSlider
+                    value={Math.min(customMin, remaining)}
+                    max={Math.min(1080, remaining)}
+                    accent={ACCENTS[custom.color]}
+                    onChange={(m) => setCustomMin(Math.max(MIN_BLOCK, m))}
+                  />
+                ) : (
+                  <div
+                    className="rounded-lg px-2 py-1.5 text-[10.5px]"
+                    style={{ background: 'rgba(19,20,24,0.35)', color: remaining <= 0 ? '#ff6b6b' : 'var(--text-faint)' }}
+                  >
+                    {remaining <= 0
+                      ? 'День заполнен до 24:00 — освободите место'
+                      : `Свободно ${fmtFree(remaining)} — меньше минимального блока (${MIN_BLOCK} мин)`}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}

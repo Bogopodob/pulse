@@ -30,7 +30,7 @@ const paneClass: Record<Page, string> = {
   schedule: '-mx-6 sm:-mx-8 md:-mx-10 flex-1 flex flex-col min-h-0',
   stats: 'mx-auto w-full max-w-[1400px]',
   settings: 'w-full',
-  templates: 'w-full',
+  templates: 'w-full flex-1 min-h-0',
 }
 
 /* Мемоизация страниц: при клике по вкладке ре-рендерится только обёртка панели,
