@@ -128,11 +128,18 @@ function App() {
     }
   }, [])
 
-  /* Вкладки делят общий скролл-контейнер: при переключении возвращаем его наверх,
-     иначе новая страница открывается «уехавшей» вверх. */
+  /* Вкладки делят общий скролл-контейнер: возвращаем его наверх
+     при переключении вкладки И при ресайзе окна — иначе после
+     разворота из маленького окна страница остаётся «уехавшей» вверх. */
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 })
   }, [page])
+
+  useEffect(() => {
+    const onResize = () => mainRef.current?.scrollTo({ top: 0 })
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     function update() {
