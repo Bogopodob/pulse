@@ -16,7 +16,8 @@ const MIN_TAG_W = 280
 const MAX_TAG_TITLE = 20
 const MAX_SMOOTH_PX = 240
 const SMOOTH_FACTOR = 0.3
-const WHEEL_PIXEL_BOOST = isTauri() ? 1.5 : 1
+const SPEED_OPTIONS = [0.5, 1, 1.2, 1.5, 2]
+const SPEED_KEY = 'pulse-gantt-scroll-speed'
 const SUPPORTS_SCROLL_TIMELINE =
   typeof CSS !== 'undefined' && typeof ScrollTimeline === 'function' && typeof Element.prototype.animate === 'function'
 const TODAY = new Date(2026, 7, 21)
@@ -132,6 +133,25 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
   const pendingScrollMin = useRef<number | null>(null)
   const [ctxMenu, setCtxMenu] = useState<{ key: number; x: number; y: number; task: Task } | null>(null)
   const ctxAnchorRef = useRef<HTMLDivElement>(null)
+  const [scrollSpeed, setScrollSpeed] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem(SPEED_KEY))
+      if (SPEED_OPTIONS.includes(v)) return v
+    } catch {
+      /* ignore */
+    }
+    return isTauri() ? 1.5 : 1
+  })
+  const scrollSpeedRef = useRef(scrollSpeed)
+
+  useEffect(() => {
+    scrollSpeedRef.current = scrollSpeed
+    try {
+      localStorage.setItem(SPEED_KEY, String(scrollSpeed))
+    } catch {
+      /* ignore */
+    }
+  }, [scrollSpeed])
 
   const prevDay = useMemo(() => {
     const d = new Date(currentDay)
@@ -397,7 +417,7 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
       if (!dxDominant && el.scrollHeight > el.clientHeight + 1) return
       e.preventDefault()
       const d = dxDominant ? dx : dy
-      const mult = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : WHEEL_PIXEL_BOOST
+      const mult = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : scrollSpeedRef.current
       const max = el.scrollWidth - el.clientWidth
       const base = smoothRAFRef.current ? smoothTargetRef.current : el.scrollLeft
       smoothTargetRef.current = Math.max(0, Math.min(max, base + d * mult))
@@ -674,6 +694,26 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
             </svg>
             Новая
           </motion.button>
+          <div
+            className="flex items-center gap-[2px] p-[2px] rounded-lg h-[24px] shrink-0"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            title="Скорость прокрутки"
+          >
+            {SPEED_OPTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => setScrollSpeed(s)}
+                className="h-full px-2 rounded-md cursor-pointer text-[10px] font-semibold tabular-nums transition-colors"
+                style={
+                  scrollSpeed === s
+                    ? { background: 'rgba(76,141,255,0.22)', color: 'var(--focus)' }
+                    : { color: 'rgba(255,255,255,0.4)' }
+                }
+              >
+                {s}×
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="text-[12px] font-semibold tracking-[-0.01em] shrink-0 select-none" style={{ color: viewToday ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)' }}>
