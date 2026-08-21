@@ -392,10 +392,15 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
     const maxS = Math.max(0, totalW - el.clientWidth)
     const sNew = Math.max(0, Math.min(maxS, dayOffsets[ni] + dayScales[ni].xOf(minute) + delta))
     if (Math.abs(sNew - el.scrollLeft) > 0.5) {
+      const dApplied = sNew - el.scrollLeft
       el.scrollLeft = sNew
       scrollLeftRef.current = sNew
       armLeftRef.current = sNew
       armRightRef.current = sNew
+      if (smoothRAFRef.current) {
+        const maxSt = Math.max(0, totalW - el.clientWidth)
+        smoothTargetRef.current = Math.max(0, Math.min(maxSt, smoothTargetRef.current + dApplied))
+      }
       if (!SUPPORTS_SCROLL_TIMELINE) syncIndicator()
     }
   })
@@ -473,6 +478,8 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
     smoothRAFRef.current = 0
     const el = scrollRef.current
     if (!el) return
+    const maxS = el.scrollWidth - el.clientWidth
+    if (smoothTargetRef.current > maxS) smoothTargetRef.current = maxS
     const diff = smoothTargetRef.current - el.scrollLeft
     if (Math.abs(diff) < 0.5) return
     const step = Math.max(-MAX_SMOOTH_PX, Math.min(MAX_SMOOTH_PX, diff * SMOOTH_FACTOR))
@@ -480,6 +487,17 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
     scrollLeftRef.current = el.scrollLeft
     smoothRAFRef.current = requestAnimationFrame(smoothTick)
   }, [])
+
+  const animateScrollTo = useCallback(
+    (left: number) => {
+      const el = scrollRef.current
+      if (!el) return
+      const max = el.scrollWidth - el.clientWidth
+      smoothTargetRef.current = Math.max(0, Math.min(max, left))
+      if (!smoothRAFRef.current) smoothRAFRef.current = requestAnimationFrame(smoothTick)
+    },
+    [smoothTick]
+  )
 
   useEffect(() => {
     const el = scrollRef.current
@@ -509,9 +527,9 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
       const idx = daysRef.current.findIndex((d) => d.getTime() === target.getTime())
       const el = scrollRef.current
       if (idx < 0 || !el || el.clientWidth <= 0) return
-      el.scrollTo({ left: centerFor(idx, el.clientWidth), behavior: 'smooth' })
+      animateScrollTo(centerFor(idx, el.clientWidth))
     },
-    [extend, centerFor]
+    [extend, centerFor, animateScrollTo]
   )
 
   const goPrev = () => {
@@ -549,16 +567,16 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
     if (!el) return
     const { offs, ws } = geoRef.current
     const i = Math.max(0, Math.min(dayIdx, ws.length - 1))
-    el.scrollTo({ left: Math.max(0, offs[i] + ws[i].xOf(hour * 60) - el.clientWidth / 2), behavior: 'smooth' })
-  }, [])
+    animateScrollTo(Math.max(0, offs[i] + ws[i].xOf(hour * 60) - el.clientWidth / 2))
+  }, [animateScrollTo])
 
   const handleMiniClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const el = scrollRef.current
     if (!el) return
     const rect = e.currentTarget.getBoundingClientRect()
     const ratio = (e.clientX - rect.left) / rect.width
-    el.scrollTo({ left: ratio * totalWRef.current - el.clientWidth / 2, behavior: 'smooth' })
-  }, [])
+    animateScrollTo(ratio * totalWRef.current - el.clientWidth / 2)
+  }, [animateScrollTo])
 
   const handleTickHover = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
