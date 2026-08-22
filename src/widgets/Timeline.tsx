@@ -1,45 +1,33 @@
-import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react'
-import { fmtHM, fmtHMS, buildBars, SIM_SPEED_MIN_PER_SEC, DAY_START, DAY_END, STEP_MIN, PITCH, type Segment } from '../entities/rhythm/useRhythm'
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
+import { fmtHM, fmtHMS, buildBars, DAY_START, DAY_END, STEP_MIN, PITCH, type Segment } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
-
-function fmtDur(min: number): string {
-  const h = Math.floor(min / 60)
-  const m = Math.round(min % 60)
-  return m === 0 ? `${h} ч` : `${h} ч ${m} мин`
-}
 
 const BREAK_GROUP = new Set(['break', 'smoke', 'rest'])
 const FOOD_GROUP = new Set(['lunch', 'breakfast', 'dinner'])
 /** Полная ширина ленты суток в пикселях (график конечен — ровно 24 часа). */
-const FULL_ROW_WIDTH = Math.ceil((DAY_END - DAY_START) / STEP_MIN) * PITCH
+const ROW_WIDTH = Math.ceil((DAY_END - DAY_START) / STEP_MIN) * PITCH
+
+/** Контентная координата минуты на ленте. */
+const pxOf = (min: number) => ((min - DAY_START) / STEP_MIN) * PITCH
 
 export interface TimelineProps {
   segments: Segment[]
-  /** Минутная квантизация: Timeline перерисовывается раз в минуту,
-      плейхед между синхронизациями живёт на rAF-интерполяции. */
+  /** Дробные минуты реального времени (с секундами) — двигает плейхед. */
   nowMinutes: number
   cur: Segment
 }
 
 export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
-  const [isDragging, setIsDragging] = useState(false)
+  const [dragging, setDragging] = useState(false)
   const [showJump, setShowJump] = useState(false)
   const [hv, setHv] = useState<{ x: number; min: number; type: string; color: string; label: string } | null>(null)
-  const velocityRef = useRef(0)
-  const offsetRef = useRef(0)
-  const isDraggingRef = useRef(false)
-  const dragStartX = useRef(0)
-  const dragStartOffset = useRef(0)
-  const layersRef = useRef<HTMLDivElement>(null)
-  const playheadTimeRef = useRef<HTMLDivElement>(null)
-  const lastTxRef = useRef(Number.NaN)
-  const lastSecRef = useRef('')
 
-  /* Полосы на полные сутки: серые заглушки (off) заполняют всё время без плана,
-     включая будущее. Геометрия (rowWidth) — те же полные сутки. */
+  const dragRef = useRef<{ x: number; sl: number } | null>(null)
+  const hoverFrameRef = useRef(0)
+  const hoverEvtRef = useRef<number | null>(null)
+
   const bars = useMemo(() => buildBars(segments), [segments])
-  const rowWidth = FULL_ROW_WIDTH
 
   const totals = useMemo(() => {
     const t = { focus: 0, break: 0, food: 0 }
@@ -51,154 +39,80 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
     return t
   }, [segments])
 
-  const baseRef = useRef({ min: nowMinutes, ts: performance.now() })
-  const smoothNowRef = useRef(nowMinutes)
-
-  /* Кэш геометрии вьюпорта: никаких clientWidth/getBoundingClientRect
-     внутри покадровых обновлений — иначе layout thrash и фризы при драге. */
-  const viewportCenterRef = useRef(300)
-  const dirtyRef = useRef(false)
-  const hoverFrameRef = useRef(0)
-  const hoverEvtRef = useRef<number | null>(null)
-  const lastHvKeyRef = useRef('')
-
+  /* Центрирование на текущем времени один раз при монтировании.
+     Дальше — нативный скролл с естественными границами [0 … ширина суток]. */
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
-    const update = () => {
-      viewportCenterRef.current = vp.clientWidth / 2
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(vp)
-    return () => ro.disconnect()
+    vp.scrollLeft = Math.max(0, pxOf(nowMinutes) - vp.clientWidth / 2)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    baseRef.current = { min: nowMinutes, ts: performance.now() }
-  }, [nowMinutes])
-
-  const applyTransform = useCallback((min: number, force = false) => {
-    const homeOffsetPx = ((min - DAY_START) / STEP_MIN) * PITCH
-    const total = homeOffsetPx + offsetRef.current
-    /* Целые пиксели: субпиксельные transform'ы заставляют софтверный
-       композитор WebKitGTK перерастеризовывать слой каждый кадр. */
-    const tx = Math.round(viewportCenterRef.current - total)
-
-    const wasDirty = dirtyRef.current
-    dirtyRef.current = false
-
-    /* Пишем стиль ТОЛЬКО когда лента реально сдвинулась на ≥1px:
-       в покое время ползёт на ~0.1px/сек — без guard'а это 60 пустых
-       перерисовок в секунду, которые на fullscreen и дают микрофризы. */
-    if (force || wasDirty || Math.abs(tx - lastTxRef.current) >= 1) {
-      lastTxRef.current = tx
-      if (layersRef.current) layersRef.current.style.transform = `translateX(${tx}px)`
-    }
-
-    const minuteAtCenter = DAY_START + total / PITCH * STEP_MIN
-    const secStr = fmtHMS(minuteAtCenter)
-    if (secStr !== lastSecRef.current) {
-      lastSecRef.current = secStr
-      if (playheadTimeRef.current) playheadTimeRef.current.textContent = secStr
-    }
-  }, [DAY_START, PITCH, STEP_MIN])
-
-  /* Единственный владелец кадра: инерция, время и применение transform —
-     в одном rAF-цикле. Раньше их было три (physicsLoop + 33мс-таймер + hover),
-     и во время скролла они наедались друг на друга, подвешивая всю страницу. */
-  useEffect(() => {
-    let raf = 0
-    const loop = (ts: number) => {
-      // Инерция колеса: интегрируем скорость прямо здесь, по кадрам
-      if (!isDraggingRef.current && Math.abs(velocityRef.current) > 0.02) {
-        offsetRef.current += velocityRef.current
-        velocityRef.current *= 0.9
-        if (Math.abs(velocityRef.current) <= 0.02) velocityRef.current = 0
-      }
-
-      /* График конечен — только сегодняшние сутки: не даём утащить ленту так,
-         чтобы за краями центра открывалась пустота до/после 00:00–24:00. */
-      const smoothPx = ((smoothNowRef.current - DAY_START) / STEP_MIN) * PITCH
-      const offMin = -smoothPx // старт суток не правее центра
-      const offMax = FULL_ROW_WIDTH - smoothPx // конец суток не левее центра
-      if (offsetRef.current < offMin) offsetRef.current = offMin
-      else if (offsetRef.current > offMax) offsetRef.current = offMax
-
-      smoothNowRef.current = baseRef.current.min + (ts - baseRef.current.ts) / 1000 * SIM_SPEED_MIN_PER_SEC
-      applyTransform(smoothNowRef.current)
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [applyTransform])
-
+  /* Колесо мыши → горизонтальная прокрутка (нативный scrollLeft). */
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
     const handler = (e: WheelEvent) => {
       e.preventDefault()
       const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
-      // Никаких своих rAF-циклов на каждое событие — просто подкидываем
-      // скорость общему циклу и помечаем кадр.
-      velocityRef.current = Math.max(-40, Math.min(40, velocityRef.current + delta * 0.9))
-      dirtyRef.current = true
+      vp.scrollLeft += delta * 1.2
     }
     vp.addEventListener('wheel', handler, { passive: false })
     return () => vp.removeEventListener('wheel', handler)
   }, [])
 
-  useEffect(() => {
-    if (!isDragging) return
-    const onMove = (e: MouseEvent) => {
-      offsetRef.current = dragStartOffset.current - (e.clientX - dragStartX.current)
-      /* Не пишем transform здесь — только помечаем кадр «грязным»,
-         применит единый rAF-цикл (одна запись на кадр вместо 60–120). */
-      dirtyRef.current = true
-    }
-    const onUp = () => {
-      isDraggingRef.current = false
-      setIsDragging(false)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [isDragging, applyTransform])
-
-  useEffect(() => {
-    setShowJump(Math.abs(offsetRef.current) > 4)
-  }, [nowMinutes])
-
-  useEffect(() => {
-    return () => cancelAnimationFrame(hoverFrameRef.current)
-  }, [])
-
-  const animateTo = useCallback((min: number) => {
-    const target0 = (min - nowMinutes) / STEP_MIN * PITCH
-    // Не даём кнопкам/карте дня увести ленту за границы суток
-    const sPx = ((smoothNowRef.current - DAY_START) / STEP_MIN) * PITCH
-    const target = Math.max(-sPx, Math.min(FULL_ROW_WIDTH - sPx, target0))
-    if (layersRef.current) layersRef.current.style.transition = 'transform 0.6s cubic-bezier(0.2,0.9,0.25,1)'
-    offsetRef.current = target
-    velocityRef.current = 0
-    applyTransform(smoothNowRef.current, true)
-    setTimeout(() => {
-      if (layersRef.current) layersRef.current.style.transition = 'none'
-    }, 620)
-  }, [applyTransform, nowMinutes, STEP_MIN, PITCH])
+  const jumpTo = useCallback(
+    (min: number) => {
+      const vp = viewportRef.current
+      if (!vp) return
+      vp.scrollTo({ left: Math.max(0, pxOf(min) - vp.clientWidth / 2), behavior: 'smooth' })
+    },
+    [],
+  )
 
   useEffect(() => {
     const handler = (e: Event) => {
       const min = (e as CustomEvent<{ min: number }>).detail?.min
-      if (typeof min === 'number') animateTo(min)
+      if (typeof min === 'number') jumpTo(min)
     }
     window.addEventListener('rhythm:go-to', handler)
     return () => window.removeEventListener('rhythm:go-to', handler)
-  }, [animateTo])
+  }, [jumpTo])
 
-  const handleJumpNow = () => {
-    animateTo(nowMinutes)
+  const handleJumpNow = () => jumpTo(nowMinutes)
+
+  const onScroll = () => {
+    const vp = viewportRef.current
+    if (!vp) return
+    setShowJump(vp.scrollLeft > 4 && !dragging)
   }
+
+  /* Hover-подсказка: rAF-троттлинг + дедупликация по ключу сегмента. */
+  const lastHvMinRef = useRef(Number.NaN)
+  const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (dragging) return
+    hoverEvtRef.current = e.clientX
+    if (hoverFrameRef.current) return
+    hoverFrameRef.current = requestAnimationFrame(() => {
+      hoverFrameRef.current = 0
+      const clientX = hoverEvtRef.current
+      const vp = viewportRef.current
+      if (clientX == null || !vp || dragging) return
+      const rect = vp.getBoundingClientRect()
+      const relX = clientX - rect.left
+      const min = DAY_START + (vp.scrollLeft + relX) / PITCH * STEP_MIN
+      const s = segments.find((sg) => min >= sg.start && min < sg.end) ?? segments[segments.length - 1]
+      if (!s || Number.isNaN(min)) {
+        setHv(null)
+        return
+      }
+      if (Math.floor(min) === lastHvMinRef.current && hv?.type === s.type) return
+      lastHvMinRef.current = Math.floor(min)
+      setHv({ x: relX, min, type: s.type, color: s.color, label: s.label })
+    })
+  }
+
+  const nowPx = pxOf(nowMinutes)
 
   return (
     <div className="card card-lift relative z-[1] h-full flex flex-col p-0 overflow-hidden">
@@ -223,131 +137,98 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
 
       <div
         ref={viewportRef}
-        className="timeline-viewport relative flex-1 min-h-[220px] mt-3 overflow-hidden cursor-grab select-none"
-        style={{ contain: 'layout paint' }}
+        className="timeline-viewport relative flex-1 min-h-[220px] mt-3 overflow-x-auto overflow-y-hidden cursor-grab select-none"
+        style={{ contain: 'layout paint', scrollbarWidth: 'none' }}
         onDragStart={(e) => e.preventDefault()}
-        onMouseDown={(e) => {
+        onScroll={onScroll}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return
+          const vp = viewportRef.current
+          if (!vp) return
           e.preventDefault()
-          isDraggingRef.current = true
-          setIsDragging(true)
-          dragStartX.current = e.clientX
-          dragStartOffset.current = offsetRef.current
-          velocityRef.current = 0
-          if (viewportRef.current) viewportRef.current.style.cursor = 'grabbing'
+          vp.setPointerCapture(e.pointerId)
+          dragRef.current = { x: e.clientX, sl: vp.scrollLeft }
+          setDragging(true)
+          vp.style.cursor = 'grabbing'
         }}
-        onMouseUp={() => {
+        onPointerUp={() => {
+          dragRef.current = null
+          setDragging(false)
           if (viewportRef.current) viewportRef.current.style.cursor = 'grab'
         }}
-        onMouseMove={(e) => {
-          /* Троттлинг до одного раза на кадр + полный пропуск во время
-             драга и инерции колеса — иначе React рендерит Timeline 60+ раз/сек. */
-          if (isDraggingRef.current || Math.abs(velocityRef.current) > 0.3) {
-            hoverEvtRef.current = null
-            if (lastHvKeyRef.current) {
-              lastHvKeyRef.current = ''
-              setHv(null)
-            }
-            return
-          }
-          hoverEvtRef.current = e.clientX
-          if (hoverFrameRef.current) return
-          hoverFrameRef.current = requestAnimationFrame(() => {
-            hoverFrameRef.current = 0
-            const clientX = hoverEvtRef.current
-            if (clientX == null || isDraggingRef.current || Math.abs(velocityRef.current) > 0.3) return
-            const vp = viewportRef.current
-            if (!vp) return
-            const relX = clientX - vp.getBoundingClientRect().left
-            const min = DAY_START + (relX + offsetRef.current) / PITCH * STEP_MIN
-            const s = segments.find((sg) => min >= sg.start && min < sg.end) ?? segments[segments.length - 1]
-            if (!s) return
-            const key = `${s.type}|${s.label}|${Math.round(min)}`
-            if (key === lastHvKeyRef.current) return
-            lastHvKeyRef.current = key
-            setHv({ x: relX, min, type: s.type, color: s.color, label: s.label })
-          })
+        onPointerCancel={() => {
+          dragRef.current = null
+          setDragging(false)
+          if (viewportRef.current) viewportRef.current.style.cursor = 'grab'
         }}
+        onMouseMove={onMouseMove}
         onMouseLeave={() => {
           hoverEvtRef.current = null
-          lastHvKeyRef.current = ''
+          lastHvMinRef.current = Number.NaN
           setHv(null)
         }}
       >
-        <div className="absolute inset-0 pointer-events-none z-[6]"
-          style={{
-            background: 'linear-gradient(90deg, var(--surface) 0%, transparent 120px, transparent calc(100% - 120px), var(--surface) 100%)',
-          }}
-        />
-
-        {(() => {
-          const t = cur
-          if (t.type === 'off') return null
-          const a = ACCENTS[t.color as keyof typeof ACCENTS] ?? ACCENTS.blue
-          return (
-            <div
-              className="absolute left-1/2 -translate-x-1/2 top-[30px] bottom-[62px] w-[320px] pointer-events-none rounded-full"
-              style={{ background: `radial-gradient(ellipse at center, rgba(${a.glow},0.14), transparent 60%)` }}
-            />
-          )
-        })()}
-
-        {/* Один общий слой для всего, что движется вместе: одна текстурная
-            группа вместо трёх — втрое меньше композитной работы на кадр. */}
-        <div ref={layersRef} className="absolute inset-0 will-change-transform pointer-events-none">
-          {/* Слой фиксированной высоты (макс. полоса ~78px + запас): текстура
-              не растёт с окном — иначе fullscreen = мегабайтные блиты каждый кадр */}
-          <div className="absolute left-0 bottom-[62px] h-[96px] flex items-end" style={{ width: rowWidth }}>
+        {/* Лента суток — обычный широкий поток внутри нативного скролла.
+            Границы 00:00–24:00 поддерживает сам браузер. */}
+        <div className="relative h-full" style={{ width: ROW_WIDTH }}>
+          {/* Полосы: фиксированная высота, серые заглушки — прошедшее и будущее вне плана */}
+          <div className="absolute left-0 bottom-[62px] h-[96px] flex items-end" style={{ width: ROW_WIDTH }}>
             <BarsLayer bars={bars} pitch={PITCH} />
           </div>
 
-          <div className="absolute left-0 top-[4px] h-[20px] z-[3]" style={{ width: rowWidth }}>
+          <div className="absolute left-0 top-[4px] h-[20px] z-[3]" style={{ width: ROW_WIDTH }}>
             <MarkersLayer segments={segments} />
           </div>
 
-          <div className="absolute left-0 bottom-[6px] h-[52px]" style={{ width: rowWidth }}>
+          <div className="absolute left-0 bottom-[6px] h-[52px]" style={{ width: ROW_WIDTH }}>
             <RulerLayer />
           </div>
-        </div>
 
-        <div className="absolute left-1/2 -translate-x-1/2 top-[30px] bottom-[62px] w-[200px] pointer-events-none z-[4]"
-          style={{ background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.06), transparent 70%)' }}
-        />
+          {/* Затемнение краёв убрано: оно перекрывало реальные часы у границ
+              суток непрозрачным фоном при прокрутке до упора */}
 
-        <div className="absolute top-[22px] bottom-[56px] left-1/2 w-[2px] z-5 pointer-events-none"
-          style={{
-            background: 'linear-gradient(180deg, transparent, #fff 15%, #fff 85%, transparent)',
-          }}
-        >
-          <div
-            ref={playheadTimeRef}
-            className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[6] font-mono text-[12px] text-white bg-[var(--surface-3)] border border-[var(--stroke)] px-2 py-0.5 rounded-md whitespace-nowrap tabular-nums"
-          >
-            {fmtHMS(nowMinutes)}
-          </div>
-          {/* Точка текущего момента — у верхнего края полосы баров */}
-          <div className="absolute bottom-[102px] left-1/2 -translate-x-1/2">
-            <span className="absolute inset-0 rounded-full bg-white/50 animate-ping" />
-            <span className="relative block h-[6px] w-[6px] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
-          </div>
-        </div>
-
-        {hv && (() => {
-          const a = ACCENTS[hv.color as keyof typeof ACCENTS] ?? ACCENTS.blue
-          return (
-            <div className="absolute z-[8] pointer-events-none" style={{ left: hv.x, top: 26, transform: 'translateX(-50%)' }}>
+          {(() => {
+            const t = cur
+            if (t.type === 'off') return null
+            const a = ACCENTS[t.color as keyof typeof ACCENTS] ?? ACCENTS.blue
+            return (
               <div
-                className="flex items-center gap-1.5 px-2 py-1 rounded-md whitespace-nowrap"
-                style={{ background: 'var(--surface-3)', border: '1px solid var(--stroke)', boxShadow: '0 6px 18px rgba(0,0,0,0.4)' }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={ICON_PATHS[hv.type] ?? ICON_PATHS.clock} />
-                </svg>
-                <span className="text-[10.5px] font-semibold" style={{ color: a.color }}>{hv.label}</span>
-                <span className="text-[10px] text-[var(--text-dim)] font-mono">{fmtHM(hv.min)}</span>
-              </div>
+                className="absolute left-1/2 -translate-x-1/2 top-[30px] bottom-[62px] w-[320px] pointer-events-none rounded-full"
+                style={{ background: `radial-gradient(ellipse at center, rgba(${a.glow},0.14), transparent 60%)` }}
+              />
+            )
+          })()}
+
+          {/* Плейхед текущего времени */}
+          <div className="absolute top-[22px] bottom-[56px] z-[5] pointer-events-none" style={{ left: nowPx }}>
+            <div className="absolute bottom-0 left-0 w-[2px] h-full"
+              style={{ background: 'linear-gradient(180deg, transparent, #fff 15%, #fff 85%, transparent)' }}
+            />
+            <div
+              className="absolute bottom-0 left-0 -translate-x-1/2 translate-y-[10px] z-[6] font-mono text-[12px] text-white bg-[var(--surface-3)] border border-[var(--stroke)] px-2 py-0.5 rounded-md whitespace-nowrap tabular-nums"
+            >
+              {fmtHMS(nowMinutes)}
             </div>
-          )
-        })()}
+          </div>
+
+          {hv && (() => {
+            const a = ACCENTS[hv.color as keyof typeof ACCENTS] ?? ACCENTS.blue
+            return (
+              <div className="absolute z-[8] pointer-events-none" style={{ left: hv.x, top: 26, transform: 'translateX(-50%)' }}>
+                <div
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md whitespace-nowrap"
+                  style={{ background: 'var(--surface-3)', border: '1px solid var(--stroke)', boxShadow: '0 6px 18px rgba(0,0,0,0.4)' }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d={ICON_PATHS[hv.type] ?? ICON_PATHS.clock} />
+                  </svg>
+                  <span className="text-[10.5px] font-semibold" style={{ color: a.color }}>{hv.label}</span>
+                  <span className="text-[10px] text-[var(--text-dim)] font-mono">{fmtHM(hv.min)}</span>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
       </div>
 
       <div className="px-6 pt-1 pb-3">
@@ -359,7 +240,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
               return (
                 <button
                   key={s.start}
-                  onClick={() => animateTo(s.start + 1)}
+                  onClick={() => jumpTo(s.start + 1)}
                   title={`${fmtHM(s.start)} — ${s.label}`}
                   className="h-full cursor-pointer transition-[filter] hover:brightness-125"
                   style={{ flex: s.end - s.start, background: c, opacity: s.type === 'off' ? 0.3 : 1 }}
@@ -391,13 +272,19 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
   )
 }
 
+function fmtDur(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = Math.round(min % 60)
+  return m === 0 ? `${h} ч` : `${h} ч ${m} мин`
+}
+
 /* Слои вынесены в memo: их props стабильны между секундными тиками,
    поэтому vdom не пересобирается на каждом рендере Timeline. */
 const MarkersLayer = memo(function MarkersLayer({ segments }: { segments: Segment[] }) {
   return (
     <>
       {segments.filter(s => s.type !== 'focus' && s.type !== 'off').map((s) => {
-        const x = ((s.start - DAY_START) / STEP_MIN) * PITCH
+        const x = pxOf(s.start)
         const a = ACCENTS[s.color as keyof typeof ACCENTS] ?? ACCENTS.blue
         return (
           <div
@@ -425,9 +312,8 @@ const RulerLayer = memo(function RulerLayer() {
     <>
       {Array.from({ length: Math.ceil((DAY_END - DAY_START) / 60) + 1 }, (_, i) => {
         const m = DAY_START + i * 60
-        const x = ((m - DAY_START) / STEP_MIN) * PITCH
         return (
-          <div key={m} className="absolute bottom-0 font-mono text-[10.5px] text-[var(--text-faint)]" style={{ left: x, transform: 'translateX(-50%)' }}>
+          <div key={m} className="absolute bottom-0 font-mono text-[10.5px] text-[var(--text-faint)]" style={{ left: pxOf(m), transform: 'translateX(-50%)' }}>
             <div className="absolute bottom-[16px] left-1/2 w-px h-[6px] bg-[var(--stroke)]" />
             {fmtHM(m)}
           </div>
@@ -436,24 +322,35 @@ const RulerLayer = memo(function RulerLayer() {
     </>
   )
 })
+
 const BarsLayer = memo(function BarsLayer({ bars, pitch }: { bars: { type: string; height: number; color: string }[]; pitch: number }) {
   return (
     <>
-      {bars.map((bar, i) => (
-        <div
-          key={i}
-          className={`shrink-0 rounded-t-[3px] rounded-b-[1px] ${bar.type}`}
-          style={{
-            width: pitch - 2,
-            marginRight: 1,
-            height: bar.height,
-            background: bar.type === 'off' ? 'var(--off)' : (ACCENTS[bar.color as keyof typeof ACCENTS] ?? ACCENTS.blue).gradient,
-            opacity: bar.type === 'off' ? 0.55 : 1,
-          }}
-        />
-      ))}
+      {/* ШАГ ПОЛОСЫ РОВЕН PITCH: width (pitch−1) + marginRight 1 = pitch.
+          Иначе полосы сжимаются и обрываются задолго до 24:00. */}
+      {bars.map((bar, i) => {
+        const isOff = bar.type === 'off'
+        const acc = isOff ? null : (ACCENTS[bar.color as keyof typeof ACCENTS] ?? ACCENTS.blue)
+        return (
+          <div
+            key={i}
+            className="shrink-0"
+            style={{
+              width: pitch - 1,
+              marginRight: 1,
+              height: bar.height,
+              borderRadius: '3px 3px 2px 2px',
+              background: isOff
+                ? 'linear-gradient(180deg, rgba(88, 93, 104, 0.85), rgba(88, 93, 104, 0.45))'
+                : `linear-gradient(180deg, ${acc!.color}, ${acc!.dot})`,
+              boxShadow: isOff
+                ? 'none'
+                : 'inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 0 6px rgba(' + acc!.glow + ', 0.22)',
+              opacity: isOff ? 0.5 : 1,
+            }}
+          />
+        )
+      })}
     </>
   )
 })
-
-

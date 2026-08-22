@@ -9,7 +9,10 @@ export const DAY_END = 1440
 /** Жёсткий лимит цепочки правил: сутки. */
 export const DAY_LIMIT = DAY_END
 export const STEP_MIN = 2
-export const PITCH = 7
+/** Шаг ленты подобран так, чтобы полная ширина суток (720·PITCH = 3600px)
+    была меньше лимита GPU-текстуры (обычно 4096px): иначе WebKitGTK
+    не растеризует хвост ленты и он «пропадает» на экране. */
+export const PITCH = 5
 /** Реальное время: 1 минута за минуту (для плавной интерполяции в Timeline). */
 const SIM_SPEED = 1 / 60
 export const SIM_SPEED_MIN_PER_SEC = SIM_SPEED
@@ -75,12 +78,9 @@ function segAt(min: number, segs: Segment[]): Segment {
   return segs[segs.length - 1]
 }
 
-export function buildBars(segments: Segment[], cutoffMin = Number.POSITIVE_INFINITY): { type: string; height: number; color: string }[] {
+export function buildBars(segments: Segment[]): { type: string; height: number; color: string }[] {
   const bars: { type: string; height: number; color: string }[] = []
   for (let m = DAY_START; m < DAY_END; m += STEP_MIN) {
-    /* Серые заглушки и блоки рисуются только в ПРОШЕДШЕЙ части дня:
-       будущее без плана остаётся пустым. */
-    if (m >= cutoffMin) break
     const s = segAt(m, segments)
     const local = (m - s.start) / Math.max(1, s.end - s.start)
     let intensity: number
