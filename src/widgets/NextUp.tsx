@@ -1,11 +1,26 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRhythm, fmtHM, fmtMS } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 const CIRC = 2 * Math.PI * 43
 
+/* Время никогда не обрезается: если строка шире внутреннего диаметра кольца,
+   она равномерно уменьшается transform'ом ровно до влезания. */
+const NUM_MAX_W = 116
+
 export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const { cur, resting, remain, segments, progress } = rhythm
+  const remainText = fmtMS(remain)
+  const numTextRef = useRef<HTMLDivElement>(null)
+  const [numScale, setNumScale] = useState(1)
+
+  useLayoutEffect(() => {
+    const el = numTextRef.current
+    if (!el) return
+    const w = el.offsetWidth // layout-ширина, не зависит от transform
+    setNumScale(w > 0 ? Math.min(1, NUM_MAX_W / w) : 1)
+  }, [remainText])
   const remainTotal = Math.max(1, cur.end - cur.start)
   const offset = CIRC * (1 - remain / remainTotal)
 
@@ -75,7 +90,7 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
               transition={{ duration: 0.3, ease: 'linear' }}
             />
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-2">
             {resting ? (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={curAccent.dot} strokeWidth="2">
                 <path d={ICON_PATHS[cur.type] ?? ICON_PATHS.clock} />
@@ -86,11 +101,18 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
                 <path d="M12 7v5l3.5 2" />
               </svg>
             )}
-            <div
-              className="font-[var(--font-display)] text-[34px] font-semibold tabular-nums leading-none tracking-[-0.02em]"
-              style={{ color: urgent ? 'var(--rest)' : 'var(--text)' }}
-            >
-              {fmtMS(remain)}
+            <div className="w-full flex justify-center overflow-hidden">
+              <div
+                ref={numTextRef}
+                className="font-[var(--font-display)] text-[23px] font-semibold tabular-nums leading-none tracking-[-0.02em] whitespace-nowrap inline-block"
+                style={{
+                  color: urgent ? 'var(--rest)' : 'var(--text)',
+                  transform: `scale(${numScale})`,
+                  transformOrigin: 'center',
+                }}
+              >
+                {remainText}
+              </div>
             </div>
             <div className="text-[10.5px] text-[var(--text-faint)]">осталось</div>
           </div>
