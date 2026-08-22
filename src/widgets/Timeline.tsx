@@ -10,6 +10,8 @@ function fmtDur(min: number): string {
 
 const BREAK_GROUP = new Set(['break', 'smoke', 'rest'])
 const FOOD_GROUP = new Set(['lunch', 'breakfast', 'dinner'])
+/** Полная ширина ленты суток в пикселях (график конечен — ровно 24 часа). */
+const FULL_ROW_WIDTH = Math.ceil((DAY_END - DAY_START) / STEP_MIN) * PITCH
 
 export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -21,16 +23,17 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const isDraggingRef = useRef(false)
   const dragStartX = useRef(0)
   const dragStartOffset = useRef(0)
-  const barsRef = useRef<HTMLDivElement>(null)
-  const markersRef = useRef<HTMLDivElement>(null)
-  const rulerRef = useRef<HTMLDivElement>(null)
+  const layersRef = useRef<HTMLDivElement>(null)
   const playheadTimeRef = useRef<HTMLDivElement>(null)
+  const lastTxRef = useRef(Number.NaN)
+  const lastSecRef = useRef('')
 
   const { DAY_START, DAY_END, STEP_MIN, PITCH, segments } = rhythm
 
+  /* Полосы на полные сутки: серые заглушки (off) заполняют всё время без плана,
+     включая будущее. Геометрия (rowWidth) — те же полные сутки. */
   const bars = useMemo(() => buildBars(segments), [segments])
-  const totalBars = bars.length
-  const rowWidth = totalBars * PITCH
+  const rowWidth = FULL_ROW_WIDTH
 
   const totals = useMemo(() => {
     const t = { focus: 0, break: 0, food: 0 }
@@ -69,20 +72,30 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     baseRef.current = { min: rhythm.nowMinutes, ts: performance.now() }
   }, [rhythm.nowMinutes])
 
-  const applyTransform = useCallback((min: number) => {
+  const applyTransform = useCallback((min: number, force = false) => {
     const homeOffsetPx = ((min - DAY_START) / STEP_MIN) * PITCH
     const total = homeOffsetPx + offsetRef.current
-    const tx = viewportCenterRef.current - total
+    /* Целые пиксели: субпиксельные transform'ы заставляют софтверный
+       композитор WebKitGTK перерастеризовывать слой каждый кадр. */
+    const tx = Math.round(viewportCenterRef.current - total)
 
-    /* Чистый translateX — композитор двигает готовую текстуру слоя.
-       Никаких rotateX/perspective: 3D-проекция 720 полос = перерастеризация каждого кадра. */
-    const style = `translateX(${tx}px)`
-    if (barsRef.current) barsRef.current.style.transform = style
-    if (markersRef.current) markersRef.current.style.transform = style
-    if (rulerRef.current) rulerRef.current.style.transform = style
+    const wasDirty = dirtyRef.current
+    dirtyRef.current = false
+
+    /* Пишем стиль ТОЛЬКО когда лента реально сдвинулась на ≥1px:
+       в покое время ползёт на ~0.1px/сек — без guard'а это 60 пустых
+       перерисовок в секунду, которые на fullscreen и дают микрофризы. */
+    if (force || wasDirty || Math.abs(tx - lastTxRef.current) >= 1) {
+      lastTxRef.current = tx
+      if (layersRef.current) layersRef.current.style.transform = `translateX(${tx}px)`
+    }
 
     const minuteAtCenter = DAY_START + total / PITCH * STEP_MIN
-    if (playheadTimeRef.current) playheadTimeRef.current.textContent = fmtHMS(minuteAtCenter)
+    const secStr = fmtHMS(minuteAtCenter)
+    if (secStr !== lastSecRef.current) {
+      lastSecRef.current = secStr
+      if (playheadTimeRef.current) playheadTimeRef.current.textContent = secStr
+    }
   }, [DAY_START, PITCH, STEP_MIN])
 
   /* Единственный владелец кадра: инерция, время и применение transform —
@@ -97,6 +110,15 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         velocityRef.current *= 0.9
         if (Math.abs(velocityRef.current) <= 0.02) velocityRef.current = 0
       }
+
+      /* График конечен — только сегодняшние сутки: не даём утащить ленту так,
+         чтобы за краями центра открывалась пустота до/после 00:00–24:00. */
+      const smoothPx = ((smoothNowRef.current - DAY_START) / STEP_MIN) * PITCH
+      const offMin = -smoothPx // старт суток не правее центра
+      const offMax = FULL_ROW_WIDTH - smoothPx // конец суток не левее центра
+      if (offsetRef.current < offMin) offsetRef.current = offMin
+      else if (offsetRef.current > offMax) offsetRef.current = offMax
+
       smoothNowRef.current = baseRef.current.min + (ts - baseRef.current.ts) / 1000 * SIM_SPEED_MIN_PER_SEC
       applyTransform(smoothNowRef.current)
       raf = requestAnimationFrame(loop)
@@ -146,19 +168,17 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   }, [])
 
   const animateTo = useCallback((min: number) => {
-    const target = (min - rhythm.nowMinutes) / STEP_MIN * PITCH
-    const onDone = () => {
-      ;[barsRef, markersRef, rulerRef].forEach((ref) => {
-        if (ref.current) ref.current.style.transition = 'none'
-      })
-    }
-    ;[barsRef, markersRef, rulerRef].forEach((ref) => {
-      if (ref.current) ref.current.style.transition = 'transform 0.6s cubic-bezier(0.2,0.9,0.25,1)'
-    })
+    const target0 = (min - rhythm.nowMinutes) / STEP_MIN * PITCH
+    // Не даём кнопкам/карте дня увести ленту за границы суток
+    const sPx = ((smoothNowRef.current - DAY_START) / STEP_MIN) * PITCH
+    const target = Math.max(-sPx, Math.min(FULL_ROW_WIDTH - sPx, target0))
+    if (layersRef.current) layersRef.current.style.transition = 'transform 0.6s cubic-bezier(0.2,0.9,0.25,1)'
     offsetRef.current = target
     velocityRef.current = 0
-    applyTransform(smoothNowRef.current)
-    setTimeout(onDone, 620)
+    applyTransform(smoothNowRef.current, true)
+    setTimeout(() => {
+      if (layersRef.current) layersRef.current.style.transition = 'none'
+    }, 620)
   }, [applyTransform, rhythm.nowMinutes, STEP_MIN, PITCH])
 
   useEffect(() => {
@@ -265,26 +285,27 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
           )
         })()}
 
-        <div ref={barsRef} className="absolute left-0 top-[30px] bottom-[62px] flex items-end will-change-transform pointer-events-none" style={{ width: rowWidth }}>
-          <BarsLayer bars={bars} pitch={PITCH} />
-          {/* Одно «дышащее» свечение на весь слой вместо анимации каждой полосы */}
-          <div
-            className="absolute inset-0 z-[1] pointer-events-none"
-            style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.04) 50%, transparent)', animation: 'bars-shimmer 4.5s ease-in-out infinite' }}
-          />
+        {/* Один общий слой для всего, что движется вместе: одна текстурная
+            группа вместо трёх — втрое меньше композитной работы на кадр. */}
+        <div ref={layersRef} className="absolute inset-0 will-change-transform pointer-events-none">
+          {/* Слой фиксированной высоты (макс. полоса ~78px + запас): текстура
+              не растёт с окном — иначе fullscreen = мегабайтные блиты каждый кадр */}
+          <div className="absolute left-0 bottom-[62px] h-[96px] flex items-end" style={{ width: rowWidth }}>
+            <BarsLayer bars={bars} pitch={PITCH} />
+          </div>
+
+          <div className="absolute left-0 top-[4px] h-[20px] z-[3]" style={{ width: rowWidth }}>
+            <MarkersLayer segments={segments} />
+          </div>
+
+          <div className="absolute left-0 bottom-[6px] h-[52px]" style={{ width: rowWidth }}>
+            <RulerLayer />
+          </div>
         </div>
 
         <div className="absolute left-1/2 -translate-x-1/2 top-[30px] bottom-[62px] w-[200px] pointer-events-none z-[4]"
           style={{ background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.06), transparent 70%)' }}
         />
-
-        <div ref={markersRef} className="absolute left-0 top-[4px] h-[20px] will-change-transform pointer-events-none z-[3]" style={{ width: rowWidth }}>
-          <MarkersLayer segments={segments} />
-        </div>
-
-        <div ref={rulerRef} className="absolute left-0 bottom-[6px] h-[52px] will-change-transform pointer-events-none" style={{ width: rowWidth }}>
-          <RulerLayer />
-        </div>
 
         <div className="absolute top-[22px] bottom-[56px] left-1/2 w-[2px] z-5 pointer-events-none"
           style={{
@@ -297,7 +318,8 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
           >
             {fmtHMS(rhythm.nowMinutes)}
           </div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+          {/* Точка текущего момента — у верхнего края полосы баров */}
+          <div className="absolute bottom-[102px] left-1/2 -translate-x-1/2">
             <span className="absolute inset-0 rounded-full bg-white/50 animate-ping" />
             <span className="relative block h-[6px] w-[6px] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
           </div>

@@ -75,9 +75,12 @@ function segAt(min: number, segs: Segment[]): Segment {
   return segs[segs.length - 1]
 }
 
-export function buildBars(segments: Segment[]): { type: string; height: number; color: string }[] {
+export function buildBars(segments: Segment[], cutoffMin = Number.POSITIVE_INFINITY): { type: string; height: number; color: string }[] {
   const bars: { type: string; height: number; color: string }[] = []
   for (let m = DAY_START; m < DAY_END; m += STEP_MIN) {
+    /* Серые заглушки и блоки рисуются только в ПРОШЕДШЕЙ части дня:
+       будущее без плана остаётся пустым. */
+    if (m >= cutoffMin) break
     const s = segAt(m, segments)
     const local = (m - s.start) / Math.max(1, s.end - s.start)
     let intensity: number

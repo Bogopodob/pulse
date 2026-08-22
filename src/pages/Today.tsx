@@ -56,7 +56,7 @@ export function Today({
           >
             <span
               className="size-[6px] rounded-full"
-              style={{ background: todayStatus.color, boxShadow: `0 0 7px ${todayStatus.color}`, animation: 'nu-glow-pulse 3.2s ease-in-out infinite' }}
+              style={{ background: todayStatus.color, boxShadow: `0 0 7px ${todayStatus.color}` }}
             />
             {todayStatus.label}
           </div>

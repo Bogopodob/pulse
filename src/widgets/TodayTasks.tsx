@@ -60,7 +60,7 @@ export function TodayTasks({ rhythm }: { rhythm: ReturnType<typeof useRhythm> })
                     <path d="M4 12.5l5 5L20 6.5" />
                   </svg>
                 ) : status === 'active' ? (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style={{ animation: 'nu-glow-pulse 2.4s ease-in-out infinite' }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 ) : (
