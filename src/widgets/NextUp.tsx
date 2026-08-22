@@ -158,32 +158,6 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
             })}
           </div>
         )}
-
-        <div className="flex gap-2 mt-auto pt-5 w-full">          <motion.button
-            whileTap={{ scale: 0.96 }}
-            className="btn btn-ghost flex-1"
-            onClick={() => {
-              const el = document.querySelector('.timeline-viewport')
-              if (el) el.scrollBy({ left: -200, behavior: 'smooth' })
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="13" r="8" />
-              <path d="M12 9v4l2.5 1.5M9 3h6" />
-            </svg>
-            +5 мин
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            className="btn btn-primary flex-1"
-            style={resting ? { background: `linear-gradient(135deg, ${curAccent.dot}, ${curAccent.dot})`, border: 'none', color: '#131418' } : undefined}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-            {resting ? 'Закончить' : 'Начать сейчас'}
-          </motion.button>
-        </div>
       </div>
     </div>
   )
