@@ -471,7 +471,7 @@ function ProfileBody() {
 function GeneralBody() {
   const { theme, setTheme } = useTheme()
   const { locale, setLocale } = useI18n()
-  const { weekStart, setWeekStart } = useSettings()
+  const { weekStart, setWeekStart, systemNotifications, setSystemNotifications } = useSettings()
 
   return (
     <div className="flex flex-col">
@@ -514,6 +514,16 @@ function GeneralBody() {
             ]}
             value={weekStart}
             onChange={(w) => setWeekStart(w as 'mon' | 'sun')}
+          />
+        }
+      />
+      <Row
+        title="Системные уведомления"
+        hint="Смена блоков — через уведомления ОС (Windows 11, macOS, Linux)"
+        control={
+          <Switch
+            on={systemNotifications}
+            onChange={() => setSystemNotifications(!systemNotifications)}
           />
         }
         last

@@ -19,6 +19,8 @@ export interface Settings {
   timeFormat: TimeFormat
   weekStart: WeekStart
   timezone: string
+  /** Системные уведомления ОС вместо внутренних тостов. */
+  systemNotifications: boolean
 }
 
 const DEFAULTS: Settings = {
@@ -30,6 +32,8 @@ const DEFAULTS: Settings = {
   timeFormat: '24h',
   weekStart: 'mon',
   timezone: 'Europe/Moscow',
+  /** Системные уведомления ОС вместо внутренних тостов. */
+  systemNotifications: true,
 }
 
 interface SettingsContextValue extends Settings {
@@ -41,6 +45,7 @@ interface SettingsContextValue extends Settings {
   setTimeFormat: (f: TimeFormat) => void
   setWeekStart: (w: WeekStart) => void
   setTimezone: (tz: string) => void
+  setSystemNotifications: (v: boolean) => void
   reset: () => void
 }
 
@@ -67,6 +72,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             timeFormat: map.get('time_format') === '12h' ? '12h' : '24h',
             weekStart: map.get('week_start') === 'sun' ? 'sun' : 'mon',
             timezone: map.get('timezone')?.trim() || DEFAULTS.timezone,
+            systemNotifications: map.get('system_notifications') !== '0',
           })
         }
         hydratedRef.current = true
@@ -93,6 +99,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       time_format: settings.timeFormat,
       week_start: settings.weekStart,
       timezone: settings.timezone,
+      system_notifications: settings.systemNotifications ? '1' : '0',
     }).catch((e) => console.error('save settings failed:', e))
   }, [settings])
 
@@ -128,6 +135,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings((s) => ({ ...s, timezone: tz }))
   }, [])
 
+  const setSystemNotifications = useCallback((v: boolean) => {
+    setSettings((s) => ({ ...s, systemNotifications: v }))
+  }, [])
+
   const reset = useCallback(() => {
     setSettings(DEFAULTS)
   }, [])
@@ -144,6 +155,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         setTimeFormat,
         setWeekStart,
         setTimezone,
+        setSystemNotifications,
         reset,
       }}
     >

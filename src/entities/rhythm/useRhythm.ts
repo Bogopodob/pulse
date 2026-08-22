@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { RESTING_TYPES } from './activities'
 import type { Rule } from './activities'
+import { useSettings } from '../../shared/hooks/useSettings'
+import { notify } from '../../shared/lib/notify'
 
 export const DAY_START = 0
 export const DAY_END = 1440
@@ -112,20 +114,31 @@ export function useRhythm(rules: Rule[], chainStart = CHAIN_START) {
 
   const segments = useMemo(() => buildSegments(rules, chainStart), [rules, chainStart])
 
+  /* Смена блока: системное уведомление через ОС (Win11 toast / macOS / Linux),
+     при недоступности — внутренний тост. Управляется тумблером в Настройках. */
+  const { systemNotifications } = useSettings()
+  const showToast = useCallback((title: string, text: string) => {
+    setToast({ title, text })
+    window.setTimeout(() => setToast(null), 4200)
+  }, [])
+
   useEffect(() => {
     const cur = segAt(nowMinutes, segments)
-    if (cur.type !== lastTypeRef.current) {
-      const resting = RESTING_TYPES.has(cur.type)
-      setToast({
-        title: resting ? 'Время отдохнуть' : 'Возвращаемся к работе',
-        text: resting
-          ? 'Встань, разомнись, посмотри вдаль'
-          : `Блок начался — ${cur.label} до ${fmtHM(cur.end)}`,
-      })
-      setTimeout(() => setToast(null), 4200)
-      lastTypeRef.current = cur.type
+    if (cur.type === lastTypeRef.current) return
+    lastTypeRef.current = cur.type
+    const resting = RESTING_TYPES.has(cur.type)
+    const title = resting ? 'Время отдохнуть' : 'Возвращаемся к работе'
+    const text = resting
+      ? 'Встань, разомнись, посмотри вдаль'
+      : `Блок начался — ${cur.label} до ${fmtHM(cur.end)}`
+    if (!systemNotifications) {
+      showToast(title, text)
+      return
     }
-  }, [nowMinutes, segments])
+    void notify(title, text).then((sent) => {
+      if (!sent) showToast(title, text)
+    })
+  }, [nowMinutes, segments, systemNotifications, showToast])
 
   const cur = segAt(nowMinutes, segments)
   const resting = RESTING_TYPES.has(cur.type)

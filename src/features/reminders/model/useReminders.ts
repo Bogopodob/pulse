@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Reminder, ReminderStatus } from '../../../shared/types'
-import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
+import { notify } from '../../../shared/lib/notify'
 
 const STORAGE_KEY = 'pulse-reminders'
 
@@ -14,24 +14,6 @@ function loadReminders(): Reminder[] {
 
 function saveReminders(reminders: Reminder[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(reminders))
-}
-
-let notifGranted = false
-
-async function ensureNotificationPermission() {
-  if (notifGranted) return true
-  try {
-    const granted = await isPermissionGranted()
-    if (granted) {
-      notifGranted = true
-      return true
-    }
-    const permission = await requestPermission()
-    notifGranted = permission === 'granted'
-    return notifGranted
-  } catch {
-    return false
-  }
 }
 
 function getRemaining(reminder: Reminder): number {
@@ -59,14 +41,7 @@ export function useReminders() {
       const remaining = getRemaining(r)
       if (remaining <= 0 && !notifiedRef.current.has(r.id)) {
         notifiedRef.current.add(r.id)
-        ensureNotificationPermission().then((granted) => {
-          if (granted) {
-            sendNotification({
-              title: "Time's up!",
-              body: r.title,
-            })
-          }
-        })
+        void notify("Time's up!", r.title)
       }
     }
   }, [reminders, now])
