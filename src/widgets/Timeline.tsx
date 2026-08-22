@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react'
-import { useRhythm, fmtHM, fmtHMS, buildBars, SIM_SPEED_MIN_PER_SEC, DAY_START, DAY_END, STEP_MIN, PITCH } from '../entities/rhythm/useRhythm'
+import { fmtHM, fmtHMS, buildBars, SIM_SPEED_MIN_PER_SEC, DAY_START, DAY_END, STEP_MIN, PITCH, type Segment } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 function fmtDur(min: number): string {
@@ -13,7 +13,15 @@ const FOOD_GROUP = new Set(['lunch', 'breakfast', 'dinner'])
 /** Полная ширина ленты суток в пикселях (график конечен — ровно 24 часа). */
 const FULL_ROW_WIDTH = Math.ceil((DAY_END - DAY_START) / STEP_MIN) * PITCH
 
-export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
+export interface TimelineProps {
+  segments: Segment[]
+  /** Минутная квантизация: Timeline перерисовывается раз в минуту,
+      плейхед между синхронизациями живёт на rAF-интерполяции. */
+  nowMinutes: number
+  cur: Segment
+}
+
+export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [showJump, setShowJump] = useState(false)
@@ -27,8 +35,6 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const playheadTimeRef = useRef<HTMLDivElement>(null)
   const lastTxRef = useRef(Number.NaN)
   const lastSecRef = useRef('')
-
-  const { DAY_START, DAY_END, STEP_MIN, PITCH, segments } = rhythm
 
   /* Полосы на полные сутки: серые заглушки (off) заполняют всё время без плана,
      включая будущее. Геометрия (rowWidth) — те же полные сутки. */
@@ -45,8 +51,8 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     return t
   }, [segments])
 
-  const baseRef = useRef({ min: rhythm.nowMinutes, ts: performance.now() })
-  const smoothNowRef = useRef(rhythm.nowMinutes)
+  const baseRef = useRef({ min: nowMinutes, ts: performance.now() })
+  const smoothNowRef = useRef(nowMinutes)
 
   /* Кэш геометрии вьюпорта: никаких clientWidth/getBoundingClientRect
      внутри покадровых обновлений — иначе layout thrash и фризы при драге. */
@@ -69,8 +75,8 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   }, [])
 
   useEffect(() => {
-    baseRef.current = { min: rhythm.nowMinutes, ts: performance.now() }
-  }, [rhythm.nowMinutes])
+    baseRef.current = { min: nowMinutes, ts: performance.now() }
+  }, [nowMinutes])
 
   const applyTransform = useCallback((min: number, force = false) => {
     const homeOffsetPx = ((min - DAY_START) / STEP_MIN) * PITCH
@@ -161,14 +167,14 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
 
   useEffect(() => {
     setShowJump(Math.abs(offsetRef.current) > 4)
-  }, [rhythm.nowMinutes])
+  }, [nowMinutes])
 
   useEffect(() => {
     return () => cancelAnimationFrame(hoverFrameRef.current)
   }, [])
 
   const animateTo = useCallback((min: number) => {
-    const target0 = (min - rhythm.nowMinutes) / STEP_MIN * PITCH
+    const target0 = (min - nowMinutes) / STEP_MIN * PITCH
     // Не даём кнопкам/карте дня увести ленту за границы суток
     const sPx = ((smoothNowRef.current - DAY_START) / STEP_MIN) * PITCH
     const target = Math.max(-sPx, Math.min(FULL_ROW_WIDTH - sPx, target0))
@@ -179,7 +185,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
     setTimeout(() => {
       if (layersRef.current) layersRef.current.style.transition = 'none'
     }, 620)
-  }, [applyTransform, rhythm.nowMinutes, STEP_MIN, PITCH])
+  }, [applyTransform, nowMinutes, STEP_MIN, PITCH])
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -191,7 +197,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   }, [animateTo])
 
   const handleJumpNow = () => {
-    animateTo(rhythm.nowMinutes)
+    animateTo(nowMinutes)
   }
 
   return (
@@ -274,7 +280,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         />
 
         {(() => {
-          const t = rhythm.cur
+          const t = cur
           if (t.type === 'off') return null
           const a = ACCENTS[t.color as keyof typeof ACCENTS] ?? ACCENTS.blue
           return (
@@ -316,7 +322,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
             ref={playheadTimeRef}
             className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[6] font-mono text-[12px] text-white bg-[var(--surface-3)] border border-[var(--stroke)] px-2 py-0.5 rounded-md whitespace-nowrap tabular-nums"
           >
-            {fmtHMS(rhythm.nowMinutes)}
+            {fmtHMS(nowMinutes)}
           </div>
           {/* Точка текущего момента — у верхнего края полосы баров */}
           <div className="absolute bottom-[102px] left-1/2 -translate-x-1/2">
@@ -387,7 +393,7 @@ export function Timeline({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
 
 /* Слои вынесены в memo: их props стабильны между секундными тиками,
    поэтому vdom не пересобирается на каждом рендере Timeline. */
-const MarkersLayer = memo(function MarkersLayer({ segments }: { segments: ReturnType<typeof useRhythm>['segments'] }) {
+const MarkersLayer = memo(function MarkersLayer({ segments }: { segments: Segment[] }) {
   return (
     <>
       {segments.filter(s => s.type !== 'focus' && s.type !== 'off').map((s) => {

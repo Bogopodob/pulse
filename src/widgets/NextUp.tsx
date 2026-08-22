@@ -50,16 +50,16 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
       />
 
       <div className="absolute top-0 left-0 right-0 h-[2px] z-[2]" style={{ background: 'rgba(255,255,255,0.05)' }}>
-        <motion.div
+        <div
           className="h-full rounded-full"
           style={{
             background: resting
               ? `linear-gradient(90deg, ${curAccent.dot}, ${curAccent.dot})`
               : 'linear-gradient(90deg, var(--focus), var(--focus-2))',
             boxShadow: `0 0 8px rgba(${curAccent.glow},0.7)`,
+            width: `${Math.round(progress * 100)}%`,
+            transition: 'width 0.35s linear',
           }}
-          animate={{ width: `${Math.round(progress * 100)}%` }}
-          transition={{ duration: 0.4, ease: 'linear' }}
         />
       </div>
 
@@ -78,16 +78,17 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
               </linearGradient>
             </defs>
             <circle cx="50" cy="50" r="43" fill="none" stroke="var(--surface-3)" strokeWidth="7" />
-            <motion.circle
+            <circle
               cx="50" cy="50" r="43"
               fill="none"
               strokeWidth="7"
               strokeLinecap="round"
               stroke={resting ? curAccent.dot : 'url(#nuGrad)'}
               strokeDasharray={CIRC.toFixed(1)}
-              initial={false}
-              animate={{ strokeDashoffset: offset.toFixed(1) }}
-              transition={{ duration: 0.3, ease: 'linear' }}
+              style={{
+                strokeDashoffset: offset.toFixed(1),
+                transition: 'stroke-dashoffset 0.3s linear',
+              }}
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-2">

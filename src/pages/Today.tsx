@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { useRhythm } from '../entities/rhythm/useRhythm'
 import { ACCENTS } from '../entities/rhythm/activities'
@@ -8,6 +9,10 @@ import { Timeline } from '../widgets/Timeline'
 import { TodayTasks } from '../widgets/TodayTasks'
 import { RuleChips } from '../features/add-rule'
 import { Toast } from '../widgets/Toast'
+
+/* График перерисовывается раз в минуту (плейхед между синхронизациями
+   живёт на rAF-интерполяции) — секундный тик часов его не дёргает. */
+const MemoTimeline = memo(Timeline)
 
 export function Today({
   title,
@@ -71,7 +76,13 @@ export function Today({
           <div className="aurora-blob a2" />
         </div>
         <div className="relative z-[1] min-w-0 order-1"><NextUp rhythm={rhythm} /></div>
-        <div className="relative z-[1] min-w-0 order-2"><Timeline rhythm={rhythm} /></div>
+        <div className="relative z-[1] min-w-0 order-2">
+          <MemoTimeline
+            segments={rhythm.segments}
+            nowMinutes={Math.floor(rhythm.nowMinutes)}
+            cur={rhythm.cur}
+          />
+        </div>
         <div className="relative z-[1] min-w-0 order-3"><TodayTasks rhythm={rhythm} /></div>
         <div className="relative z-[1] min-w-0 order-4">
           <RuleChips
