@@ -78,7 +78,7 @@ export function Today({
             cur={rhythm.cur}
           />
         </div>
-        <div className="relative z-[1] min-w-0 order-3"><TodayTasks rhythm={rhythm} /></div>
+        <div className="relative z-[1] min-w-0 order-3"><TodayTasks /></div>
         <div className="relative z-[1] min-w-0 order-4">
           <RuleChips
             rules={rules}
