@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
+import { motion } from 'framer-motion'
 import { fmtHM, fmtHMS, buildBars, DAY_START, DAY_END, STEP_MIN, PITCH, type Segment } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
@@ -199,11 +200,39 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
             )
           })()}
 
-          {/* Плейхед текущего времени */}
+          {/* Плейхед текущего времени — секундная стрелка */}
           <div className="absolute top-[22px] bottom-[56px] z-[5] pointer-events-none" style={{ left: nowPx }}>
-            <div className="absolute bottom-0 left-0 w-[2px] h-full"
-              style={{ background: 'linear-gradient(180deg, transparent, #fff 15%, #fff 85%, transparent)' }}
-            />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="relative h-full"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{
+                  scale: 1,
+                  boxShadow: [
+                    '0 0 6px rgba(255,59,48,0.4)',
+                    '0 0 14px rgba(255,59,48,0.7)',
+                    '0 0 6px rgba(255,59,48,0.4)',
+                  ],
+                }}
+                transition={{
+                  scale: { type: 'spring' as const, stiffness: 300, damping: 10 },
+                  boxShadow: { repeat: Infinity, duration: 2, ease: 'easeInOut' },
+                }}
+                className="absolute rounded-full"
+                style={{
+                  width: 6, height: 6, top: 2, left: '50%', marginLeft: -3,
+                  background: '#ff3b30',
+                }}
+              />
+              <div className="absolute top-[11px] bottom-0 left-1/2 rounded-full" style={{
+                width: 1.5,
+                background: 'linear-gradient(180deg, #ff3b30 0%, #ff3b30 15%, rgba(255,59,48,0.15) 50%, transparent 100%)',
+              }} />
+            </motion.div>
             <div
               className="absolute bottom-0 left-0 -translate-x-1/2 translate-y-[10px] z-[6] font-mono text-[12px] text-white bg-[var(--surface-3)] border border-[var(--stroke)] px-2 py-0.5 rounded-md whitespace-nowrap tabular-nums"
             >
@@ -308,14 +337,36 @@ const MarkersLayer = memo(function MarkersLayer({ segments }: { segments: Segmen
 })
 
 const RulerLayer = memo(function RulerLayer() {
+  const totalTicks = Math.ceil((DAY_END - DAY_START) / 60)
   return (
     <>
-      {Array.from({ length: Math.ceil((DAY_END - DAY_START) / 60) + 1 }, (_, i) => {
+      {Array.from({ length: totalTicks + 1 }, (_, i) => {
         const m = DAY_START + i * 60
+        const isFirst = i === 0
+        const isLast = i === totalTicks
         return (
-          <div key={m} className="absolute bottom-0 font-mono text-[10.5px] text-[var(--text-faint)]" style={{ left: pxOf(m), transform: 'translateX(-50%)' }}>
-            <div className="absolute bottom-[16px] left-1/2 w-px h-[6px] bg-[var(--stroke)]" />
-            {fmtHM(m)}
+          <div
+            key={m}
+            className="absolute bottom-0 font-mono text-[10.5px] text-[var(--text-faint)]"
+            style={{
+              left: pxOf(m),
+              transform: isFirst ? 'translateX(3px)' : isLast ? 'translateX(calc(-100% - 3px))' : 'translateX(-50%)',
+              textAlign: isFirst ? 'left' : isLast ? 'right' : 'center',
+            }}
+          >
+            <div
+              className="absolute bottom-[16px] w-px h-[6px] bg-[var(--stroke)]"
+              style={{ left: isFirst ? 0 : isLast ? undefined : '50%', right: isLast ? 0 : undefined }}
+            />
+            {(isFirst || isLast) && (
+              <div
+                className="absolute bottom-[27px] left-0 right-0 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-[var(--text-dim)] whitespace-nowrap"
+                style={{ fontFamily: 'var(--font-display)' }}
+              >
+                {isFirst ? 'Начало нового дня' : 'Конец дня'}
+              </div>
+            )}
+            {isFirst ? '00:00' : isLast ? '24' : fmtHM(m)}
           </div>
         )
       })}
