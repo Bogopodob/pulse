@@ -27,9 +27,12 @@ export interface DayTemplate {
 
 interface DayOverride {
   date: string
-  /** null — на сегодня явно выбрано «Без шаблона». */
+  /** null — на эту дату явно выбрано «Без шаблона». */
   templateId: string | null
 }
+
+/** Переопределения по датам: YYYY-MM-DD → templateId | null («без шаблона»). */
+export type DateOverrides = Record<string, string | null>
 
 const TEMPLATES_KEY = 'pulse-templates'
 const OVERRIDE_KEY = 'pulse-template-day-override'
@@ -40,9 +43,13 @@ function todayDayNum(): number {
 
 export const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
-function todayKey(): string {
-  const d = new Date()
+/** Ключ даты YYYY-MM-DD в локальном времени. */
+export function dateKeyOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function todayKey(): string {
+  return dateKeyOf(new Date())
 }
 
 function loadTemplates(): DayTemplate[] {
@@ -64,26 +71,45 @@ function loadTemplates(): DayTemplate[] {
   }
 }
 
-function loadOverride(): DayOverride | null {
+/** Загрузка переопределений: поддерживаем старый одиночный формат и чистим прошлое. */
+function loadOverrides(): DateOverrides {
   try {
     const raw = localStorage.getItem(OVERRIDE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as DayOverride
-    if (typeof parsed.date !== 'string') return null
-    if (parsed.templateId !== null && typeof parsed.templateId !== 'string') return null
-    return parsed.date === todayKey() ? parsed : null
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as unknown
+    const todayK = todayKey()
+    const out: DateOverrides = {}
+    if (parsed && typeof parsed === 'object' && 'date' in (parsed as object)) {
+      const o = parsed as DayOverride
+      if (o.date === todayK && (typeof o.templateId === 'string' || o.templateId === null)) {
+        out[o.date] = o.templateId
+      }
+      return out
+    }
+    for (const [k, v] of Object.entries((parsed ?? {}) as Record<string, unknown>)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(k) && k >= todayK && (v === null || typeof v === 'string')) {
+        out[k] = v as string | null
+      }
+    }
+    return out
   } catch {
-    return null
+    return {}
   }
 }
 
 interface TemplatesContextValue {
   templates: DayTemplate[]
+  /** Загрузка переопределений по датам (прошедшие даты отфильтрованы). */
+  overrides: DateOverrides
   /** В Tauri список грузится из БД — пока false список может быть пуст. */
   loading: boolean
   activeTemplate: DayTemplate | null
   isOverridden: boolean
   selectForToday: (templateId: string | null | 'none') => void
+  /** Переопределение на конкретную дату; undefined — убрать особый день. */
+  setDayOverride: (dateKey: string, value: string | null | undefined) => void
+  /** Закрепить день недели за шаблоном (null — «без шаблона»); у остальных шаблонов день снимается. */
+  assignWeekday: (dayNum: number, templateId: string | null) => void
   createTemplate: (tpl: Omit<DayTemplate, 'id'>) => Promise<DayTemplate>
   updateTemplate: (id: string, patch: Partial<DayTemplate>) => Promise<void>
   deleteTemplate: (id: string) => Promise<void>
@@ -96,7 +122,7 @@ export function TemplatesProvider({ children }: { children: ReactNode }) {
   const tauri = useMemo(() => isTauri(), [])
   const [templates, setTemplates] = useState<DayTemplate[]>(() => (tauri ? [] : loadTemplates()))
   const [loading, setLoading] = useState(false)
-  const [override, setOverride] = useState<DayOverride | null>(loadOverride)
+  const [overrides, setOverrides] = useState<DateOverrides>(loadOverrides)
 
   useEffect(() => {
     if (!tauri) return
@@ -125,31 +151,37 @@ export function TemplatesProvider({ children }: { children: ReactNode }) {
   }, [tauri, templates])
 
   useEffect(() => {
-    if (override) {
-      localStorage.setItem(OVERRIDE_KEY, JSON.stringify(override))
-    } else {
-      localStorage.removeItem(OVERRIDE_KEY)
+    try {
+      localStorage.setItem(OVERRIDE_KEY, JSON.stringify(overrides))
+    } catch {
+      /* ignore */
     }
-  }, [override])
+  }, [overrides])
 
-  /* Приоритет: явное переопределение на сегодня (включая «Без шаблона»),
-     иначе — автоподбор по дню недели. */
-  const activeTemplate = override
-    ? override.templateId
-      ? templates.find((t) => t.id === override.templateId) ?? null
+  /* Приоритет: особая дата (включая «Без шаблона»), иначе автоподбор по дню недели. */
+  const todaysOverride = overrides[todayKey()]
+  const activeTemplate = todaysOverride !== undefined
+    ? todaysOverride
+      ? templates.find((t) => t.id === todaysOverride) ?? null
       : null
     : (templates.find((t) => t.days.includes(todayDayNum())) ?? null)
 
   const selectForToday = useCallback((templateId: string | null | 'none') => {
-    if (templateId === 'none') {
-      setOverride({ date: todayKey(), templateId: null })
-      return
-    }
-    if (templateId === null) {
-      setOverride(null)
-      return
-    }
-    setOverride({ date: todayKey(), templateId })
+    setOverrides((prev) => {
+      const next = { ...prev }
+      if (templateId === null) delete next[todayKey()]
+      else next[todayKey()] = templateId === 'none' ? null : templateId
+      return next
+    })
+  }, [])
+
+  const setDayOverride = useCallback((dateKey: string, value: string | null | undefined) => {
+    setOverrides((prev) => {
+      const next = { ...prev }
+      if (value === undefined) delete next[dateKey]
+      else next[dateKey] = value
+      return next
+    })
   }, [])
 
   const createTemplate = useCallback(
@@ -188,13 +220,38 @@ export function TemplatesProvider({ children }: { children: ReactNode }) {
     [tauri],
   )
 
+  /** Закрепить день за шаблоном: день снимается у прежнего шаблона, присваивается новому. */
+  const assignWeekday = useCallback(
+    (dayNum: number, templateId: string | null) => {
+      for (const t of templates) {
+        const has = t.days.includes(dayNum)
+        const isTarget = t.id === templateId
+        if (isTarget === has) continue
+        const days = isTarget ? [...t.days, dayNum].sort((a, b) => a - b) : t.days.filter((d) => d !== dayNum)
+        void updateTemplate(t.id, { days }).catch(() => {})
+      }
+    },
+    [templates, updateTemplate],
+  )
+
   const deleteTemplate = useCallback(
     async (id: string) => {
       if (tauri) {
         await apiDeleteTemplate(id)
       }
       setTemplates((ts) => ts.filter((t) => t.id !== id))
-      setOverride((o) => (o && o.templateId === id ? null : o))
+      setOverrides((o) => {
+        const next: DateOverrides = {}
+        let dirty = false
+        for (const [k, v] of Object.entries(o)) {
+          if (v === id) {
+            dirty = true
+            continue
+          }
+          next[k] = v
+        }
+        return dirty ? next : o
+      })
     },
     [tauri],
   )
@@ -225,10 +282,13 @@ export function TemplatesProvider({ children }: { children: ReactNode }) {
     <TemplatesContext.Provider
       value={{
         templates,
+        overrides,
         loading,
         activeTemplate,
-        isOverridden: !!override,
+        isOverridden: todaysOverride !== undefined,
         selectForToday,
+        setDayOverride,
+        assignWeekday,
         createTemplate,
         updateTemplate,
         deleteTemplate,

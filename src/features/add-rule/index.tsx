@@ -3,11 +3,11 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { ACTIVITIES } from '../../entities/rhythm/activities'
 import type { Rule, RuleColor } from '../../entities/rhythm/activities'
 import { DAY_LIMIT } from '../../entities/rhythm/useRhythm'
-import { WEEKDAYS } from '../../entities/templates/useTemplates'
 import type { DayTemplate } from '../../entities/templates/useTemplates'
 import { RuleRow } from './ui/RuleRow'
 import type { EditState } from './ui/RuleRow'
 import { BlockCreator } from './ui/BlockCreator'
+import { WeekPicker } from './ui/WeekPicker'
 
 function ruleRanges(rules: Rule[], chainStart: number): { start: number; end: number }[] {
   const out: { start: number; end: number }[] = []
@@ -26,7 +26,10 @@ export const RuleChips = memo(function RuleChips({
   templates,
   activeTemplateId,
   isOverridden,
+  overrides,
   onSelectTemplate,
+  onAssignWeekday,
+  onSetDateOverride,
   onOpenTemplates,
 }: {
   rules: Rule[]
@@ -35,7 +38,10 @@ export const RuleChips = memo(function RuleChips({
   templates: DayTemplate[]
   activeTemplateId: string | null
   isOverridden: boolean
+  overrides: Record<string, string | null>
   onSelectTemplate: (templateId: string | null | 'none') => void
+  onAssignWeekday: (dayNum: number, templateId: string | null) => void
+  onSetDateOverride: (dateKey: string, value: string | null | undefined) => void
   onOpenTemplates: () => void
 }) {
   const [dragging, setDragging] = useState(false)
@@ -49,8 +55,6 @@ export const RuleChips = memo(function RuleChips({
   const [flashId, setFlashId] = useState<string | null>(null)
   const flashTimer = useRef<number | null>(null)
   const ranges = ruleRanges(rules, chainStart)
-  /* «Без шаблона» активно, когда на сегодня есть явное переопределение без шаблона. */
-  const noneActive = isOverridden && activeTemplateId === null
 
   /* Бюджет суток: сумма всех блоков не может превысить 24:00 − начало цепочки. */
   const budget = Math.max(0, DAY_LIMIT - chainStart)
@@ -133,103 +137,27 @@ export const RuleChips = memo(function RuleChips({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.98 }}
                   transition={{ duration: 0.14 }}
-                  className="absolute right-0 top-full mt-1.5 z-[41] w-[260px] rounded-xl p-1.5"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--stroke)', boxShadow: '0 12px 32px rgba(0,0,0,0.45)' }}
+                  className="absolute right-0 top-full mt-1.5 z-[41] w-[290px] rounded-xl p-1.5 overflow-y-auto"
+                  style={{
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--stroke)',
+                    boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+                    maxHeight: 'min(480px, calc(100vh - 120px))',
+                  }}
                 >
-                  <div className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-[0.1em] font-semibold text-[var(--text-faint)]">
-                    Шаблон дня
-                  </div>
-                  <div className="border-b border-[var(--stroke)] pb-1 mb-0.5">
-                    <button
-                      onClick={() => {
-                        onSelectTemplate('none')
-                        setShowPicker(false)
-                      }}
-                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all duration-150 ${
-                        noneActive
-                          ? 'bg-[rgba(76,141,255,0.1)] text-[var(--focus)]'
-                          : 'text-[var(--text-dim)] hover:bg-[var(--surface-3)] hover:text-[var(--text)]'
-                      }`}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0">
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M5.8 5.8l12.4 12.4" />
-                      </svg>
-                      <span className="flex-1 min-w-0 truncate text-[12.5px] font-medium">Без шаблона</span>
-                      {noneActive && (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M20 6L9 17l-5-5" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                  {templates.length === 0 && (
-                    <div className="px-2.5 py-2 text-[12px] text-[var(--text-faint)]">
-                      Шаблонов пока нет — создайте первый, чтобы не собирать правила заново.
-                    </div>
-                  )}
-                  <div className="flex flex-col max-h-[220px] overflow-y-auto">
-                    {templates.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => {
-                          onSelectTemplate(t.id)
-                          setShowPicker(false)
-                        }}
-                        className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all duration-150 ${
-                          activeTemplateId === t.id
-                            ? 'bg-[rgba(76,141,255,0.1)] text-[var(--focus)]'
-                            : 'text-[var(--text)] hover:bg-[var(--surface-3)]'
-                        }`}
-                      >
-                        <span className="flex-1 min-w-0 truncate text-[12.5px] font-medium">{t.name}</span>
-                        <span className="flex gap-[3px]">
-                          {WEEKDAYS.map((d, i) => (
-                            <span
-                              key={d}
-                              className="w-[13px] text-center text-[8.5px] font-semibold rounded-[3px] py-[1px]"
-                              style={
-                                t.days.includes(i + 1)
-                                  ? { background: 'var(--surface-3)', color: 'var(--text-dim)' }
-                                  : { color: 'var(--text-faint)' }
-                              }
-                            >
-                              {d}
-                            </span>
-                          ))}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  {isOverridden && (
-                    <button
-                      onClick={() => {
-                        onSelectTemplate(null)
-                        setShowPicker(false)
-                      }}
-                      className="w-full rounded-lg px-2.5 py-2 text-[12px] font-medium text-[var(--text-dim)] hover:text-[var(--text)] transition-colors flex items-center gap-2"
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                      Сегодня по расписанию
-                    </button>
-                  )}
-                  <div className="border-t border-[var(--stroke)] mt-1 pt-1">
-                    <button
-                      onClick={() => {
-                        setShowPicker(false)
-                        onOpenTemplates()
-                      }}
-                      className="w-full rounded-lg px-2.5 py-2 text-[12px] font-semibold text-[var(--focus)] hover:bg-[rgba(76,141,255,0.1)] transition-colors flex items-center gap-2"
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
-                      Создать шаблон
-                    </button>
-                  </div>
+                  <WeekPicker
+                    templates={templates}
+                    overrides={overrides}
+                    activeTemplateId={activeTemplateId}
+                    isOverridden={isOverridden}
+                    onAssignWeekday={onAssignWeekday}
+                    onSetDateOverride={onSetDateOverride}
+                    onResetToday={() => onSelectTemplate(null)}
+                    onCreate={() => {
+                      setShowPicker(false)
+                      onOpenTemplates()
+                    }}
+                  />
                 </motion.div>
               </>
             )}

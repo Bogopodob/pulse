@@ -53,7 +53,7 @@ function App() {
   const [clockStr, setClockStr] = useState('')
   const [fallbackRules, setFallbackRules] = useState<Rule[]>(DEFAULT_RULES)
   const { timezone, timeFormat, dateFormat, chainStartMin } = useSettings()
-  const { templates, activeTemplate, isOverridden, selectForToday, updateTemplate } = useTemplates()
+  const { templates, activeTemplate, isOverridden, overrides, selectForToday, assignWeekday, setDayOverride, updateTemplate } = useTemplates()
 
   const pageRef = useRef(page)
   pageRef.current = page
@@ -181,7 +181,10 @@ function App() {
                   templates={templates}
                   activeTemplateId={activeTemplate?.id ?? null}
                   isOverridden={isOverridden}
+                  overrides={overrides}
                   onSelectTemplate={selectForToday}
+                  onAssignWeekday={assignWeekday}
+                  onSetDateOverride={setDayOverride}
                   onOpenTemplates={openTemplates}
                 />
               )}

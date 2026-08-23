@@ -19,7 +19,10 @@ export function Today({
   templates,
   activeTemplateId,
   isOverridden,
+  overrides,
   onSelectTemplate,
+  onAssignWeekday,
+  onSetDateOverride,
   onOpenTemplates,
 }: {
   title: string
@@ -31,7 +34,10 @@ export function Today({
   templates: DayTemplate[]
   activeTemplateId: string | null
   isOverridden: boolean
+  overrides: Record<string, string | null>
   onSelectTemplate: (templateId: string | null | 'none') => void
+  onAssignWeekday: (dayNum: number, templateId: string | null) => void
+  onSetDateOverride: (dateKey: string, value: string | null | undefined) => void
   onOpenTemplates: () => void
 }) {
   const rhythm = useRhythm(rules, chainStart)
@@ -87,7 +93,10 @@ export function Today({
             templates={templates}
             activeTemplateId={activeTemplateId}
             isOverridden={isOverridden}
+            overrides={overrides}
             onSelectTemplate={onSelectTemplate}
+            onAssignWeekday={onAssignWeekday}
+            onSetDateOverride={onSetDateOverride}
             onOpenTemplates={onOpenTemplates}
           />
         </div>
