@@ -150,11 +150,11 @@ export const RuleChips = memo(function RuleChips({
                           onSelectTemplate(t.id)
                           setShowPicker(false)
                         }}
-                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors"
-                        style={{
-                          background: activeTemplateId === t.id ? 'rgba(76,141,255,0.1)' : 'transparent',
-                          color: activeTemplateId === t.id ? 'var(--focus)' : 'var(--text)',
-                        }}
+                        className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all duration-150 ${
+                          activeTemplateId === t.id
+                            ? 'bg-[rgba(76,141,255,0.1)] text-[var(--focus)]'
+                            : 'text-[var(--text)] hover:bg-[var(--surface-3)]'
+                        }`}
                       >
                         <span className="flex-1 min-w-0 truncate text-[12.5px] font-medium">{t.name}</span>
                         <span className="flex gap-[3px]">
