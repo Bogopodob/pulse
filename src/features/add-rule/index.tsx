@@ -35,7 +35,7 @@ export const RuleChips = memo(function RuleChips({
   templates: DayTemplate[]
   activeTemplateId: string | null
   isOverridden: boolean
-  onSelectTemplate: (templateId: string | null) => void
+  onSelectTemplate: (templateId: string | null | 'none') => void
   onOpenTemplates: () => void
 }) {
   const [dragging, setDragging] = useState(false)
@@ -49,6 +49,8 @@ export const RuleChips = memo(function RuleChips({
   const [flashId, setFlashId] = useState<string | null>(null)
   const flashTimer = useRef<number | null>(null)
   const ranges = ruleRanges(rules, chainStart)
+  /* «Без шаблона» активно, когда на сегодня есть явное переопределение без шаблона. */
+  const noneActive = isOverridden && activeTemplateId === null
 
   /* Бюджет суток: сумма всех блоков не может превысить 24:00 − начало цепочки. */
   const budget = Math.max(0, DAY_LIMIT - chainStart)
@@ -136,6 +138,30 @@ export const RuleChips = memo(function RuleChips({
                 >
                   <div className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-[0.1em] font-semibold text-[var(--text-faint)]">
                     Шаблон дня
+                  </div>
+                  <div className="border-b border-[var(--stroke)] pb-1 mb-0.5">
+                    <button
+                      onClick={() => {
+                        onSelectTemplate('none')
+                        setShowPicker(false)
+                      }}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all duration-150 ${
+                        noneActive
+                          ? 'bg-[rgba(76,141,255,0.1)] text-[var(--focus)]'
+                          : 'text-[var(--text-dim)] hover:bg-[var(--surface-3)] hover:text-[var(--text)]'
+                      }`}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M5.8 5.8l12.4 12.4" />
+                      </svg>
+                      <span className="flex-1 min-w-0 truncate text-[12.5px] font-medium">Без шаблона</span>
+                      {noneActive && (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                   {templates.length === 0 && (
                     <div className="px-2.5 py-2 text-[12px] text-[var(--text-faint)]">

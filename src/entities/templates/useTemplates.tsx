@@ -27,7 +27,8 @@ export interface DayTemplate {
 
 interface DayOverride {
   date: string
-  templateId: string
+  /** null — на сегодня явно выбрано «Без шаблона». */
+  templateId: string | null
 }
 
 const TEMPLATES_KEY = 'pulse-templates'
@@ -68,7 +69,8 @@ function loadOverride(): DayOverride | null {
     const raw = localStorage.getItem(OVERRIDE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as DayOverride
-    if (typeof parsed.date !== 'string' || typeof parsed.templateId !== 'string') return null
+    if (typeof parsed.date !== 'string') return null
+    if (parsed.templateId !== null && typeof parsed.templateId !== 'string') return null
     return parsed.date === todayKey() ? parsed : null
   } catch {
     return null
@@ -81,7 +83,7 @@ interface TemplatesContextValue {
   loading: boolean
   activeTemplate: DayTemplate | null
   isOverridden: boolean
-  selectForToday: (templateId: string | null) => void
+  selectForToday: (templateId: string | null | 'none') => void
   createTemplate: (tpl: Omit<DayTemplate, 'id'>) => Promise<DayTemplate>
   updateTemplate: (id: string, patch: Partial<DayTemplate>) => Promise<void>
   deleteTemplate: (id: string) => Promise<void>
@@ -130,11 +132,19 @@ export function TemplatesProvider({ children }: { children: ReactNode }) {
     }
   }, [override])
 
+  /* Приоритет: явное переопределение на сегодня (включая «Без шаблона»),
+     иначе — автоподбор по дню недели. */
   const activeTemplate = override
-    ? templates.find((t) => t.id === override.templateId) ?? null
+    ? override.templateId
+      ? templates.find((t) => t.id === override.templateId) ?? null
+      : null
     : (templates.find((t) => t.days.includes(todayDayNum())) ?? null)
 
-  const selectForToday = useCallback((templateId: string | null) => {
+  const selectForToday = useCallback((templateId: string | null | 'none') => {
+    if (templateId === 'none') {
+      setOverride({ date: todayKey(), templateId: null })
+      return
+    }
     if (templateId === null) {
       setOverride(null)
       return

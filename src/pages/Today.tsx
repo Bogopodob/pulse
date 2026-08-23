@@ -31,7 +31,7 @@ export function Today({
   templates: DayTemplate[]
   activeTemplateId: string | null
   isOverridden: boolean
-  onSelectTemplate: (templateId: string | null) => void
+  onSelectTemplate: (templateId: string | null | 'none') => void
   onOpenTemplates: () => void
 }) {
   const rhythm = useRhythm(rules, chainStart)
