@@ -4,6 +4,12 @@ export type WeekStart = 'mon' | 'sun'
 
 const TZ_CACHE = new Map<string, Intl.DateTimeFormat>()
 
+/** Текущая дата в локальной полночи — единая точка истины для «сегодня». */
+export function startOfToday(): Date {
+  const d = new Date()
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
+
 export function fmtClock(
   d: Date,
   opts: { timezone: string; timeFormat: TimeFormat; dateFormat: DateFormat },

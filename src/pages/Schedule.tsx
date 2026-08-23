@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { GanttTimeline } from '../widgets/GanttTimeline'
 import { AddTaskForm } from '../features/tasks/ui/AddTaskForm'
 import { useTasks } from '../entities/tasks/useTasks'
+import { startOfToday } from '../shared/lib/date'
 
-const TODAY = new Date(2026, 7, 21)
+const TODAY = startOfToday()
 
 export function Schedule({ title, desc, clockStr }: { title: string; desc: string; clockStr: string }) {
   const [creating, setCreating] = useState(false)

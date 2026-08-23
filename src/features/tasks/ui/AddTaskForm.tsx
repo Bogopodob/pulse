@@ -3,8 +3,9 @@ import { motion, AnimatePresence, useMotionValue, useMotionTemplate } from 'fram
 import { CalendarDateTime, getLocalTimeZone } from '@internationalized/date'
 import { useTeam } from '../../../entities/team/useTeam'
 import type { Task, Project } from '../../../entities/tasks/useTasks'
+import { startOfToday } from '../../../shared/lib/date'
 
-const TODAY = new Date(2026, 7, 21)
+const TODAY = startOfToday()
 
 const WEEKDAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 const WEEKDAYS_FULL = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']

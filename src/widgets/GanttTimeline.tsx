@@ -4,6 +4,7 @@ import { Dropdown } from '@heroui/react/dropdown'
 import { useTasks, PROJECTS, type Task } from '../entities/tasks/useTasks'
 import { isTauri } from '../entities/tasks/api'
 import { useTeam } from '../entities/team/useTeam'
+import { startOfToday } from '../shared/lib/date'
 
 const BASE_HOUR_W = 160
 const BASE_PX_MIN = BASE_HOUR_W / 60
@@ -20,7 +21,7 @@ const SPEED_OPTIONS = [0.5, 1, 1.2, 1.5, 2]
 const SPEED_KEY = 'pulse-gantt-scroll-speed'
 const SUPPORTS_SCROLL_TIMELINE =
   typeof CSS !== 'undefined' && typeof ScrollTimeline === 'function' && typeof Element.prototype.animate === 'function'
-const TODAY = new Date(2026, 7, 21)
+const TODAY = startOfToday()
 
 const TASK_H = 58
 const TASK_GAP = 16
