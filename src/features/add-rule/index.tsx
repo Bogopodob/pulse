@@ -137,12 +137,13 @@ export const RuleChips = memo(function RuleChips({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.98 }}
                   transition={{ duration: 0.14 }}
-                  className="absolute right-0 top-full mt-1.5 z-[41] w-[290px] rounded-xl p-1.5 overflow-y-auto"
+                  className="absolute right-0 top-full mt-1.5 z-[41] rounded-xl p-1.5"
                   style={{
                     background: 'var(--surface-2)',
                     border: '1px solid var(--stroke)',
                     boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-                    maxHeight: 'min(480px, calc(100vh - 120px))',
+                    maxHeight: 'min(640px, calc(100vh - 120px))',
+                    overflowY: 'auto',
                   }}
                 >
                   <WeekPicker
