@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { WEEKDAYS, dateKeyOf, type DayTemplate } from '../../../entities/templates/useTemplates'
 import { ACCENTS } from '../../../entities/rhythm/activities'
 import { Calendar } from '@heroui/react/calendar'
@@ -41,6 +41,16 @@ export function WeekPicker({
   const todayDay = ((new Date().getDay() + 6) % 7) + 1
   const [pane, setPane] = useState<Pane>(null)
   const [pickedDate, setPickedDate] = useState('')
+  const [query, setQuery] = useState('')
+
+  /* Поиск сбрасывается при смене/закрытии панели выбора. */
+  useEffect(() => setQuery(''), [pane])
+
+  const filteredTemplates = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return templates
+    return templates.filter((t) => t.name.toLowerCase().includes(q))
+  }, [templates, query])
 
   /** День недели → шаблон (первый, кто им владеет). */
   const byDay = useMemo(() => {
@@ -94,9 +104,33 @@ export function WeekPicker({
         <span className="flex-1 text-[12px] font-medium">Без шаблона</span>
         {(currentId === undefined || currentId === null) && <CheckIcon />}
       </button>
-      {/* Список ограничен по высоте: даже с ~30 шаблонами колонка не улетает вниз */}
+      {/* Поиск: появляется, когда шаблонов много — список остаётся компактным при любом количестве */}
+      {templates.length > 8 && (
+        <div className="relative shrink-0 mb-0.5">
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--text-faint)"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`Поиск среди ${templates.length}…`}
+            className="w-full rounded-lg bg-[var(--surface-3)] pl-7 pr-2 py-1.5 text-[11.5px] font-medium text-[var(--text)] outline-none border border-transparent focus:border-[rgba(76,141,255,0.4)] placeholder:text-[var(--text-faint)] transition-colors"
+          />
+        </div>
+      )}
+      {/* Список ограничен по высоте: даже с ~40 шаблонами колонка не улетает вниз */}
       <div className="flex flex-col gap-0.5 max-h-[168px] overflow-y-auto pr-1">
-        {templates.map((t) => {
+        {filteredTemplates.map((t) => {
           const a = accentOf(t)
           const active = currentId === t.id
           return (
@@ -118,6 +152,9 @@ export function WeekPicker({
         })}
         {templates.length === 0 && (
           <div className="text-[10.5px] text-[var(--text-faint)] px-2 py-1">Сначала создайте шаблон</div>
+        )}
+        {templates.length > 0 && filteredTemplates.length === 0 && (
+          <div className="text-[10.5px] text-[var(--text-faint)] px-2 py-1">Ничего не найдено</div>
         )}
       </div>
     </div>
