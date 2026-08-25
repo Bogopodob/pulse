@@ -1045,3 +1045,57 @@ body {
   --color-chart-scale-pattern-color: var(----chart-scale-pattern-color);
 }
 
+/* ── Ритм дня: анимации графика (Timeline) ─────────────────────────── */
+
+/* Волновое появление полос слева направо при монтировании */
+@keyframes tl-grow {
+  from {
+    transform: scaleY(0.04);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Расходящееся кольцо на границах сегментов поверх пульс-волны */
+@keyframes tl-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0.9;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(2.8);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.8);
+    opacity: 0;
+  }
+}
+
+/* Дыхание свечения текущего блока (только opacity — для композитора) */
+@keyframes tl-breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes tl-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tl-playhead-in {
+  from { transform: translate(-50%, -50%) scale(0); }
+  to { transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes tl-playhead-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 59, 48, 0.4); }
+  50% { box-shadow: 0 0 14px rgba(255, 59, 48, 0.7); }
+}
+
