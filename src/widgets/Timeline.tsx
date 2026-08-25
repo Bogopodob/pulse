@@ -408,37 +408,90 @@ const FutureFog = memo(function FutureFog({ nowPx }: { nowPx: number }) {
 const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; nowMinutes: number }) {
   return (
     <div
-      className="absolute top-[22px] bottom-[56px] z-[5] pointer-events-none"
+      className="absolute top-0 bottom-[58px] z-[5] pointer-events-none"
       style={{ left: nowPx, transform: 'translateZ(0)', willChange: 'left' }}
     >
-      <div className="relative h-full" style={{ animation: 'tl-fade-in 0.6s ease-out 0.3s both' }}>
-        <span
-          className="absolute rounded-full"
-          style={{
-            width: 6,
-            height: 6,
-            top: 2,
-            left: '50%',
-            marginLeft: -3,
-            background: '#ff3b30',
-            animation: 'tl-playhead-pulse 2s ease-in-out infinite, tl-playhead-in 0.4s cubic-bezier(0.34,1.4,0.64,1) both',
-            willChange: 'transform, box-shadow',
-          }}
-        />
-        <div
-          className="absolute top-[11px] bottom-0 left-1/2 rounded-full"
-          style={{
-            width: 1.5,
-            background: 'linear-gradient(180deg, #ff3b30 0%, #ff3b30 15%, rgba(255,59,48,0.15) 50%, transparent 100%)',
-          }}
-        />
-      </div>
+      {/* Мягкое вертикальное свечение — неон-ореол вокруг луча */}
       <div
-        className="absolute bottom-0 left-0 -translate-x-1/2 translate-y-[10px] z-[6] font-mono text-[12px] text-white bg-[var(--surface-3)] border border-[var(--stroke)] px-2 py-0.5 rounded-md whitespace-nowrap tabular-nums"
-        style={{ transform: 'translateX(-50%) translateY(10px) translateZ(0)' }}
+        className="absolute left-1/2 -translate-x-1/2 top-[30px] bottom-0 w-[56px] pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255,59,48,0.16), transparent 72%)',
+          filter: 'blur(10px)',
+          opacity: 0.9,
+        }}
+      />
+
+      {/* Бейдж времени — стеклянный pill с live-индикатором */}
+      <div
+        className="absolute top-[2px] left-1/2 z-[3]"
+        style={{ transform: 'translateX(-50%) translateZ(0)', animation: 'tl-fade-in 0.5s ease-out 0.2s both' }}
       >
-        {fmtHMS(nowMinutes)}
+        <div className="relative flex items-center gap-2 pl-[7px] pr-[10px] py-[5px] rounded-full bg-[rgba(28,31,38,0.94)] border border-white/[0.09] shadow-[0_8px_24px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.07)_inset] backdrop-blur-[14px]">
+          {/* live dot */}
+          <span className="relative flex size-[7px] shrink-0 items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-[#ff3b30]" style={{ animation: 'tl-ping 1.5s cubic-bezier(0,0,0.2,1) infinite', opacity: 0.45 }} />
+            <span className="relative block size-[7px] rounded-full bg-[#ff3b30] border border-white/25 shadow-[0_0_8px_rgba(255,59,48,0.75)]" />
+          </span>
+          <span className="font-mono text-[11px] font-semibold tracking-[-0.02em] text-white tabular-nums leading-none">
+            {fmtHMS(nowMinutes)}
+          </span>
+          <span className="text-[9px] font-semibold tracking-[0.09em] text-white/45 uppercase leading-none">сейчас</span>
+        </div>
+        {/* стрелка вниз */}
+        <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] size-[8px] rotate-45 bg-[rgba(28,31,38,0.94)] border-r border-b border-white/[0.09] backdrop-blur-[14px]" />
       </div>
+
+      {/* Орб — ядро + 2 расходящихся кольца */}
+      <div className="absolute left-1/2 -translate-x-1/2 top-[32px] size-[12px] z-[2]" style={{ transform: 'translateX(-50%) translateZ(0)' }}>
+        <span
+          className="absolute inset-0 rounded-full bg-[#ff3b30] blur-[8px]"
+          style={{ opacity: 0.55, animation: 'tl-breathe 2.4s ease-in-out infinite' }}
+        />
+        <span className="absolute inset-[3px] rounded-full bg-[#ff3b30] border-[1.5px] border-white/90 shadow-[0_0_14px_rgba(255,59,48,0.9),0_0_28px_rgba(255,59,48,0.35)]" />
+        <span className="absolute inset-[-7px] rounded-full border border-[#ff3b30]/30" style={{ animation: 'tl-ping 2s ease-out infinite' }} />
+        <span
+          className="absolute inset-[-13px] rounded-full border border-[#ff3b30]/15"
+          style={{ animation: 'tl-ping 2s ease-out 0.45s infinite' }}
+        />
+        {/* блик */}
+        <span className="absolute left-[3px] top-[3px] size-[2.5px] rounded-full bg-white/90 blur-[0.5px]" />
+      </div>
+
+      {/* Вертикальный луч — неон-глоу + сканирующий блик */}
+      <div className="absolute left-1/2 -translate-x-1/2 top-[36px] bottom-[6px] w-[1.5px] rounded-full overflow-hidden">
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: 'linear-gradient(180deg, #ff3b30 0%, #ff5a52 16%, rgba(255,59,48,0.55) 36%, rgba(255,59,48,0.14) 64%, transparent 100%)',
+            boxShadow: '0 0 12px rgba(255,59,48,0.7), 0 0 24px rgba(255,59,48,0.25)',
+          }}
+        />
+        {/* внешний глоу */}
+        <div
+          className="absolute inset-0 rounded-full blur-[2px] opacity-60"
+          style={{
+            background: 'linear-gradient(180deg, rgba(255,59,48,0.9), transparent 55%)',
+            transform: 'scaleX(3)',
+            transformOrigin: 'center top',
+          }}
+        />
+        {/* сканирующая искра */}
+        <div
+          className="absolute left-0 right-0 h-[28px] -translate-y-full"
+          style={{
+            background: 'linear-gradient(180deg, transparent, rgba(255,255,255,0.9), transparent)',
+            filter: 'blur(0.5px)',
+            animation: 'tl-scan 2.2s linear infinite',
+            opacity: 0.85,
+          }}
+        />
+      </div>
+
+      {/* Нижний наконечник — маленький ромб с тенью */}
+      <div
+        className="absolute bottom-[2px] left-1/2 size-[6px] rotate-45 bg-[#ff3b30] border border-white/20 shadow-[0_0_10px_rgba(255,59,48,0.75)]"
+        style={{ transform: 'translateX(-50%) rotate(45deg) translateZ(0)' }}
+      />
     </div>
   )
 })

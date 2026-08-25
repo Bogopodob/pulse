@@ -1099,3 +1099,13 @@ body {
   50% { box-shadow: 0 0 14px rgba(255, 59, 48, 0.7); }
 }
 
+@keyframes tl-ping {
+  0% { transform: scale(0.7); opacity: 0.7; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+@keyframes tl-scan {
+  0% { transform: translateY(-28px); }
+  100% { transform: translateY(220px); }
+}
+
