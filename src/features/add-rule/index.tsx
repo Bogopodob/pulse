@@ -178,28 +178,16 @@ export const RuleChips = memo(function RuleChips({
                       setShowPicker(false)
                       onOpenTemplates()
                     }}
+                    onCreateFromCurrent={() => {
+                      setShowPicker(false)
+                      onCreateTemplateFromCurrent()
+                    }}
                   />
                 </motion.div>
               </>
             )}
           </AnimatePresence>
         </div>
-
-        <button
-          onClick={onCreateTemplateFromCurrent}
-          title={isWithoutTemplate && rules.length > 0 ? 'Сохранить текущие блоки как новый шаблон' : 'Новый шаблон'}
-          className="hidden sm:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold transition-colors shrink-0"
-          style={{
-            background: 'var(--surface-3)',
-            border: '1px solid var(--stroke)',
-            color: 'var(--text-dim)',
-          }}
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          <span className="hidden lg:inline">Новый шаблон</span>
-        </button>
 
         <motion.button
           whileTap={{ scale: 0.93 }}

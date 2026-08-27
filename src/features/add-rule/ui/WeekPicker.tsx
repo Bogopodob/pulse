@@ -27,6 +27,7 @@ export function WeekPicker({
   onSetDateOverride,
   onResetToday,
   onCreate,
+  onCreateFromCurrent,
   onSelectViewingDate,
 }: {
   templates: DayTemplate[]
@@ -37,6 +38,7 @@ export function WeekPicker({
   onSetDateOverride: (dateKey: string, value: string | null | undefined) => void
   onResetToday: () => void
   onCreate: () => void
+  onCreateFromCurrent?: () => void
   onSelectViewingDate?: (dateKey: string) => void
 }) {
   const todayK = dateKeyOf(new Date())
@@ -164,6 +166,23 @@ export function WeekPicker({
 
   return (
     <div className="w-[560px] max-w-[calc(100vw-80px)]">
+      {onCreateFromCurrent && (
+        <div className="mb-2 px-1">
+          <button
+            onClick={() => {
+              onCreateFromCurrent()
+            }}
+            className="w-full rounded-lg px-3 py-2 text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+            style={{ background: 'linear-gradient(135deg, var(--focus-2), var(--focus))', color: '#0b0e13', boxShadow: '0 4px 16px rgba(76,141,255,0.3)' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Новый шаблон из текущих блоков
+          </button>
+          <div className="text-[10px] text-[var(--text-faint)] text-center mt-1">Сохранит блоки просматриваемого дня как шаблон</div>
+        </div>
+      )}
       <div className="flex items-stretch gap-0 px-1">
         {/* Левая колонка: расписание недели */}
         <div className="w-[218px] shrink-0 flex flex-col min-h-0">
