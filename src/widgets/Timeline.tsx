@@ -1,22 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
-import { fmtHM, fmtHMS, buildBars, DAY_START, DAY_END, STEP_MIN, PITCH, type Segment } from '../entities/rhythm/useRhythm'
+import { fmtHM, fmtHMS, DAY_START, DAY_END, STEP_MIN, PITCH, type Segment } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 const BREAK_GROUP = new Set(['break', 'smoke', 'rest'])
 const FOOD_GROUP = new Set(['lunch', 'breakfast', 'dinner'])
-/** Полная ширина ленты суток в пикселях (график конечен — ровно 24 часа). */
-const ROW_WIDTH = Math.ceil((DAY_END - DAY_START) / STEP_MIN) * PITCH
 
-/** Контентная координата минуты на ленте. */
-const pxOf = (min: number) => ((min - DAY_START) / STEP_MIN) * PITCH
+/* ── Визуальное растягивание коротких блоков ───────────────────────────
+   Проблема: при 1 мин между соседними сегментами их лейблы сверху
+   наслаиваются (шаг 2.5px/мин). Решение: минимальная визуальная ширина
+   сегмента, у которого есть лейбл (не focus/off). По часам (ruler) —
+   визуальная шкала растягивается вместе с барами, поэтому всё остаётся
+   синхронно, но короткие блоки становятся читаемыми.
+   Если лейбл >12 символов — обрезаем до 10 + … 
+*/
+const MIN_SEG_PX = 150 // минимум для лейбл-сегмента = 60 мин визуально (~150px), чтобы 1 мин выглядел как час и лейблы не наслаивались
+function truncateLabel(label: string): string {
+  if (label.length > 12) return label.slice(0, 10) + '...'
+  return label
+}
+
+interface VisualSegment extends Segment {
+  visualX: number
+  visualWidth: number
+  visualCount: number
+}
 
 interface Bar {
   type: string
   height: number
   color: string
 }
-
-/* ── Зоны суток: фоновый контекст времени за графиком ─────────────────── */
 
 const ZONE_SUNRISE = 'M12 3v5M8.5 6.5L12 3l3.5 3.5M4 19h16M7.5 19a4.5 4.5 0 0 1 9 0'
 const ZONE_SUNSET = 'M12 8V3M8.5 4.5L12 8l3.5-3.5M4 19h16M7.5 19a4.5 4.5 0 0 1 9 0'
@@ -30,12 +43,10 @@ const DAY_ZONES = [
 
 export interface TimelineProps {
   segments: Segment[]
-  /** Дробные минуты реального времени (с секундами) — двигает плейхед. */
   nowMinutes: number
   cur: Segment
 }
 
-/** Бинарный поиск сегмента по минуте — O(log n) вместо O(n) линейного find */
 function findSegment(min: number, segments: Segment[]): Segment | undefined {
   let lo = 0
   let hi = segments.length - 1
@@ -47,6 +58,110 @@ function findSegment(min: number, segments: Segment[]): Segment | undefined {
     else return s
   }
   return segments[segments.length - 1]
+}
+
+/** Хук: строит нелинейную визуальную карту — короткие лейбл-сегменты растягиваются */
+function useVisualLayout(segments: Segment[]) {
+  const visualMap = useMemo<VisualSegment[]>(() => {
+    let x = 0
+    const map: VisualSegment[] = []
+    for (const s of segments) {
+      const dur = s.end - s.start
+      const actualPx = (dur / STEP_MIN) * PITCH // 2.5 * dur
+      let visualPx = actualPx
+      const hasLabel = s.type !== 'focus' && s.type !== 'off'
+      if (hasLabel) {
+        const t = truncateLabel(s.label)
+        // оценка ширины pill: ~6.2px/char + паддинги + время " · 09:00" (~56px)
+        const est = t.length * 6.2 + 64
+        const minPx = Math.max(MIN_SEG_PX, Math.ceil(est / PITCH) * PITCH)
+        visualPx = Math.max(actualPx, minPx)
+      } else if (dur < 4) {
+        // крошечные off-сегменты не должны схлопываться в 0
+        visualPx = Math.max(actualPx, PITCH * 2)
+      }
+      const count = Math.max(1, Math.round(visualPx / PITCH))
+      visualPx = count * PITCH
+      map.push({ ...s, visualX: x, visualWidth: visualPx, visualCount: count })
+      x += visualPx
+    }
+    return map
+  }, [segments])
+
+  const totalWidth = useMemo(() => visualMap.reduce((a, v) => a + v.visualWidth, 0), [visualMap])
+
+  const visualXOf = useCallback(
+    (min: number): number => {
+      if (visualMap.length === 0) return 0
+      // быстрый путь: за пределами
+      if (min <= visualMap[0].start) return visualMap[0].visualX
+      const last = visualMap[visualMap.length - 1]
+      if (min >= last.end) return last.visualX + last.visualWidth
+      let lo = 0
+      let hi = visualMap.length - 1
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1
+        const seg = visualMap[mid]
+        if (min < seg.start) hi = mid - 1
+        else if (min >= seg.end) lo = mid + 1
+        else {
+          const dur = seg.end - seg.start
+          const local = dur === 0 ? 0 : (min - seg.start) / dur
+          return seg.visualX + local * seg.visualWidth
+        }
+      }
+      return 0
+    },
+    [visualMap],
+  )
+
+  const minuteAtVisualX = useCallback(
+    (vx: number): number => {
+      if (visualMap.length === 0) return DAY_START
+      if (vx <= visualMap[0].visualX) return visualMap[0].start
+      const last = visualMap[visualMap.length - 1]
+      if (vx >= last.visualX + last.visualWidth) return last.end
+      let lo = 0
+      let hi = visualMap.length - 1
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1
+        const seg = visualMap[mid]
+        if (vx < seg.visualX) hi = mid - 1
+        else if (vx >= seg.visualX + seg.visualWidth) lo = mid + 1
+        else {
+          const local = (vx - seg.visualX) / seg.visualWidth
+          return seg.start + local * (seg.end - seg.start)
+        }
+      }
+      return DAY_START
+    },
+    [visualMap],
+  )
+
+  const visualBars = useMemo<Bar[]>(() => {
+    const bars: Bar[] = []
+    let gIdx = 0
+    for (const seg of visualMap) {
+      for (let i = 0; i < seg.visualCount; i++) {
+        const local = seg.visualCount > 1 ? i / (seg.visualCount - 1) : 0
+        const noise = Math.sin(gIdx * 12.9898) * 43758.5453
+        const frac = noise - Math.floor(noise)
+        let intensity: number
+        if (seg.type === 'focus') intensity = 0.32 + 0.55 * local + 0.1 * Math.sin(gIdx * 0.85) * local
+        else if (seg.type === 'off') intensity = 0.1 + 0.06 * frac
+        else if (seg.type === 'break' || seg.type === 'smoke') intensity = 0.42 + 0.22 * Math.sin(gIdx * 0.6)
+        else if (seg.type === 'lunch' || seg.type === 'breakfast' || seg.type === 'dinner') intensity = 0.28 + 0.08 * Math.sin(gIdx * 0.4)
+        else intensity = 0.38 + 0.12 * Math.sin(gIdx * 0.5)
+        intensity = Math.max(0.08, Math.min(1, intensity))
+        const h = Math.round(8 + intensity * 70)
+        bars.push({ type: seg.type, height: h, color: seg.color })
+        gIdx++
+      }
+    }
+    return bars
+  }, [visualMap])
+
+  return { visualMap, totalWidth, visualXOf, minuteAtVisualX, visualBars }
 }
 
 export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
@@ -63,7 +178,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
   const wheelDeltaRef = useRef(0)
   const draggingRef = useRef(false)
 
-  const bars = useMemo(() => buildBars(segments), [segments])
+  const { visualMap, totalWidth, visualXOf, minuteAtVisualX, visualBars } = useVisualLayout(segments)
 
   const totals = useMemo(() => {
     const t = { focus: 0, break: 0, food: 0 }
@@ -75,22 +190,17 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
     return t
   }, [segments])
 
-  /* Синхронизируем ref с state dragging, чтобы scroll-listener не ловил stale closure */
   useEffect(() => {
     draggingRef.current = dragging
   }, [dragging])
 
-  /* Центрирование на текущем времени один раз при монтировании.
-     Дальше — нативный скролл с естественными границами [0 … ширина суток]. */
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
-    vp.scrollLeft = Math.max(0, pxOf(nowMinutes) - vp.clientWidth / 2)
+    vp.scrollLeft = Math.max(0, visualXOf(nowMinutes) - vp.clientWidth / 2)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [visualXOf])
 
-  /* Колесо мыши → горизонтальная прокрутка (нативный scrollLeft).
-     Батчим дельту в rAF, чтобы не дёргать layout на каждое wheel-событие. */
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
@@ -114,8 +224,6 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
     }
   }, [])
 
-  /* Scroll → показать кнопку "К текущему моменту".
-     Троттлим rAF + дедупликация setState, чтобы не триггерить React на каждый пиксель. */
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
@@ -134,7 +242,6 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
     }
   }, [])
 
-  /* Drag скролл мышью — pointer events на самом viewport */
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
@@ -150,9 +257,9 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
     (min: number) => {
       const vp = viewportRef.current
       if (!vp) return
-      vp.scrollTo({ left: Math.max(0, pxOf(min) - vp.clientWidth / 2), behavior: 'smooth' })
+      vp.scrollTo({ left: Math.max(0, visualXOf(min) - vp.clientWidth / 2), behavior: 'smooth' })
     },
-    [],
+    [visualXOf],
   )
 
   useEffect(() => {
@@ -166,7 +273,6 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
 
   const handleJumpNow = () => jumpTo(nowMinutes)
 
-  /* Hover-подсказка: rAF-троттлинг + бинарный поиск + дедупликация по минуте и типу. */
   const lastHvMinRef = useRef(Number.NaN)
   const lastHvTypeRef = useRef<string>('')
   const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -180,7 +286,8 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
       if (clientX == null || !vp || draggingRef.current) return
       const rect = vp.getBoundingClientRect()
       const relX = clientX - rect.left
-      const min = DAY_START + (vp.scrollLeft + relX) / PITCH * STEP_MIN
+      const vx = vp.scrollLeft + relX
+      const min = minuteAtVisualX(vx)
       const s = findSegment(min, segments)
       if (!s || Number.isNaN(min)) {
         if (hv !== null) setHv(null)
@@ -200,7 +307,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
     }
   }, [])
 
-  const nowPx = pxOf(nowMinutes)
+  const nowPx = visualXOf(nowMinutes)
 
   return (
     <div className="card card-lift relative z-[1] h-full flex flex-col p-0 overflow-hidden">
@@ -264,41 +371,32 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
           setHv(null)
         }}
       >
-        {/* Лента суток — промоутим в GPU-слой: скролл идёт композитором без paint */}
         <div
           className="relative h-full"
           style={{
-            width: ROW_WIDTH,
+            width: totalWidth,
             transform: 'translateZ(0)',
             willChange: 'transform',
             contain: 'paint',
           }}
         >
-          {/* Зоны суток — фоновый контекст */}
-          <ZonesLayer />
+          <ZonesLayer visualMap={visualMap} totalWidth={totalWidth} visualXOf={visualXOf} />
 
-          {/* Полосы: виртуализированы — в DOM только видимые + overscan, остальные — пустые спейсеры.
-              Это главный выигрыш по плавности: 720 → ~150 нод, paint дешевле в разы. */}
           <div
             className="absolute left-0 bottom-[62px] h-[96px] flex items-end"
-            style={{ width: ROW_WIDTH, contain: 'paint', transform: 'translateZ(0)' }}
+            style={{ width: totalWidth, contain: 'strict', transform: 'translateZ(0)' }}
           >
-            <BarsLayer bars={bars} pitch={PITCH} viewportRef={viewportRef} />
+            <BarsLayer bars={visualBars} pitch={PITCH} />
           </div>
 
-          {/* Пульс-волна и разрывные линии убраны по запросу: SVG-путь из 360 точек,
-              градиент и пульсирующие узлы полностью удалены — теперь нет рваных контуров
-              поверх баров и нет лишнего paint при скролле. */}
+          <FutureFog nowPx={nowPx} totalWidth={totalWidth} />
 
-          {/* Будущее — в тумане: скрим от плейхеда до конца суток */}
-          <FutureFog nowPx={nowPx} />
-
-          <div className="absolute left-0 top-[4px] h-[20px] z-[3] pointer-events-none" style={{ width: ROW_WIDTH }}>
-            <MarkersLayer segments={segments} />
+          <div className="absolute left-0 top-[2px] h-[36px] z-[3] pointer-events-none" style={{ width: totalWidth }}>
+            <MarkersLayer visualMap={visualMap} totalWidth={totalWidth} />
           </div>
 
-          <div className="absolute left-0 bottom-[6px] h-[52px] pointer-events-none" style={{ width: ROW_WIDTH }}>
-            <RulerLayer />
+          <div className="absolute left-0 bottom-[6px] h-[52px] pointer-events-none" style={{ width: totalWidth }}>
+            <RulerLayer visualXOf={visualXOf} />
           </div>
 
           {(() => {
@@ -317,11 +415,11 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
             )
           })()}
 
-          {/* Плейхед — CSS-анимация, без framer-motion на каждый кадр */}
           <Playhead nowPx={nowPx} nowMinutes={nowMinutes} />
 
           {hv && (() => {
             const a = ACCENTS[hv.color as keyof typeof ACCENTS] ?? ACCENTS.blue
+            const trunc = truncateLabel(hv.label)
             return (
               <div className="absolute z-[8] pointer-events-none" style={{ left: hv.x, top: 26, transform: 'translateX(-50%) translateZ(0)' }}>
                 <div
@@ -331,7 +429,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d={ICON_PATHS[hv.type] ?? ICON_PATHS.clock} />
                   </svg>
-                  <span className="text-[10.5px] font-semibold" style={{ color: a.color }}>{hv.label}</span>
+                  <span className="text-[10.5px] font-semibold" style={{ color: a.color }}>{trunc}</span>
                   <span className="text-[10px] text-[var(--text-dim)] font-mono">{fmtHM(hv.min)}</span>
                 </div>
               </div>
@@ -387,47 +485,44 @@ function fmtDur(min: number): string {
   return m === 0 ? `${h} ч` : `${h} ч ${m} мин`
 }
 
-/* ── Изолированные memo-слои ── */
-
-const FutureFog = memo(function FutureFog({ nowPx }: { nowPx: number }) {
-  const left = Math.min(ROW_WIDTH, Math.max(0, nowPx))
+const FutureFog = memo(function FutureFog({ nowPx, totalWidth }: { nowPx: number; totalWidth: number }) {
+  const left = Math.min(totalWidth, Math.max(0, nowPx))
+  const w = Math.max(0, totalWidth - left)
   return (
     <div
       className="absolute top-0 bottom-[58px] pointer-events-none"
       style={{
-        left,
-        width: Math.max(0, ROW_WIDTH - left),
-        background: 'rgba(21, 23, 28, 0.82)',
-        willChange: 'left, width',
-        transform: 'translateZ(0)',
+        left: 0,
+        width: totalWidth,
+        transform: `translate3d(${left}px,0,0)`,
+        willChange: 'transform',
       }}
-    />
+    >
+      <div className="absolute inset-0" style={{ width: w, background: 'rgba(21, 23, 28, 0.82)' }} />
+    </div>
   )
 })
 
 const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; nowMinutes: number }) {
+  // Выровнен по центру: точка и линия на одной оси X, линия стартует от нижнего края точки
   return (
     <div
       className="absolute top-0 bottom-[58px] z-[5] pointer-events-none"
-      style={{ left: nowPx, transform: 'translateZ(0)', willChange: 'left' }}
+      style={{ transform: `translate3d(${nowPx}px,0,0)`, willChange: 'transform' }}
     >
-      {/* Мягкое вертикальное свечение — неон-ореол вокруг луча */}
+      {/* вертикальный ореол — без blur-фильтра, только radial-gradient, дешевле */}
       <div
-        className="absolute left-1/2 -translate-x-1/2 top-[30px] bottom-0 w-[56px] pointer-events-none"
+        className="absolute left-1/2 -translate-x-1/2 top-[34px] bottom-0 w-[28px] pointer-events-none opacity-70"
         style={{
-          background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255,59,48,0.16), transparent 72%)',
-          filter: 'blur(10px)',
-          opacity: 0.9,
+          background: 'linear-gradient(180deg, rgba(255,59,48,0.14), transparent 68%)',
         }}
       />
-
-      {/* Бейдж времени — стеклянный pill с live-индикатором */}
+      {/* бейдж */}
       <div
         className="absolute top-[2px] left-1/2 z-[3]"
         style={{ transform: 'translateX(-50%) translateZ(0)', animation: 'tl-fade-in 0.5s ease-out 0.2s both' }}
       >
         <div className="relative flex items-center gap-2 pl-[7px] pr-[10px] py-[5px] rounded-full bg-[rgba(28,31,38,0.94)] border border-white/[0.09] shadow-[0_8px_24px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.07)_inset] backdrop-blur-[14px]">
-          {/* live dot */}
           <span className="relative flex size-[7px] shrink-0 items-center justify-center">
             <span className="absolute inset-0 rounded-full bg-[#ff3b30]" style={{ animation: 'tl-ping 1.5s cubic-bezier(0,0,0.2,1) infinite', opacity: 0.45 }} />
             <span className="relative block size-[7px] rounded-full bg-[#ff3b30] border border-white/25 shadow-[0_0_8px_rgba(255,59,48,0.75)]" />
@@ -437,70 +532,82 @@ const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; 
           </span>
           <span className="text-[9px] font-semibold tracking-[0.09em] text-white/45 uppercase leading-none">сейчас</span>
         </div>
-        {/* стрелка вниз */}
         <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] size-[8px] rotate-45 bg-[rgba(28,31,38,0.94)] border-r border-b border-white/[0.09] backdrop-blur-[14px]" />
       </div>
-
-      {/* Орб — ядро + 2 расходящихся кольца */}
-      <div className="absolute left-1/2 -translate-x-1/2 top-[32px] size-[12px] z-[2]" style={{ transform: 'translateX(-50%) translateZ(0)' }}>
-        <span
-          className="absolute inset-0 rounded-full bg-[#ff3b30] blur-[8px]"
-          style={{ opacity: 0.55, animation: 'tl-breathe 2.4s ease-in-out infinite' }}
-        />
-        <span className="absolute inset-[3px] rounded-full bg-[#ff3b30] border-[1.5px] border-white/90 shadow-[0_0_14px_rgba(255,59,48,0.9),0_0_28px_rgba(255,59,48,0.35)]" />
+      {/* точка — центр строго на оси */}
+      <div className="absolute left-1/2 top-[32px] size-[12px] z-[2]" style={{ transform: 'translateX(-50%) translateZ(0)' }}>
+        <span className="absolute inset-[3px] rounded-full bg-[#ff3b30] border-[1.5px] border-white/90 shadow-[0_0_10px_rgba(255,59,48,0.85)]" />
         <span className="absolute inset-[-7px] rounded-full border border-[#ff3b30]/30" style={{ animation: 'tl-ping 2s ease-out infinite' }} />
-        <span
-          className="absolute inset-[-13px] rounded-full border border-[#ff3b30]/15"
-          style={{ animation: 'tl-ping 2s ease-out 0.45s infinite' }}
-        />
-        {/* блик */}
-        <span className="absolute left-[3px] top-[3px] size-[2.5px] rounded-full bg-white/90 blur-[0.5px]" />
+        <span className="absolute left-[3px] top-[3px] size-[2px] rounded-full bg-white/80" />
       </div>
-
-      {/* Вертикальный луч — неон-глоу + сканирующий блик */}
-      <div className="absolute left-1/2 -translate-x-1/2 top-[36px] bottom-[6px] w-[1.5px] rounded-full overflow-hidden">
+      {/* линия — стартует ровно от нижнего края точки (32+12=44), идёт до 4px над низом, ровно под центром точки */}
+      <div
+        className="absolute left-1/2 top-[44px] bottom-[8px] w-[1.5px] -translate-x-1/2 rounded-full overflow-hidden"
+        style={{ transform: 'translateX(-50%) translateZ(0)' }}
+      >
         <div
           className="absolute inset-0 rounded-full"
           style={{
-            background: 'linear-gradient(180deg, #ff3b30 0%, #ff5a52 16%, rgba(255,59,48,0.55) 36%, rgba(255,59,48,0.14) 64%, transparent 100%)',
-            boxShadow: '0 0 12px rgba(255,59,48,0.7), 0 0 24px rgba(255,59,48,0.25)',
-          }}
-        />
-        {/* внешний глоу */}
-        <div
-          className="absolute inset-0 rounded-full blur-[2px] opacity-60"
-          style={{
-            background: 'linear-gradient(180deg, rgba(255,59,48,0.9), transparent 55%)',
-            transform: 'scaleX(3)',
-            transformOrigin: 'center top',
-          }}
-        />
-        {/* сканирующая искра */}
-        <div
-          className="absolute left-0 right-0 h-[28px] -translate-y-full"
-          style={{
-            background: 'linear-gradient(180deg, transparent, rgba(255,255,255,0.9), transparent)',
-            filter: 'blur(0.5px)',
-            animation: 'tl-scan 2.2s linear infinite',
-            opacity: 0.85,
+            background: 'linear-gradient(180deg, #ff3b30 0%, #ff5a52 18%, rgba(255,59,48,0.5) 38%, rgba(255,59,48,0.12) 70%, transparent 100%)',
+            boxShadow: '0 0 8px rgba(255,59,48,0.55)',
           }}
         />
       </div>
-
-      {/* Нижний наконечник — маленький ромб с тенью */}
-      <div
-        className="absolute bottom-[2px] left-1/2 size-[6px] rotate-45 bg-[#ff3b30] border border-white/20 shadow-[0_0_10px_rgba(255,59,48,0.75)]"
-        style={{ transform: 'translateX(-50%) rotate(45deg) translateZ(0)' }}
-      />
+      {/* нижний ромб — центр на той же оси */}
+      <div className="absolute left-1/2 bottom-[2px] size-[6px] bg-[#ff3b30] border border-white/20 shadow-[0_0_8px_rgba(255,59,48,0.7)]" style={{ transform: 'translateX(-50%) rotate(45deg) translateZ(0)' }} />
     </div>
   )
 })
 
-const MarkersLayer = memo(function MarkersLayer({ segments }: { segments: Segment[] }) {
+const MarkersLayer = memo(function MarkersLayer({ visualMap, totalWidth }: { visualMap: VisualSegment[]; totalWidth: number }) {
+  // Коллизия плашек: двухрядная раскладка, чтобы Перерыв 11:55 и День не наслаивались
+  const items = useMemo(() => {
+    const raw = visualMap
+      .filter((s) => s.type !== 'focus' && s.type !== 'off')
+      .map((s) => {
+        const trunc = truncateLabel(s.label)
+        // оценка ширины pill: ~6px/char + " · hh:mm" (~42px) + паддинги 16
+        const wEst = trunc.length * 6 + 58
+        return { s, trunc, x: s.visualX, wEst }
+      })
+      .sort((a, b) => a.x - b.x)
+
+    const GAP = 10
+    let last0 = -Infinity
+    let last1 = -Infinity
+    const placed: Array<(typeof raw)[number] & { row: number }> = []
+    for (const it of raw) {
+      const left = it.x - it.wEst / 2
+      const right = it.x + it.wEst / 2
+      // защита от выхода за границы ленты
+      if (it.x < 8 || it.x > totalWidth - 8) {
+        // у краёв всё равно центрируем, но не даём выйти за 0/totalWidth
+      }
+      if (left > last0 + GAP) {
+        placed.push({ ...it, row: 0 })
+        last0 = right
+      } else if (left > last1 + GAP) {
+        placed.push({ ...it, row: 1 })
+        last1 = right
+      } else {
+        // обе строки заняты — прячем наименее важную (короткую паузу), но 11:55 и День — обе важны,
+        // поэтому сдвигаем текущую вправо до ближайшего свободного слота на верхней строке
+        // вместо скрытия — сдвигаем визуально, сохраняя привязку линией к x
+        const shiftedX = Math.max(last0 + GAP + it.wEst / 2, it.x)
+        // если сдвиг < 40px, считаем приемлемым, иначе прячем
+        if (shiftedX - it.x < 40) {
+          placed.push({ ...it, x: shiftedX, row: 0 })
+          last0 = shiftedX + it.wEst / 2
+        }
+        // иначе пропускаем — плейсхолдер останется невидимым, но данные не потеряются (видно в Карте дня)
+      }
+    }
+    return placed
+  }, [visualMap, totalWidth])
+
   return (
     <>
-      {segments.filter(s => s.type !== 'focus' && s.type !== 'off').map((s) => {
-        const x = pxOf(s.start)
+      {items.map(({ s, trunc, x, row }) => {
         const a = ACCENTS[s.color as keyof typeof ACCENTS] ?? ACCENTS.blue
         return (
           <div
@@ -508,14 +615,20 @@ const MarkersLayer = memo(function MarkersLayer({ segments }: { segments: Segmen
             className="absolute text-[10px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-full"
             style={{
               left: x,
+              top: row === 0 ? 0 : 18,
               transform: 'translateX(-50%) translateZ(0)',
               color: a.color,
               background: 'var(--surface-2)',
               border: '1px solid var(--stroke)',
-              opacity: 0.55,
+              opacity: row === 0 ? 0.62 : 0.9,
+              maxWidth: 132,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              boxShadow: row === 1 ? '0 2px 10px rgba(0,0,0,0.3)' : undefined,
             }}
+            title={`${s.label} · ${fmtHM(s.start)}`}
           >
-            {`${s.label} · ${fmtHM(s.start)}`}
+            {`${trunc} · ${fmtHM(s.start)}`}
           </div>
         )
       })}
@@ -523,7 +636,7 @@ const MarkersLayer = memo(function MarkersLayer({ segments }: { segments: Segmen
   )
 })
 
-const RulerLayer = memo(function RulerLayer() {
+const RulerLayer = memo(function RulerLayer({ visualXOf }: { visualXOf: (min: number) => number }) {
   const totalTicks = Math.ceil((DAY_END - DAY_START) / 60)
   return (
     <>
@@ -531,12 +644,13 @@ const RulerLayer = memo(function RulerLayer() {
         const m = DAY_START + i * 60
         const isFirst = i === 0
         const isLast = i === totalTicks
+        const x = visualXOf(m)
         return (
           <div
             key={m}
             className="absolute bottom-0 font-mono text-[10.5px] text-[var(--text-faint)]"
             style={{
-              left: pxOf(m),
+              left: x,
               transform: isFirst ? 'translateX(3px) translateZ(0)' : isLast ? 'translateX(calc(-100% - 3px)) translateZ(0)' : 'translateX(-50%) translateZ(0)',
               textAlign: isFirst ? 'left' : isLast ? 'right' : 'center',
             }}
@@ -561,73 +675,16 @@ const RulerLayer = memo(function RulerLayer() {
   )
 })
 
-const BarsLayer = memo(function BarsLayer({
-  bars,
-  pitch,
-  viewportRef,
-}: {
-  bars: Bar[]
-  pitch: number
-  viewportRef: React.RefObject<HTMLDivElement | null>
-}) {
-  const OVERSCAN = 28
-  const [range, setRange] = useState(() => {
-    const vp = viewportRef.current
-    if (!vp) return { start: 0, end: Math.min(bars.length, 180) }
-    const start = Math.max(0, Math.floor(vp.scrollLeft / pitch) - OVERSCAN)
-    const end = Math.min(bars.length, Math.ceil((vp.scrollLeft + vp.clientWidth) / pitch) + OVERSCAN)
-    return { start, end }
-  })
-  const rafRef = useRef(0)
-
-  useEffect(() => {
-    const vp = viewportRef.current
-    if (!vp) return
-    const update = () => {
-      const start = Math.max(0, Math.floor(vp.scrollLeft / pitch) - OVERSCAN)
-      const end = Math.min(bars.length, Math.ceil((vp.scrollLeft + vp.clientWidth) / pitch) + OVERSCAN)
-      setRange((prev) => (prev.start === start && prev.end === end ? prev : { start, end }))
-    }
-    update()
-    const onScroll = () => {
-      if (rafRef.current) return
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = 0
-        update()
-      })
-    }
-    vp.addEventListener('scroll', onScroll, { passive: true })
-    const onResize = () => update()
-    window.addEventListener('resize', onResize)
-    return () => {
-      vp.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onResize)
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    }
-  }, [bars.length, pitch, viewportRef])
-
-  // при смене сегментов (длина баров меняется) — пересчитать окно
-  useEffect(() => {
-    setRange((prev) => {
-      if (prev.end > bars.length) return { start: Math.max(0, bars.length - 180), end: bars.length }
-      return prev
-    })
-  }, [bars.length])
-
-  const slice = useMemo(() => bars.slice(range.start, range.end), [bars, range])
-  const leftPad = range.start * pitch
-  const rightPad = (bars.length - range.end) * pitch
-
+const BarsLayer = memo(function BarsLayer({ bars, pitch }: { bars: Bar[]; pitch: number }) {
+  // Без виртуализации на JS — используем content-visibility, чтобы не дёргать React на каждый пиксель скролла
   return (
     <>
-      {leftPad > 0 && <div aria-hidden style={{ width: leftPad, flexShrink: 0 }} />}
-      {slice.map((bar, i) => {
-        const idx = range.start + i
+      {bars.map((bar, i) => {
         const isOff = bar.type === 'off'
         const acc = isOff ? null : (ACCENTS[bar.color as keyof typeof ACCENTS] ?? ACCENTS.blue)
         return (
           <div
-            key={idx}
+            key={i}
             aria-hidden
             style={{
               width: pitch - 1,
@@ -641,43 +698,70 @@ const BarsLayer = memo(function BarsLayer({
               opacity: isOff ? 0.5 : 1,
               transform: 'translateZ(0)',
               contain: 'paint',
-              willChange: 'transform',
+              // content-visibility позволяет браузеру не красить оффскрин бары без JS
+              contentVisibility: 'auto' as const,
+              containIntrinsicSize: '5px 96px',
               transformOrigin: '50% 100%',
               animation: 'tl-grow 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) both',
-              animationDelay: `${Math.min(idx, 80) * 0.6}ms`,
+              animationDelay: `${Math.min(i, 80) * 0.6}ms`,
             }}
           />
         )
       })}
-      {rightPad > 0 && <div aria-hidden style={{ width: rightPad, flexShrink: 0 }} />}
     </>
   )
 })
 
-const ZonesLayer = memo(function ZonesLayer() {
+const ZonesLayer = memo(function ZonesLayer({
+  visualMap,
+  totalWidth,
+  visualXOf,
+}: {
+  visualMap: VisualSegment[]
+  totalWidth: number
+  visualXOf: (min: number) => number
+}) {
+  if (visualMap.length === 0) return null
+  // координаты маркеров для анти-коллизии с подписями зон
+  const markerXs = useMemo(
+    () => visualMap.filter((s) => s.type !== 'focus' && s.type !== 'off').map((s) => s.visualX),
+    [visualMap],
+  )
   return (
     <>
-      {DAY_ZONES.map((z) => (
-        <div
-          key={z.label}
-          className="absolute top-0 bottom-[58px] pointer-events-none"
-          style={{
-            left: pxOf(z.from),
-            width: pxOf(z.to) - pxOf(z.from),
-            background: `linear-gradient(180deg, ${z.tint}, transparent 46%)`,
-            contain: 'paint',
-          }}
-        >
-          <div className="absolute top-[7px] left-[12px] flex items-center gap-1" style={{ color: z.color, opacity: 0.45 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d={z.icon} />
-            </svg>
-            <span className="text-[9px] font-semibold uppercase tracking-[0.14em]" style={{ fontFamily: 'var(--font-display)' }}>
-              {z.label}
-            </span>
+      {DAY_ZONES.map((z) => {
+        const x0 = visualXOf(z.from)
+        const x1 = visualXOf(z.to)
+        const w = Math.max(0, x1 - x0)
+        if (w <= 1) return null
+        // подпись зоны "День" прячем если рядом ( < 72px ) есть плашка Перерыв 11:55 — иначе наслаиваются
+        const labelCenter = x0 + 38 // left 12 + ~26/2 ширины "День"
+        const nearMarker = markerXs.some((mx) => Math.abs(mx - labelCenter) < 72)
+        return (
+          <div
+            key={z.label}
+            className="absolute top-0 bottom-[58px] pointer-events-none"
+            style={{
+              left: x0,
+              width: w,
+              background: `linear-gradient(180deg, ${z.tint}, transparent 46%)`,
+              contain: 'paint',
+            }}
+          >
+            {!nearMarker && (
+              <div className="absolute top-[7px] left-[12px] flex items-center gap-1" style={{ color: z.color, opacity: 0.45 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={z.icon} />
+                </svg>
+                <span className="text-[9px] font-semibold uppercase tracking-[0.14em]" style={{ fontFamily: 'var(--font-display)' }}>
+                  {z.label}
+                </span>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
+      {totalWidth === 0 && null}
     </>
   )
 })
