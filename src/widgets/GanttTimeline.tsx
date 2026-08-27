@@ -8,11 +8,12 @@ import { startOfToday } from '../shared/lib/date'
 import { notify } from '../shared/lib/notify'
 import { useSettings } from '../shared/hooks/useSettings'
 
-const BASE_HOUR_W = 160
+const BASE_HOUR_W = 150
 const BASE_PX_MIN = BASE_HOUR_W / 60
-const TARGET_SMALL_W = 140
-const SMALL_MIN = 30
-const MAX_SCALE = 80
+// Полностью адаптивно: блок растягивается до ширины контента, время тоже — без обрезки даже для длинных титулов + иконки
+const MAX_SCALE = 280
+const MIN_VISIBLE_W = 160
+const MAX_VISIBLE_W = 380
 const DAY_MIN = 24 * 60
 const VIS_GAP_MIN = 3
 const MIN_TAG_W = 280
@@ -109,11 +110,28 @@ function NavBtn({ dir, onClick }: { dir: 'prev' | 'next'; onClick: () => void })
 type Scale = ReturnType<typeof buildScale>
 
 function buildScale(day: Date, tasksForDay: (d: Date) => Task[]) {
-  const smalls: { l: number; r: number; dur: number }[] = []
+  // Полностью адаптивно: блок растягивается до ширины контента, время тоже
+  const smalls: { l: number; r: number; dur: number; desiredW: number }[] = []
   for (const t of tasksForDay(day)) {
     const l = isSameDay(day, t.startDate) ? t.startMinute : 0
     const r = isSameDay(day, t.endDate) ? t.endMinute : DAY_MIN
-    if (r - l < SMALL_MIN) smalls.push({ l, r, dur: r - l })
+    const dur = r - l
+    const normalW = dur * BASE_PX_MIN
+    // оценка ширины контента: титул + время/диапазон + прогресс + аватары + паддинги + скругления
+    // для 2-минутной задачи "2" с "от 28 авг до 2 сен" нужно ~140-160, для длинного титула — до 260
+    // иконки пользователей должны влезать всегда — считаем их точно
+    const isMultiDay = !isSameDay(t.startDate, t.endDate)
+    const timeTextLen = isMultiDay ? 16 : 11 // "от 28 авг до 2 сен" vs "02:25–02:27"
+    const titleW = Math.min(MAX_VISIBLE_W, Math.max(56, t.title.length * 7 + 36))
+    const timeW = timeTextLen * 6
+    const assigneesW = t.assignees.length > 0 ? 16 + (t.assignees.length - 1) * 12 + 8 : 0 // 16 первый, -4 наложение
+    const metaW = (t.tags.length > 0 ? 34 : 0) + assigneesW + 32
+    const needW = Math.min(MAX_VISIBLE_W, titleW + timeW + 24 + metaW)
+    const durMinW = dur <= 2 ? 180 : dur <= 5 ? 150 : dur <= 10 ? 130 : dur <= 15 ? 110 : dur <= 30 ? 100 : 90
+    const desiredW = Math.max(needW, durMinW, MIN_VISIBLE_W)
+    if (normalW < desiredW) {
+      smalls.push({ l, r, dur, desiredW: Math.min(desiredW, MAX_VISIBLE_W) })
+    }
   }
 
   const xOf = (min: number) => min * BASE_PX_MIN
@@ -122,7 +140,7 @@ function buildScale(day: Date, tasksForDay: (d: Date) => Task[]) {
   }
 
   smalls.sort((a, b) => a.l - b.l)
-  const groups: { l: number; r: number; members: { l: number; r: number; dur: number }[] }[] = []
+  const groups: { l: number; r: number; members: { l: number; r: number; dur: number; desiredW: number }[] }[] = []
   for (const s of smalls) {
     const last = groups[groups.length - 1]
     if (last && s.l <= last.r) {
@@ -143,7 +161,7 @@ function buildScale(day: Date, tasksForDay: (d: Date) => Task[]) {
       const b = bounds[bi + 1]
       let ppm = BASE_PX_MIN
       for (const m of g.members) {
-        if (m.l <= a && m.r >= b) ppm = Math.max(ppm, Math.min(MAX_SCALE, TARGET_SMALL_W / m.dur))
+        if (m.l <= a && m.r >= b) ppm = Math.max(ppm, Math.min(MAX_SCALE, m.desiredW / m.dur))
       }
       segs.push({ start: a, end: b, pxPerMin: ppm })
     }
@@ -1081,9 +1099,9 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
                   }}
                 />
 
-                <div className="flex items-center gap-2 relative z-[1] min-h-0 shrink-0 min-w-0">
+                <div className="flex items-center gap-2 relative z-[1] min-w-0 overflow-hidden">
                   <div className="rounded-full shrink-0" style={{ width: 6, height: 6, background: cc.base, opacity: 0.7 }} />
-                  <span className="text-[13px] font-medium text-[var(--text)] leading-tight truncate tracking-[-0.01em]">
+                  <span className="text-[13px] font-medium text-[var(--text)] leading-tight truncate tracking-[-0.01em] flex-1 min-w-0">
                     {task.title}
                   </span>
                   {tagsShown.map((tagKey, ti) => {
@@ -1111,11 +1129,11 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
 
                 <div className="flex items-center gap-2 relative z-[1] mt-auto min-w-0" style={{ paddingTop: 4 }}>
                   {startsBefore ? (
-                    <span className="text-[10px] font-medium truncate min-w-0" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    <span className="text-[10px] font-medium whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.35)' }}>
                       {fmtRange(task.startDate, task.endDate)}
                     </span>
                   ) : (
-                    <span className="text-[11px] font-medium shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                    <span className="text-[11px] font-medium shrink-0 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.3)' }}>
                       {fmtExact(leftMin)}–{fmtExact(rightMin)}
                     </span>
                   )}
@@ -1128,7 +1146,7 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
                     {Math.round(task.progress * 100)}%
                   </span>
                   {task.assignees.length > 0 && (
-                    <span className="flex items-center shrink-0 ml-auto">
+                    <span className="flex items-center shrink-0 gap-0 pl-1">
                       {task.assignees.slice(0, 3).map((aid) => {
                         const u = userById.get(aid)
                         if (!u) return null
@@ -1136,8 +1154,8 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
                           <span
                             key={aid}
                             title={u.name}
-                            className="w-[14px] h-[14px] rounded-full flex items-center justify-center text-[7px] font-bold leading-none"
-                            style={{ background: u.color, color: '#0a0b0e', marginLeft: -3, border: '1px solid rgba(255,255,255,0.2)' }}
+                            className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-bold leading-none border-2 shrink-0 -ml-1 first:ml-0"
+                            style={{ background: u.color, color: '#0a0b0e', borderColor: 'rgba(10,12,18,0.95)', boxShadow: '0 0 0 1px rgba(255,255,255,0.18)' }}
                           >
                             {u.initials}
                           </span>
@@ -1145,8 +1163,8 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
                       })}
                       {task.assignees.length > 3 && (
                         <span
-                          className="w-[14px] h-[14px] rounded-full flex items-center justify-center text-[7px] font-semibold leading-none ml-[-3px]"
-                          style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.2)' }}
+                          className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[7px] font-semibold leading-none -ml-1 border-2 shrink-0"
+                          style={{ background: 'rgba(255,255,255,0.16)', color: 'rgba(255,255,255,0.95)', borderColor: 'rgba(10,12,18,0.95)' }}
                         >
                           +{task.assignees.length - 3}
                         </span>
