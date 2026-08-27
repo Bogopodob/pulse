@@ -721,12 +721,12 @@ const ZonesLayer = memo(function ZonesLayer({
   totalWidth: number
   visualXOf: (min: number) => number
 }) {
-  if (visualMap.length === 0) return null
-  // координаты маркеров для анти-коллизии с подписями зон
+  // координаты маркеров для анти-коллизии с подписями зон — хук до early return
   const markerXs = useMemo(
     () => visualMap.filter((s) => s.type !== 'focus' && s.type !== 'off').map((s) => s.visualX),
     [visualMap],
   )
+  if (visualMap.length === 0) return null
   return (
     <>
       {DAY_ZONES.map((z) => {

@@ -105,6 +105,8 @@ interface TemplatesContextValue {
   loading: boolean
   activeTemplate: DayTemplate | null
   isOverridden: boolean
+  getTemplateForDate: (dateKey: string) => DayTemplate | null
+  isOverriddenForDate: (dateKey: string) => boolean
   selectForToday: (templateId: string | null | 'none') => void
   /** Переопределение на конкретную дату; undefined — убрать особый день. */
   setDayOverride: (dateKey: string, value: string | null | undefined) => void
@@ -165,6 +167,22 @@ export function TemplatesProvider({ children }: { children: ReactNode }) {
       ? templates.find((t) => t.id === todaysOverride) ?? null
       : null
     : (templates.find((t) => t.days.includes(todayDayNum())) ?? null)
+
+  const getTemplateForDate = useCallback(
+    (dateKey: string): DayTemplate | null => {
+      const ov = overrides[dateKey]
+      if (ov !== undefined) {
+        return ov ? (templates.find((t) => t.id === ov) ?? null) : null
+      }
+      // вычисляем день недели для произвольной даты
+      const d = new Date(dateKey + 'T12:00:00')
+      const dayNum = ((d.getDay() + 6) % 7) + 1
+      return templates.find((t) => t.days.includes(dayNum)) ?? null
+    },
+    [overrides, templates],
+  )
+
+  const isOverriddenForDate = useCallback((dateKey: string) => overrides[dateKey] !== undefined, [overrides])
 
   const selectForToday = useCallback((templateId: string | null | 'none') => {
     setOverrides((prev) => {
@@ -286,6 +304,8 @@ export function TemplatesProvider({ children }: { children: ReactNode }) {
         loading,
         activeTemplate,
         isOverridden: todaysOverride !== undefined,
+        getTemplateForDate,
+        isOverriddenForDate,
         selectForToday,
         setDayOverride,
         assignWeekday,

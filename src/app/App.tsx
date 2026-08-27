@@ -7,12 +7,37 @@ import { Schedule } from '../pages/Schedule'
 import { Stats } from '../pages/Stats'
 import { Settings } from '../pages/Settings'
 import { Templates } from '../pages/Templates'
-import { DEFAULT_RULES } from '../entities/rhythm/activities'
 import type { Rule } from '../entities/rhythm/activities'
 import { fmtClock } from '../shared/lib/date'
 import { useSettings } from '../shared/hooks/useSettings'
-import { useTemplates } from '../entities/templates/useTemplates'
+import { useTemplates, dateKeyOf } from '../entities/templates/useTemplates'
 import { markAppWarm } from '../shared/lib/boot'
+
+const CUSTOM_DAY_RULES_KEY = 'pulse-custom-day-rules'
+
+function loadCustomDayRules(): Record<string, Rule[]> {
+  try {
+    const raw = localStorage.getItem(CUSTOM_DAY_RULES_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const out: Record<string, Rule[]> = {}
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(k) && Array.isArray(v)) {
+          const rules = (v as unknown[]).filter(
+            (r): r is Rule =>
+              !!r && typeof (r as Rule).id === 'string' && typeof (r as Rule).minutes === 'number',
+          )
+          out[k] = rules as Rule[]
+        }
+      }
+      return out
+    }
+    return {}
+  } catch {
+    return {}
+  }
+}
 
 type Page = 'today' | 'schedule' | 'stats' | 'settings' | 'templates'
 
@@ -51,9 +76,10 @@ function App() {
      страница монтируется заново и анимации графиков проигрываются снова. */
   const [visitSeq, setVisitSeq] = useState<Record<Page, number>>({ today: 0, schedule: 0, stats: 0, settings: 0, templates: 0 })
   const [clockStr, setClockStr] = useState('')
-  const [fallbackRules, setFallbackRules] = useState<Rule[]>(DEFAULT_RULES)
+  const [customDayRules, setCustomDayRules] = useState<Record<string, Rule[]>>(() => loadCustomDayRules())
+  const [viewingDateKey, setViewingDateKey] = useState<string>(() => dateKeyOf(new Date()))
   const { timezone, timeFormat, dateFormat, chainStartMin } = useSettings()
-  const { templates, activeTemplate, isOverridden, overrides, selectForToday, assignWeekday, setDayOverride, updateTemplate } = useTemplates()
+  const { templates, overrides, selectForToday, assignWeekday, setDayOverride, updateTemplate, createTemplate, getTemplateForDate, isOverriddenForDate } = useTemplates()
 
   const pageRef = useRef(page)
   pageRef.current = page
@@ -77,16 +103,62 @@ function App() {
   const openTemplates = useCallback(() => openPage('templates'), [openPage])
   const backToToday = useCallback(() => openPage('today'), [openPage])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(CUSTOM_DAY_RULES_KEY, JSON.stringify(customDayRules))
+    } catch {
+      /* ignore */
+    }
+  }, [customDayRules])
+
+  const todayKey = dateKeyOf(new Date())
+
   const setActiveRules = useCallback(
     (rs: Rule[]) => {
-      if (activeTemplate) {
-        updateTemplate(activeTemplate.id, { rules: rs })
+      const tpl = getTemplateForDate(viewingDateKey)
+      if (tpl) {
+        updateTemplate(tpl.id, { rules: rs })
       } else {
-        setFallbackRules(rs)
+        setCustomDayRules((prev) => ({ ...prev, [viewingDateKey]: rs }))
       }
     },
-    [activeTemplate, updateTemplate],
+    [viewingDateKey, getTemplateForDate, updateTemplate],
   )
+
+  const clearActiveDayRules = useCallback(() => {
+    setCustomDayRules((prev) => {
+      if (!(viewingDateKey in prev)) return prev
+      const next = { ...prev }
+      delete next[viewingDateKey]
+      return next
+    })
+  }, [viewingDateKey])
+
+  const handleCreateTemplateFromCurrent = useCallback(async () => {
+    const tplForView = getTemplateForDate(viewingDateKey)
+    const curRules = tplForView ? tplForView.rules : (customDayRules[viewingDateKey] ?? [])
+    const tpl = await createTemplate({
+      name: 'Новый шаблон',
+      days: [],
+      rules: curRules.map((r) => ({ ...r, id: crypto.randomUUID() })),
+      inheritSettings: true,
+    })
+    // применяем новый шаблон на просматриваемую дату
+    setDayOverride(viewingDateKey, tpl.id)
+    openPage('templates')
+  }, [viewingDateKey, getTemplateForDate, customDayRules, createTemplate, setDayOverride, openPage])
+
+  // когда меняется today (полночь) — возвращаемся к сегодня, если смотрели сегодня
+  useEffect(() => {
+    const id = setInterval(() => {
+      const nowK = dateKeyOf(new Date())
+      if (nowK !== todayKey) {
+        // если смотрели сегодня, переключить на новый today
+        setViewingDateKey((prev) => (prev === todayKey ? nowK : prev))
+      }
+    }, 60_000)
+    return () => clearInterval(id)
+  }, [todayKey])
 
   /* Прогрев в два этапа, пока виден сплэш:
      1) монтируем страницы по одной (тяжёлый JS-рендер размазан по кадрам);
@@ -150,12 +222,41 @@ function App() {
     return () => clearInterval(id)
   }, [timezone, timeFormat, dateFormat])
 
-  const activeRules = activeTemplate ? activeTemplate.rules : fallbackRules
-  const tplChainStart =
-    activeTemplate && !activeTemplate.inheritSettings && activeTemplate.chainStartMin != null
-      ? activeTemplate.chainStartMin
+  // --- viewing date (для календаря: выбрал 12 число → смотрим его правила) ---
+  const viewingActiveTemplate = getTemplateForDate(viewingDateKey)
+  const viewingIsOverridden = isOverriddenForDate(viewingDateKey)
+  const viewingRules = viewingActiveTemplate ? viewingActiveTemplate.rules : (customDayRules[viewingDateKey] ?? [])
+  const viewingTplChainStart =
+    viewingActiveTemplate && !viewingActiveTemplate.inheritSettings && viewingActiveTemplate.chainStartMin != null
+      ? viewingActiveTemplate.chainStartMin
       : null
-  const chainStart = tplChainStart ?? chainStartMin
+  const viewingChainStart = viewingTplChainStart ?? chainStartMin
+
+  // заголовок для просматриваемой даты
+  const viewingTitle = (() => {
+    if (viewingDateKey === todayKey) return pageMeta.today.title
+    const d = new Date(viewingDateKey + 'T12:00:00')
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+  })()
+  const viewingDesc = viewingDateKey === todayKey ? pageMeta.today.desc : `Правила на ${viewingDateKey.split('-').reverse().join('.')} — без шаблона для этого числа`
+
+  const handleSelectTemplateForViewing = useCallback(
+    (templateId: string | null | 'none') => {
+      const val = templateId === 'none' ? null : templateId
+      // если смотрим сегодня — используем selectForToday (удаляет override), иначе — setDayOverride
+      if (viewingDateKey === todayKey) {
+        if (val === null && templateId === null) selectForToday(null)
+        else if (templateId === 'none') selectForToday('none' as const)
+        else if (val) selectForToday(val)
+        else selectForToday(val as string | null)
+      } else {
+        setDayOverride(viewingDateKey, val as string | null | undefined)
+      }
+    },
+    [viewingDateKey, todayKey, selectForToday, setDayOverride],
+  )
+
+  const handleViewingDateChange = useCallback((k: string) => setViewingDateKey(k), [])
 
   return (
     <div className="h-dvh w-screen flex flex-col">
@@ -172,19 +273,28 @@ function App() {
             >
               {visited[p] && p === 'today' && (
                 <MemoToday
-                  title={pageMeta[p].title}
-                  desc={pageMeta[p].desc}
-                  rules={activeRules}
-                  chainStart={chainStart}
+                  title={viewingTitle}
+                  desc={viewingDesc}
+                  viewingDateKey={viewingDateKey}
+                  todayKey={todayKey}
+                  onSelectViewingDate={handleViewingDateChange}
+                  rules={viewingRules}
+                  chainStart={viewingChainStart}
                   onRulesChange={setActiveRules}
+                  onClearDayRules={clearActiveDayRules}
+                  onCreateTemplateFromCurrent={handleCreateTemplateFromCurrent}
                   clockStr={clockStr}
                   templates={templates}
-                  activeTemplateId={activeTemplate?.id ?? null}
-                  isOverridden={isOverridden}
+                  activeTemplateId={viewingActiveTemplate?.id ?? null}
+                  isOverridden={viewingIsOverridden}
                   overrides={overrides}
-                  onSelectTemplate={selectForToday}
+                  onSelectTemplate={handleSelectTemplateForViewing}
                   onAssignWeekday={assignWeekday}
-                  onSetDateOverride={setDayOverride}
+                  onSetDateOverride={(k, v) => {
+                    setDayOverride(k, v)
+                    // сразу переключаем просмотр на выбранную дату
+                    setViewingDateKey(k)
+                  }}
                   onOpenTemplates={openTemplates}
                 />
               )}

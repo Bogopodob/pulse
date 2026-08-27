@@ -27,6 +27,7 @@ export function WeekPicker({
   onSetDateOverride,
   onResetToday,
   onCreate,
+  onSelectViewingDate,
 }: {
   templates: DayTemplate[]
   overrides: Record<string, string | null>
@@ -36,6 +37,7 @@ export function WeekPicker({
   onSetDateOverride: (dateKey: string, value: string | null | undefined) => void
   onResetToday: () => void
   onCreate: () => void
+  onSelectViewingDate?: (dateKey: string) => void
 }) {
   const todayK = dateKeyOf(new Date())
   const todayDay = ((new Date().getDay() + 6) % 7) + 1
@@ -248,6 +250,7 @@ export function WeekPicker({
                 const k = `${d.year}-${pad2(d.month)}-${pad2(d.day)}`
                 setPickedDate(k)
                 setPane({ kind: 'date', key: k })
+                onSelectViewingDate?.(k)
               }}
             >
               <Calendar.Header>
@@ -292,7 +295,12 @@ export function WeekPicker({
             {specialDays.map(([k, v]) => {
               const t = v ? tplById.get(v) : undefined
               return (
-                <div key={k} className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-[var(--surface-3)] transition-colors">
+                <div
+                  key={k}
+                  onClick={() => onSelectViewingDate?.(k)}
+                  className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-[var(--surface-3)] transition-colors cursor-pointer"
+                  title="Нажмите чтобы просмотреть этот день"
+                >
                   <span className="shrink-0 text-[10.5px] font-mono tabular-nums text-[var(--text-dim)] w-[42px]">{fmtDateKey(k)}</span>
                   <span
                     className="size-[6px] rounded-full shrink-0"
@@ -304,7 +312,10 @@ export function WeekPicker({
                   </span>
                   <button
                     title="Убрать особый день"
-                    onClick={() => onSetDateOverride(k, undefined)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSetDateOverride(k, undefined)
+                    }}
                     className="shrink-0 size-[18px] rounded-full flex items-center justify-center text-[var(--text-faint)] hover:text-[var(--text)] hover:bg-[var(--surface-3)] cursor-pointer transition-colors"
                   >
                     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
