@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { WEEKDAYS, dateKeyOf, type DayTemplate } from '../../../entities/templates/useTemplates'
 import { ACCENTS } from '../../../entities/rhythm/activities'
 import { Calendar } from '@heroui/react/calendar'
@@ -18,7 +18,7 @@ const calDateOf = (key: string) =>
 
 type Pane = { kind: 'week'; day: number } | { kind: 'date'; key: string } | null
 
-export function WeekPicker({
+export const WeekPicker = memo(function WeekPicker({
   templates,
   overrides,
   activeTemplateId,
@@ -41,20 +41,26 @@ export function WeekPicker({
   onCreateFromCurrent?: () => void
   onSelectViewingDate?: (dateKey: string) => void
 }) {
-  const todayK = dateKeyOf(new Date())
-  const todayDay = ((new Date().getDay() + 6) % 7) + 1
+  const todayK = useMemo(() => dateKeyOf(new Date()), [])
+  const todayDay = useMemo(() => ((new Date().getDay() + 6) % 7) + 1, [])
   const [pane, setPane] = useState<Pane>(null)
   const [pickedDate, setPickedDate] = useState('')
   const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
+  const [calReady, setCalReady] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setCalReady(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   /* Поиск сбрасывается при смене/закрытии панели выбора. */
   useEffect(() => setQuery(''), [pane])
 
   const filteredTemplates = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = deferredQuery.trim().toLowerCase()
     if (!q) return templates
     return templates.filter((t) => t.name.toLowerCase().includes(q))
-  }, [templates, query])
+  }, [templates, deferredQuery])
 
   /** День недели → шаблон (первый, кто им владеет). */
   const byDay = useMemo(() => {
@@ -260,18 +266,19 @@ export function WeekPicker({
             <span className="text-[9px] text-[var(--text-faint)]">переопределение на дату</span>
           </div>
 
-          <div className="mx-0.5 rounded-lg border border-[var(--stroke)] p-2" style={{ background: 'var(--surface)' }}>
-            <Calendar.Root
-              value={calDateOf(pickedDate || todayK)}
-              minValue={calDateOf(todayK)}
-              onChange={(d) => {
-                if (!d) return
-                const k = `${d.year}-${pad2(d.month)}-${pad2(d.day)}`
-                setPickedDate(k)
-                setPane({ kind: 'date', key: k })
-                onSelectViewingDate?.(k)
-              }}
-            >
+          <div className="mx-0.5 rounded-lg border border-[var(--stroke)] p-2 min-h-[280px]" style={{ background: 'var(--surface)' }}>
+            {calReady ? (
+              <Calendar.Root
+                value={calDateOf(pickedDate || todayK)}
+                minValue={calDateOf(todayK)}
+                onChange={(d) => {
+                  if (!d) return
+                  const k = `${d.year}-${pad2(d.month)}-${pad2(d.day)}`
+                  setPickedDate(k)
+                  setPane({ kind: 'date', key: k })
+                  onSelectViewingDate?.(k)
+                }}
+              >
               <Calendar.Header>
                 <Calendar.NavButton slot="previous">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -294,6 +301,9 @@ export function WeekPicker({
                 </Calendar.GridBody>
               </Calendar.Grid>
             </Calendar.Root>
+              ) : (
+                <div className="h-[260px] grid place-items-center text-[11px] text-[var(--text-faint)]">Загрузка календаря…</div>
+              )}
           </div>
 
           {pane?.kind === 'date' && (
@@ -374,7 +384,7 @@ export function WeekPicker({
       </div>
     </div>
   )
-}
+})
 
 function CheckIcon() {
   return (

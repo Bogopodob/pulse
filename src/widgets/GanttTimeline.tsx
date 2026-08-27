@@ -5,12 +5,14 @@ import { useTasks, PROJECTS, type Task } from '../entities/tasks/useTasks'
 import { isTauri } from '../entities/tasks/api'
 import { useTeam } from '../entities/team/useTeam'
 import { startOfToday } from '../shared/lib/date'
+import { notify } from '../shared/lib/notify'
+import { useSettings } from '../shared/hooks/useSettings'
 
 const BASE_HOUR_W = 160
 const BASE_PX_MIN = BASE_HOUR_W / 60
-const TARGET_SMALL_W = 260
-const SMALL_MIN = 40
-const MAX_SCALE = 260
+const TARGET_SMALL_W = 140
+const SMALL_MIN = 30
+const MAX_SCALE = 80
 const DAY_MIN = 24 * 60
 const VIS_GAP_MIN = 3
 const MIN_TAG_W = 280
@@ -55,7 +57,7 @@ function addDays(d: Date, n: number) {
 }
 
 function dayKeyOf(d: Date) {
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function fmtDate(d: Date) {
@@ -198,7 +200,7 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
   const viewDayRef = useRef(viewDay)
   viewDayRef.current = viewDay
 
-  const [nowMinute, setNowMinute] = useState(() => new Date().getHours() * 60 + new Date().getMinutes())
+  const [nowMinute, setNowMinute] = useState(() => new Date().getHours() * 60 + new Date().getMinutes() + new Date().getSeconds() / 60)
   const [viewportW, setViewportW] = useState(0)
   const viewportWRef = useRef(0)
   viewportWRef.current = viewportW
@@ -309,13 +311,34 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
     [ensureLoaded]
   )
 
+  const { systemNotifications } = useSettings()
+  const lastNotifiedRef = useRef<string | null>(null)
   useEffect(() => {
     const id = setInterval(() => {
       const d = new Date()
-      setNowMinute(d.getHours() * 60 + d.getMinutes())
-    }, 60000)
+      const m = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60
+      setNowMinute(m)
+      if (!systemNotifications) return
+      // Уведомление о старте задачи (окно 30 сек)
+      const nowKey = dayKeyOf(d)
+      for (const t of tasks) {
+        const taskKey = dayKeyOf(t.startDate)
+        if (taskKey !== nowKey) continue
+        const diff = Math.abs(t.startMinute - m)
+        if (diff < 0.5 && lastNotifiedRef.current !== t.id) {
+          lastNotifiedRef.current = t.id
+          void notify('Задача началась', `${t.title} — ${fmtExact(t.startMinute)}`)
+          break
+        }
+      }
+      // сброс через минуту, чтобы повторно не спамить одну и ту же задачу
+      if (lastNotifiedRef.current) {
+        const lastTask = tasks.find((x) => x.id === lastNotifiedRef.current)
+        if (!lastTask || Math.abs(lastTask.startMinute - m) > 1.5) lastNotifiedRef.current = null
+      }
+    }, 10000)
     return () => clearInterval(id)
-  }, [])
+  }, [tasks, systemNotifications])
 
   const syncIndicator = useCallback(() => {
     const ind = indicatorRef.current
@@ -342,21 +365,24 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
     setViewDay((prev) => (prev.getTime() === nd.getTime() ? prev : nd))
   }, [])
 
-  const centerFor = useCallback((idx: number, clientW: number) => {
+  const centerFor = useCallback((idx: number, clientW: number, minute: number = 8 * 60) => {
     const { offs, ws } = geoRef.current
     const i = Math.max(0, Math.min(idx, ws.length - 1))
-    return Math.max(0, offs[i] + ws[i].xOf(8 * 60) - clientW / 2)
+    return Math.max(0, offs[i] + ws[i].xOf(minute) - clientW / 2)
   }, [])
 
   const applyCenter = useCallback(() => {
     const el = scrollRef.current
     if (!el || el.clientWidth <= 0) return false
-    el.scrollLeft = centerFor(todayIdxRef.current, el.clientWidth)
+    // центрируем на текущем времени, если сегодня в видимом диапазоне, иначе на 08:00
+    const isTodayVisible = todayIdxRef.current >= 0 && todayIdxRef.current < geoRef.current.offs.length
+    const targetMin = isTodayVisible ? nowMinute : 8 * 60
+    el.scrollLeft = centerFor(todayIdxRef.current, el.clientWidth, targetMin)
     scrollLeftRef.current = el.scrollLeft
     centeredRef.current = true
     if (!SUPPORTS_SCROLL_TIMELINE) syncIndicator()
     return true
-  }, [centerFor, syncIndicator])
+  }, [centerFor, syncIndicator, nowMinute])
 
   useEffect(() => {
     const el = scrollRef.current

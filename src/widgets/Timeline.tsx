@@ -676,7 +676,7 @@ const RulerLayer = memo(function RulerLayer({ visualXOf }: { visualXOf: (min: nu
 })
 
 const BarsLayer = memo(function BarsLayer({ bars, pitch }: { bars: Bar[]; pitch: number }) {
-  // Без виртуализации на JS — используем content-visibility, чтобы не дёргать React на каждый пиксель скролла
+  // Статичные бары без JS-виртуализации и без stagger-анимации — скролл только композитором
   return (
     <>
       {bars.map((bar, i) => {
@@ -692,18 +692,13 @@ const BarsLayer = memo(function BarsLayer({ bars, pitch }: { bars: Bar[]; pitch:
               height: bar.height,
               borderRadius: '3px 3px 2px 2px',
               background: isOff
-                ? 'linear-gradient(180deg, rgba(88, 93, 104, 0.85), rgba(88, 93, 104, 0.45))'
-                : `linear-gradient(180deg, ${acc!.color}, ${acc!.dot})`,
-              boxShadow: isOff ? 'none' : 'inset 0 1px 0 rgba(255, 255, 255, 0.18)',
-              opacity: isOff ? 0.5 : 1,
+                ? 'rgba(88,93,104,0.5)'
+                : acc!.dot,
+              opacity: isOff ? 0.45 : 1,
               transform: 'translateZ(0)',
               contain: 'paint',
-              // content-visibility позволяет браузеру не красить оффскрин бары без JS
               contentVisibility: 'auto' as const,
               containIntrinsicSize: '5px 96px',
-              transformOrigin: '50% 100%',
-              animation: 'tl-grow 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) both',
-              animationDelay: `${Math.min(i, 80) * 0.6}ms`,
             }}
           />
         )
