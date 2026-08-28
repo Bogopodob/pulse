@@ -6,13 +6,13 @@ import {
   chartCenterContainerClassName,
   chartCenterLabelClassName,
   chartCenterValueClassName,
-} from "./chart-center-typography";
+} from "@/shared/ui/charts/chart-center-typography";
 import {
   ChartStatFlow,
   type ChartStatFlowFormat,
   defaultChartStatFlowFormat,
-} from "./chart-stat-flow";
-import { useRingHover, useRingStable } from "./ring-context";
+} from "@/shared/ui/charts/chart-stat-flow";
+import { useRingHover, useRingStable } from "@/shared/ui/charts/ring-context";
 
 export interface RingCenterProps {
   /** Label shown below the value. Default: "Total" when not hovering */

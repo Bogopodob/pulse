@@ -4,15 +4,15 @@ import type { scaleBand } from "@visx/scale";
 import type { Transition } from "motion/react";
 import { motion } from "motion/react";
 import { memo, useId, useMemo } from "react";
-import { barDepthAndRise, barDepthMaxDepth } from "./bar-depth-geometry";
+import { barDepthAndRise, barDepthMaxDepth } from "@/shared/ui/charts/bar-depth-geometry";
 import {
   chartCssVars,
   useChart,
   useChartStable,
   useYScale,
-} from "./chart-context";
-import { useChartLegendHover } from "./chart-legend-hover";
-import { transitionWithDelay } from "./motion-utils";
+} from "@/shared/ui/charts/chart-context";
+import { useChartLegendHover } from "@/shared/ui/charts/chart-legend-hover";
+import { transitionWithDelay } from "@/shared/ui/charts/motion-utils";
 
 type ScaleBand<Domain extends { toString(): string }> = ReturnType<
   typeof scaleBand<Domain>

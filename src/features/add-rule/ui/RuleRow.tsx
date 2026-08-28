@@ -1,7 +1,7 @@
 import { Reorder, useDragControls, motion } from 'framer-motion'
-import { ACCENTS, ICON_PATHS, ACTIVITIES } from '../../../entities/rhythm/activities'
-import type { Rule } from '../../../entities/rhythm/activities'
-import { fmtHM } from '../../../entities/rhythm/useRhythm'
+import { ACCENTS, ICON_PATHS, ACTIVITIES } from '@/entities/rhythm/activities'
+import type { Rule } from '@/entities/rhythm/activities'
+import { fmtHM } from '@/entities/rhythm/useRhythm'
 
 export interface EditState {
   id: string

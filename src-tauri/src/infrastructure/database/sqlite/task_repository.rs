@@ -19,6 +19,7 @@ impl SqliteTaskRepository {
     }
 
     fn row_to_task(row: &sqlx::sqlite::SqliteRow) -> Result<Task, RepositoryError> {
+        use crate::domain::task::value_objects::TaskStatus;
         let id: String = row.try_get("id").map_err(map_err)?;
         let start_date: i64 = row.try_get("start_date").map_err(map_err)?;
         let end_date: i64 = row.try_get("end_date").map_err(map_err)?;
@@ -26,6 +27,8 @@ impl SqliteTaskRepository {
             .try_get::<String, _>("assignees")
             .map_err(map_err)
             .and_then(|s| serde_json::from_str(&s).map_err(map_err))?;
+        let status_str: Option<String> = row.try_get::<Option<String>, _>("status").unwrap_or(None);
+        let status = status_str.as_deref().map(TaskStatus::from_str);
         Task::new(
             id,
             row.try_get("title").map_err(map_err)?,
@@ -34,6 +37,7 @@ impl SqliteTaskRepository {
             row.try_get("start_minute").map_err(map_err)?,
             row.try_get("end_minute").map_err(map_err)?,
             row.try_get("progress").map_err(map_err)?,
+            status,
             row.try_get("responsible_id").map_err(map_err)?,
             assignees,
             Vec::new(),
@@ -74,7 +78,7 @@ fn map_err<E: std::fmt::Display>(e: E) -> RepositoryError {
 impl TaskRepository for SqliteTaskRepository {
     async fn find_by_id(&self, id: &str) -> Result<Option<Task>, RepositoryError> {
         let row = sqlx::query(
-            "SELECT id, title, start_date, end_date, start_minute, end_minute, progress, \
+            "SELECT id, title, start_date, end_date, start_minute, end_minute, progress, status, \
              responsible_id, assignees, created_at, updated_at \
              FROM tasks WHERE id = ?",
         )
@@ -94,7 +98,7 @@ impl TaskRepository for SqliteTaskRepository {
         use sqlx::QueryBuilder;
 
         let mut qb: QueryBuilder<sqlx::Sqlite> = QueryBuilder::new(
-            "SELECT id, title, start_date, end_date, start_minute, end_minute, progress, \
+            "SELECT id, title, start_date, end_date, start_minute, end_minute, progress, status, \
              responsible_id, assignees, created_at, updated_at FROM tasks WHERE 1=1",
         );
 
@@ -144,8 +148,8 @@ impl TaskRepository for SqliteTaskRepository {
         let mut tx = self.pool.begin().await.map_err(map_err)?;
         sqlx::query(
             "INSERT OR REPLACE INTO tasks (id, title, start_date, end_date, start_minute, end_minute, \
-             progress, responsible_id, assignees, created_at, updated_at) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             progress, status, responsible_id, assignees, created_at, updated_at) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&task.id)
         .bind(&task.title)
@@ -154,6 +158,7 @@ impl TaskRepository for SqliteTaskRepository {
         .bind(task.start_minute.0)
         .bind(task.end_minute.0)
         .bind(task.progress)
+        .bind(task.status.as_str())
         .bind(&task.responsible_id)
         .bind(assignees)
         .bind(task.created_at)
@@ -210,6 +215,7 @@ mod tests {
             9 * 60,
             18 * 60,
             0.0,
+            None,
             Some("JD".to_string()),
             vec!["AN".to_string()],
             vec!["ritual".to_string()],
@@ -244,6 +250,7 @@ mod tests {
             None,
             None,
             Some(0.75),
+            None,
             Some(Some("MK".to_string())),
             None,
             Some(vec!["backend".to_string(), "report".to_string()]),
@@ -266,7 +273,7 @@ mod tests {
         repo.save(&task("t3", "Оригинал")).await.unwrap();
 
         let mut t = repo.find_by_id("t3").await.unwrap().unwrap();
-        let err = t.apply_update(Some("   ".to_string()), None, None, None, None, None, None, None, None);
+        let err = t.apply_update(Some("   ".to_string()), None, None, None, None, None, None, None, None, None);
         assert!(err.is_err(), "пустое название должно отклоняться");
 
         let loaded = repo.find_by_id("t3").await.unwrap().unwrap();

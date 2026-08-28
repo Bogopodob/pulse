@@ -1,6 +1,6 @@
 import { memo, useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { WEEKDAYS, dateKeyOf, type DayTemplate } from '../../../entities/templates/useTemplates'
-import { ACCENTS } from '../../../entities/rhythm/activities'
+import { WEEKDAYS, dateKeyOf, type DayTemplate } from '@/entities/templates/useTemplates'
+import { ACCENTS } from '@/entities/rhythm/activities'
 import { Calendar } from '@heroui/react/calendar'
 import { CalendarDate } from '@internationalized/date'
 

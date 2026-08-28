@@ -21,7 +21,9 @@ impl TaskService {
     }
 
     pub async fn create(&self, input: CreateTaskInput) -> Result<TaskView, ServiceError> {
+        use crate::domain::task::value_objects::TaskStatus;
         let now = chrono::Utc::now().timestamp_millis();
+        let status = input.status.as_deref().map(TaskStatus::from_str);
         let task = Task::new(
             Uuid::new_v4().to_string(),
             input.title,
@@ -30,6 +32,7 @@ impl TaskService {
             input.start_minute,
             input.end_minute,
             input.progress.unwrap_or(0.0),
+            status,
             input.responsible_id,
             input.assignees,
             input.tags,
@@ -54,11 +57,13 @@ impl TaskService {
     }
 
     pub async fn update(&self, id: &str, input: UpdateTaskInput) -> Result<TaskView, ServiceError> {
+        use crate::domain::task::value_objects::TaskStatus;
         let task = self.repo.find_by_id(id).await?;
         let mut task = match task {
             Some(t) => t,
             None => return Err(ServiceError::NotFound(format!("task {id}"))),
         };
+        let status = input.status.as_deref().map(TaskStatus::from_str);
         task.apply_update(
             input.title,
             input.start_date,
@@ -66,6 +71,7 @@ impl TaskService {
             input.start_minute,
             input.end_minute,
             input.progress,
+            status,
             input.responsible_id,
             input.assignees,
             input.tags,
@@ -98,6 +104,7 @@ impl TaskService {
             task.start_minute.0,
             task.end_minute.0,
             0.0,
+            Some(task.status),
             task.responsible_id,
             task.assignees,
             task.tags,

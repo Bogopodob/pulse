@@ -1,8 +1,8 @@
 "use client";
 
 import { motion, useSpring, useTransform } from "motion/react";
-import { type SpringConfig, useChartConfig } from "../chart-config-context";
-import { chartCssVars } from "../chart-context";
+import { type SpringConfig, useChartConfig } from "@/shared/ui/charts/chart-config-context";
+import { chartCssVars } from "@/shared/ui/charts/chart-context";
 
 export interface TooltipDotProps {
   x: number;

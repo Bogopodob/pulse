@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { PatternCircles, PatternLines } from "./visx-pattern";
+import { PatternCircles, PatternLines } from "@/shared/ui/charts/visx-pattern";
 
 export const PATTERN_PRESET_IDS = [
   "none",

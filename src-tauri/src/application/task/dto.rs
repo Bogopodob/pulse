@@ -16,6 +16,8 @@ pub struct CreateTaskInput {
     #[serde(default)]
     pub progress: Option<f64>,
     #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
     pub responsible_id: Option<String>,
     #[serde(default)]
     pub assignees: Vec<String>,
@@ -31,6 +33,7 @@ pub struct UpdateTaskInput {
     pub start_minute: Option<i32>,
     pub end_minute: Option<i32>,
     pub progress: Option<f64>,
+    pub status: Option<String>,
     /// Some(None) — сбросить ответственного.
     pub responsible_id: Option<Option<String>>,
     pub assignees: Option<Vec<String>>,
@@ -71,6 +74,7 @@ pub struct TaskView {
     pub start_minute: i32,
     pub end_minute: i32,
     pub progress: f64,
+    pub status: String,
     pub responsible_id: Option<String>,
     pub assignees: Vec<String>,
     pub tags: Vec<String>,
@@ -88,6 +92,7 @@ impl From<&Task> for TaskView {
             start_minute: t.start_minute.0,
             end_minute: t.end_minute.0,
             progress: t.progress,
+            status: t.status.as_str().to_string(),
             responsible_id: t.responsible_id.clone(),
             assignees: t.assignees.clone(),
             tags: t.tags.clone(),

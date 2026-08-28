@@ -11,11 +11,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { chartCssVars, useChartStable } from "./chart-context";
+import { chartCssVars, useChartStable } from "@/shared/ui/charts/chart-context";
 import {
   LINE_LOADING_PULSE_EASE,
   LOADING_LABEL_EXIT_S,
-} from "./line-loading-timing";
+} from "@/shared/ui/charts/line-loading-timing";
 
 /**
  * Shared "sweep" loading visuals. A soft diagonal shimmer band travels across a

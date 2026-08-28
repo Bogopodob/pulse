@@ -5,7 +5,7 @@ import {
   type ChartPhase,
   type ChartStatus,
   resolveRestingChartPhase,
-} from "./chart-phase";
+} from "@/shared/ui/charts/chart-phase";
 
 export interface UseChartPhaseOrchestratorOptions {
   chartStatus: ChartStatus;

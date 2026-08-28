@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { motion } from 'framer-motion'
-import type { Accent } from '../../../entities/rhythm/activities'
+import type { Accent } from '@/entities/rhythm/activities'
 
 export function DurationSlider({
   value,

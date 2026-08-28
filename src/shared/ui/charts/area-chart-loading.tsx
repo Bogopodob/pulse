@@ -2,16 +2,16 @@
 
 import { curveNatural } from "@visx/curve";
 import { useMemo } from "react";
-import { Area } from "./area";
-import { AreaChart } from "./area-chart";
-import type { Margin } from "./chart-context";
-import type { LoadingStyle } from "./chart-phase";
+import { Area } from "@/shared/ui/charts/area";
+import { AreaChart } from "@/shared/ui/charts/area-chart";
+import type { Margin } from "@/shared/ui/charts/chart-context";
+import type { LoadingStyle } from "@/shared/ui/charts/chart-phase";
 import {
   DEFAULT_SKELETON_DATA_KEY,
   DEFAULT_SKELETON_POINT_COUNT,
   generateChartSkeletonData,
-} from "./generate-chart-skeleton-data";
-import { Grid } from "./grid";
+} from "@/shared/ui/charts/generate-chart-skeleton-data";
+import { Grid } from "@/shared/ui/charts/grid";
 
 const LOADING_DATA_KEY = DEFAULT_SKELETON_DATA_KEY;
 const DEFAULT_LOADING_STROKE = "var(--foreground)";

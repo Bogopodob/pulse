@@ -37,6 +37,43 @@ impl Minutes {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TaskStatus {
+    Todo,
+    InProgress,
+    Done,
+    Overdue,
+    Cancelled,
+}
+
+impl TaskStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Todo => "todo",
+            Self::InProgress => "in_progress",
+            Self::Done => "done",
+            Self::Overdue => "overdue",
+            Self::Cancelled => "cancelled",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "in_progress" => Self::InProgress,
+            "done" => Self::Done,
+            "overdue" => Self::Overdue,
+            "cancelled" => Self::Cancelled,
+            _ => Self::Todo,
+        }
+    }
+}
+
+impl std::fmt::Display for TaskStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum TaskValidationError {
     #[error("title must not be empty")]

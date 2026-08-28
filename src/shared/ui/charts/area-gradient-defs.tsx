@@ -3,7 +3,7 @@ import {
   fadeGradientStops,
   resolveFadeSides,
   viewportFadeGradientAttrs,
-} from "./fade-edges";
+} from "@/shared/ui/charts/fade-edges";
 
 interface AreaGradientDefsProps {
   gradientId: string;

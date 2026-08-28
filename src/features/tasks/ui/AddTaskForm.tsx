@@ -1,9 +1,10 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, useMotionValue, useMotionTemplate } from 'framer-motion'
 import { CalendarDateTime, getLocalTimeZone } from '@internationalized/date'
-import { useTeam } from '../../../entities/team/useTeam'
-import type { Task, Project } from '../../../entities/tasks/useTasks'
-import { startOfToday } from '../../../shared/lib/date'
+import { useTeam } from '@/entities/team/useTeam'
+import type { Task, Project, TaskStatus } from '@/entities/tasks/useTasks'
+import { TASK_STATUSES } from '@/entities/tasks/useTasks'
+import { startOfToday } from '@/shared/lib/date'
 
 const TODAY = startOfToday()
 
@@ -470,6 +471,7 @@ export interface AddTaskFormData {
   tags: string[]
   assignees: string[]
   responsible?: string
+  status: TaskStatus
 }
 
 export function AddTaskForm({
@@ -506,6 +508,7 @@ export function AddTaskForm({
   const [calMonth, setCalMonth] = useState<Date>(() => new Date(TODAY.getFullYear(), TODAY.getMonth(), 1))
   const [assignees, setAssignees] = useState<string[]>([])
   const [responsible, setResponsible] = useState<string | undefined>(undefined)
+  const [status, setStatus] = useState<TaskStatus>('todo')
   const [newMember, setNewMember] = useState('')
   const pickerWrapRef = useRef<HTMLDivElement>(null)
 
@@ -539,6 +542,7 @@ export function AddTaskForm({
     setNewTags(editing.tags.length > 0 ? editing.tags : ['ritual'])
     setAssignees(editing.assignees)
     setResponsible(editing.responsible)
+    setStatus((editing as unknown as { status?: TaskStatus }).status ?? 'todo')
     setCalMonth(new Date(editing.startDate.getFullYear(), editing.startDate.getMonth(), 1))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing])
@@ -738,6 +742,7 @@ export function AddTaskForm({
         tags: newTags.length > 0 ? newTags : ['ritual'],
         assignees,
         responsible,
+        status,
       })
     } catch (e) {
       setError(serverMsg(e))
@@ -1227,6 +1232,36 @@ export function AddTaskForm({
             )
           })}
         </div>
+      </motion.div>
+
+      <motion.div variants={ADD_MODAL_ITEM}>
+        <div className="text-[9px] uppercase tracking-widest text-[var(--text-faint)] mb-2 flex items-center gap-1.5">
+          <span className="size-[5px] rounded-full" style={{ background: '#ff6b6b', boxShadow: '0 0 6px rgba(255,107,107,0.8)' }} />
+          Статус
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {TASK_STATUSES.filter((s) => s.value !== 'overdue').map((st) => {
+            const active = status === st.value
+            return (
+              <button
+                key={st.value}
+                type="button"
+                onClick={() => setStatus(st.value)}
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all select-none"
+                style={{
+                  background: active ? `${st.color}22` : 'rgba(255,255,255,0.03)',
+                  color: active ? st.color : 'rgba(255,255,255,0.45)',
+                  border: `1px solid ${active ? st.color : 'rgba(255,255,255,0.08)'}`,
+                  boxShadow: active ? `0 0 10px ${st.color}30` : undefined,
+                }}
+              >
+                <span className="size-[7px] rounded-full" style={{ background: st.color, boxShadow: active ? `0 0 6px ${st.color}` : undefined }} />
+                {st.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="text-[10px] text-[var(--text-faint)] mt-1.5">Просрочено ставится автоматически, если дедлайн прошёл</div>
       </motion.div>
         </div>
       </div>

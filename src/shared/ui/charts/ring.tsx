@@ -3,9 +3,9 @@
 import { arc as arcGenerator } from "@visx/shape";
 import { type MotionValue, motion, useTransform } from "motion/react";
 import { memo, useCallback } from "react";
-import { ringCssVars, useRingHover, useRingStable } from "./ring-context";
-import { useEnterComplete } from "./use-enter-complete";
-import { useMountProgress } from "./use-mount-progress";
+import { ringCssVars, useRingHover, useRingStable } from "@/shared/ui/charts/ring-context";
+import { useEnterComplete } from "@/shared/ui/charts/use-enter-complete";
+import { useMountProgress } from "@/shared/ui/charts/use-mount-progress";
 
 function generateArcPath(
   innerRadius: number,

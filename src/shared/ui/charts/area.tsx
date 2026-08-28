@@ -8,26 +8,26 @@ import { AreaClosed, LinePath } from "@visx/shape";
 type CurveFactory = any;
 
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { AreaGradientDefs } from "./area-gradient-defs";
-import { chartCssVars, useChartStable, useYScale } from "./chart-context";
-import type { ChartPhase, LoadingStyle } from "./chart-phase";
-import { type FadeEdges, resolveFadeSides } from "./fade-edges";
+import { AreaGradientDefs } from "@/shared/ui/charts/area-gradient-defs";
+import { chartCssVars, useChartStable, useYScale } from "@/shared/ui/charts/chart-context";
+import type { ChartPhase, LoadingStyle } from "@/shared/ui/charts/chart-phase";
+import { type FadeEdges, resolveFadeSides } from "@/shared/ui/charts/fade-edges";
 import {
   type LineLoadingPulseMode,
   LineLoadingPulseStroke,
   resolveLineLoadingPulseMode,
-} from "./line-loading-pulse";
-import { LINE_LOADING_LOOP_PAUSE_MS } from "./line-loading-timing";
-import { LineLoadingSweep } from "./loading-sweep";
+} from "@/shared/ui/charts/line-loading-pulse";
+import { LINE_LOADING_LOOP_PAUSE_MS } from "@/shared/ui/charts/line-loading-timing";
+import { LineLoadingSweep } from "@/shared/ui/charts/loading-sweep";
 import {
   resolveDashTailBounds,
   usePathStrokeMetrics,
-} from "./path-stroke-utils";
-import { SeriesDashTailOverlay } from "./series-dash-tail-overlay";
-import { SeriesHighlightLayer } from "./series-highlight-layer";
-import { SeriesHoverDim } from "./series-hover-dim";
-import { SeriesMarkers } from "./series-markers";
-import type { SeriesPointMarkerStyle } from "./series-point-marker";
+} from "@/shared/ui/charts/path-stroke-utils";
+import { SeriesDashTailOverlay } from "@/shared/ui/charts/series-dash-tail-overlay";
+import { SeriesHighlightLayer } from "@/shared/ui/charts/series-highlight-layer";
+import { SeriesHoverDim } from "@/shared/ui/charts/series-hover-dim";
+import { SeriesMarkers } from "@/shared/ui/charts/series-markers";
+import type { SeriesPointMarkerStyle } from "@/shared/ui/charts/series-point-marker";
 
 export interface AreaProps {
   /** Key in data to use for y values */

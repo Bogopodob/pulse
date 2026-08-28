@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ACTIVITIES, ACCENTS, ICON_PATHS, CUSTOM_ICONS, COLOR_KEYS } from '../../../entities/rhythm/activities'
-import type { Rule, RuleColor } from '../../../entities/rhythm/activities'
-import { fmtHM } from '../../../entities/rhythm/useRhythm'
-import { DurationSlider } from './DurationSlider'
+import { ACTIVITIES, ACCENTS, ICON_PATHS, CUSTOM_ICONS, COLOR_KEYS } from '@/entities/rhythm/activities'
+import type { Rule, RuleColor } from '@/entities/rhythm/activities'
+import { fmtHM } from '@/entities/rhythm/useRhythm'
+import { DurationSlider } from '@/features/add-rule/ui/DurationSlider'
 
 const DAY_END = 24 * 60
 

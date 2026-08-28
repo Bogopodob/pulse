@@ -1,7 +1,7 @@
 "use client";
 
-import { BarChart } from "./bar-chart";
-import type { Margin } from "./chart-context";
+import { BarChart } from "@/shared/ui/charts/bar-chart";
+import type { Margin } from "@/shared/ui/charts/chart-context";
 
 const EMPTY_DATA: Record<string, unknown>[] = [];
 

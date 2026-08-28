@@ -5,13 +5,13 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { isChartClipPassthrough } from "./chart-child-passthrough";
-import type { ProjectionPoint } from "./projection-utils";
+import { isChartClipPassthrough } from "@/shared/ui/charts/chart-child-passthrough";
+import type { ProjectionPoint } from "@/shared/ui/charts/projection-utils";
 import {
   projectionDateExtents,
   projectionValueExtents,
-} from "./projection-utils";
-import { normalizeYAxisId } from "./y-axis-scales";
+} from "@/shared/ui/charts/projection-utils";
+import { normalizeYAxisId } from "@/shared/ui/charts/y-axis-scales";
 
 export interface ProjectionLineConfig {
   yAxisId: string;

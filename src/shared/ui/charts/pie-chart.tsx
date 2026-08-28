@@ -24,7 +24,7 @@ import {
   type PieContextValue,
   type PieData,
   PieProvider,
-} from "./pie-context";
+} from "@/shared/ui/charts/pie-context";
 
 /** Default hover offset in pixels */
 export const DEFAULT_HOVER_OFFSET = 10;

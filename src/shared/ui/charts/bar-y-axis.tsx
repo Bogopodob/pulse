@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { memo, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/shared/lib/utils";
-import { useChart, useChartStable } from "./chart-context";
+import { useChart, useChartStable } from "@/shared/ui/charts/chart-context";
 
 export interface BarYAxisProps {
   /** Whether to show all labels or skip some for dense data. Default: true */

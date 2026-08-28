@@ -22,7 +22,7 @@ import {
   type RingData,
   RingProvider,
   ringCssVars,
-} from "./ring-context";
+} from "@/shared/ui/charts/ring-context";
 
 function generateRingArcPath(
   innerRadius: number,

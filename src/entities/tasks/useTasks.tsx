@@ -13,9 +13,28 @@ import {
   toUpdateInput,
 } from './api'
 
-export type Task = GanttTask & { tags: string[]; responsible?: string }
+export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'overdue' | 'cancelled'
 
-export type TaskInput = Omit<Task, 'id' | 'progress'> & { progress?: number }
+export type Task = GanttTask & { tags: string[]; responsible?: string; status: TaskStatus }
+
+export type TaskInput = Omit<Task, 'id' | 'progress' | 'status'> & { progress?: number; status?: TaskStatus }
+
+export function getDisplayStatus(task: Task): TaskStatus {
+  if (task.status === 'done' || task.status === 'cancelled') return task.status
+  const now = Date.now()
+  const endMs = task.endDate.getTime()
+  // если уже просрочена и не выполнена — показываем overdue
+  if (endMs < now && task.progress < 1) return 'overdue'
+  return task.status
+}
+
+export const TASK_STATUSES: { value: TaskStatus; label: string; color: string }[] = [
+  { value: 'todo', label: 'К выполнению', color: '#8b93a5' },
+  { value: 'in_progress', label: 'В работе', color: '#4c8dff' },
+  { value: 'done', label: 'Выполнено', color: '#4fd4c4' },
+  { value: 'overdue', label: 'Просрочено', color: '#ff6b6b' },
+  { value: 'cancelled', label: 'Отменено', color: '#6b7280' },
+]
 
 export const TASKS_KEY = 'pulse-tasks'
 export const EXTRA_PROJECTS_KEY = 'pulse-task-projects'
@@ -173,12 +192,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const addTask = useCallback(
     async (input: TaskInput): Promise<Task> => {
       if (tauri) {
-        const view = await apiCreateTask(toCreateInput(input))
+        const view = await apiCreateTask(toCreateInput(input as unknown as Omit<Task, 'id' | 'progress'> & { progress?: number }))
         const task = toTask(view)
         setTasks((prev) => [task, ...prev])
         return task
       }
-      const task: Task = { ...input, id: `t-${Date.now()}`, progress: input.progress ?? 0 }
+      const task: Task = { ...input, id: `t-${Date.now()}`, progress: input.progress ?? 0, status: input.status ?? 'todo' } as Task
       persistLocal([task, ...loadLocal()])
       setTasks((prev) => [task, ...prev])
       return task

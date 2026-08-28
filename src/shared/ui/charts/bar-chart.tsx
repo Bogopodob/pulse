@@ -15,9 +15,9 @@ import {
   useState,
 } from "react";
 import { cn } from "@/shared/lib/utils";
-import { DEFAULT_ANIMATION_EASING } from "./animation";
-import type { BarProps } from "./bar";
-import { topSquareCenterY } from "./bar-squares-layout";
+import { DEFAULT_ANIMATION_EASING } from "@/shared/ui/charts/animation";
+import type { BarProps } from "@/shared/ui/charts/bar";
+import { topSquareCenterY } from "@/shared/ui/charts/bar-squares-layout";
 import {
   forEachChartChild,
   isChartClipPassthrough,
@@ -26,30 +26,30 @@ import {
   isUnderlayComponent,
   renderKeyedChartLayers,
   resolveChartChildElement,
-} from "./chart-child-passthrough";
+} from "@/shared/ui/charts/chart-child-passthrough";
 import {
   ChartProvider,
   type LineConfig,
   type Margin,
   type TooltipData,
-} from "./chart-context";
-import { isGradientDefComponent, isPatternDefComponent } from "./chart-defs";
-import { shortDateFmt } from "./chart-formatters";
+} from "@/shared/ui/charts/chart-context";
+import { isGradientDefComponent, isPatternDefComponent } from "@/shared/ui/charts/chart-defs";
+import { shortDateFmt } from "@/shared/ui/charts/chart-formatters";
 import {
   type ChartPhase,
   type ChartStatus,
   DEFAULT_CHART_LIFECYCLE,
   resolveRestingChartPhase,
-} from "./chart-phase";
-import { BarLoadingSkeleton } from "./loading-sweep";
-import { extractReferenceAreaConfigs } from "./reference-area-config";
-import { useScheduledTooltip } from "./use-scheduled-tooltip";
+} from "@/shared/ui/charts/chart-phase";
+import { BarLoadingSkeleton } from "@/shared/ui/charts/loading-sweep";
+import { extractReferenceAreaConfigs } from "@/shared/ui/charts/reference-area-config";
+import { useScheduledTooltip } from "@/shared/ui/charts/use-scheduled-tooltip";
 import {
   buildYScalesForLines,
   getPrimaryYScale,
   normalizeYAxisId,
   wrapSingleYScale,
-} from "./y-axis-scales";
+} from "@/shared/ui/charts/y-axis-scales";
 
 /** Skeleton bars to show when `status="loading"` and `data` is empty. */
 const FALLBACK_LOADING_BARS = 12;

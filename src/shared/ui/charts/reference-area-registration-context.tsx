@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { ReferenceAreaConfig } from "./reference-area-config";
+import type { ReferenceAreaConfig } from "@/shared/ui/charts/reference-area-config";
 
 export interface ReferenceAreaRegistrationContextValue {
   registerReferenceArea: (id: string, config: ReferenceAreaConfig) => void;

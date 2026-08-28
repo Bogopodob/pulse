@@ -1,14 +1,14 @@
-export { ChartTooltip, type ChartTooltipProps } from "./chart-tooltip";
-export { DateTicker, type DateTickerProps } from "./date-ticker";
-export { TooltipBox, type TooltipBoxProps } from "./tooltip-box";
+export { ChartTooltip, type ChartTooltipProps } from "@/shared/ui/charts/tooltip/chart-tooltip";
+export { DateTicker, type DateTickerProps } from "@/shared/ui/charts/tooltip/date-ticker";
+export { TooltipBox, type TooltipBoxProps } from "@/shared/ui/charts/tooltip/tooltip-box";
 export {
   TooltipContent,
   type TooltipContentProps,
   type TooltipRow,
-} from "./tooltip-content";
-export { TooltipDot, type TooltipDotProps } from "./tooltip-dot";
+} from "@/shared/ui/charts/tooltip/tooltip-content";
+export { TooltipDot, type TooltipDotProps } from "@/shared/ui/charts/tooltip/tooltip-dot";
 export {
   type IndicatorWidth,
   TooltipIndicator,
   type TooltipIndicatorProps,
-} from "./tooltip-indicator";
+} from "@/shared/ui/charts/tooltip/tooltip-indicator";

@@ -18,58 +18,58 @@ import {
 import {
   DEFAULT_ANIMATION_EASING,
   DEFAULT_CHART_ENTER_TRANSITION,
-} from "./animation";
+} from "@/shared/ui/charts/animation";
 import {
   isClipExcludedComponent,
   isPostOverlayComponent,
   isUnderlayComponent,
   resolveChartChildElement,
-} from "./chart-child-passthrough";
-import { ChartProvider, type LineConfig, type Margin } from "./chart-context";
-import { isGradientDefComponent, isPatternDefComponent } from "./chart-defs";
-import { shortDateFmt } from "./chart-formatters";
+} from "@/shared/ui/charts/chart-child-passthrough";
+import { ChartProvider, type LineConfig, type Margin } from "@/shared/ui/charts/chart-context";
+import { isGradientDefComponent, isPatternDefComponent } from "@/shared/ui/charts/chart-defs";
+import { shortDateFmt } from "@/shared/ui/charts/chart-formatters";
 import {
   type ChartPhase,
   type ChartStatus,
   DEFAULT_CHART_STATUS,
   DEFAULT_Y_DOMAIN_TWEEN_MS,
   isChartInteractionPhase,
-} from "./chart-phase";
-import { ChartRevealClip } from "./chart-reveal-clip";
+} from "@/shared/ui/charts/chart-phase";
+import { ChartRevealClip } from "@/shared/ui/charts/chart-reveal-clip";
 import {
   decimateTimeSeries,
   maxRenderPointsForWidth,
-} from "./decimate-time-series";
-import { filterDataByXDomain } from "./filter-data-by-x-domain";
+} from "@/shared/ui/charts/decimate-time-series";
+import { filterDataByXDomain } from "@/shared/ui/charts/filter-data-by-x-domain";
 import {
   generateChartSkeletonData,
   generateChartSkeletonFromTarget,
-} from "./generate-chart-skeleton-data";
+} from "@/shared/ui/charts/generate-chart-skeleton-data";
 import {
   extractProjectionLineConfigs,
   mergeProjectionXDomainMax,
   mergeProjectionYDomain,
-} from "./projection-config";
+} from "@/shared/ui/charts/projection-config";
 import {
   extractReferenceAreaConfigs,
   type ReferenceAreaConfig,
-} from "./reference-area-config";
-import { ReferenceAreaRegistrationContext } from "./reference-area-registration-context";
+} from "@/shared/ui/charts/reference-area-config";
+import { ReferenceAreaRegistrationContext } from "@/shared/ui/charts/reference-area-registration-context";
 import {
   computeSeriesBarRevealClipPadding,
   computeSeriesBarWidth,
-} from "./series-bar-layout";
-import { useStaticChartPreview } from "./static-chart-preview-context";
-import { useAnimatedYDomains } from "./use-animated-y-domains";
-import { useChartInteraction } from "./use-chart-interaction";
-import { useChartPhaseOrchestrator } from "./use-chart-phase-orchestrator";
+} from "@/shared/ui/charts/series-bar-layout";
+import { useStaticChartPreview } from "@/shared/ui/charts/static-chart-preview-context";
+import { useAnimatedYDomains } from "@/shared/ui/charts/use-animated-y-domains";
+import { useChartInteraction } from "@/shared/ui/charts/use-chart-interaction";
+import { useChartPhaseOrchestrator } from "@/shared/ui/charts/use-chart-phase-orchestrator";
 import {
   buildYScalesFromDomains,
   DEFAULT_Y_AXIS_ID,
   getPrimaryYScale,
   groupLinesByYAxisId,
-} from "./y-axis-scales";
-import { computeYDomainsByAxis } from "./y-domain-utils";
+} from "@/shared/ui/charts/y-axis-scales";
+import { computeYDomainsByAxis } from "@/shared/ui/charts/y-domain-utils";
 
 function collectNumericExtents(
   data: Record<string, unknown>[],

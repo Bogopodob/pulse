@@ -6,13 +6,13 @@ import {
   chartCenterContainerClassName,
   chartCenterLabelClassName,
   chartCenterValueClassName,
-} from "./chart-center-typography";
+} from "@/shared/ui/charts/chart-center-typography";
 import {
   ChartStatFlow,
   type ChartStatFlowFormat,
   defaultChartStatFlowFormat,
-} from "./chart-stat-flow";
-import { usePieHover, usePieStable } from "./pie-context";
+} from "@/shared/ui/charts/chart-stat-flow";
+import { usePieHover, usePieStable } from "@/shared/ui/charts/pie-context";
 
 export interface PieCenterProps {
   /** Label shown below the value. Default: "Total" when not hovering */

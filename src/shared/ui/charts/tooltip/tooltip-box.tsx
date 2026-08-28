@@ -5,8 +5,8 @@ import type { RefObject } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/shared/lib/utils";
-import { type SpringConfig, useChartConfig } from "../chart-config-context";
-import { chartCssVars } from "../chart-context";
+import { type SpringConfig, useChartConfig } from "@/shared/ui/charts/chart-config-context";
+import { chartCssVars } from "@/shared/ui/charts/chart-context";
 
 export interface TooltipBoxProps {
   /** X position in pixels (relative to container) */

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Dropdown } from '@heroui/react/dropdown'
-import { useTasks, PROJECTS, type Task } from '../entities/tasks/useTasks'
+import { useTasks, PROJECTS, type Task, getDisplayStatus, TASK_STATUSES } from '../entities/tasks/useTasks'
 import { isTauri } from '../entities/tasks/api'
 import { useTeam } from '../entities/team/useTeam'
 import { startOfToday } from '../shared/lib/date'
@@ -657,6 +657,16 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
       setCtxMenu(null)
       if (!cur) return
       const { task } = cur
+      const key = String(actionKey)
+      if (key.startsWith('status-')) {
+        const st = key.replace('status-', '') as Task['status']
+        const patch: Partial<Task> & { status?: Task['status'] } = { status: st } as unknown as Partial<Task>
+        // синхронизируем progress для done
+        if (st === 'done') (patch as unknown as { progress: number }).progress = 1
+        if (st === 'todo' || st === 'in_progress') (patch as unknown as { progress: number }).progress = st === 'todo' ? 0 : 0.5
+        updateTask(task.id, patch)
+        return
+      }
       if (actionKey === 'open' || actionKey === 'edit') {
         onOpenTask(task.id)
       } else if (actionKey === 'duplicate') {
@@ -664,7 +674,9 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
       } else if (actionKey === 'delete') {
         deleteTask(task.id)
       } else if (actionKey === 'done') {
-        updateTask(task.id, { progress: task.progress >= 1 ? 0 : 1 })
+        const curSt = getDisplayStatus(task)
+        const next = curSt === 'done' ? 'todo' : 'done'
+        updateTask(task.id, { status: next, progress: next === 'done' ? 1 : 0 } as unknown as Partial<Task>)
       }
     },
     [ctxMenu, onOpenTask, duplicateTask, deleteTask, updateTask],
@@ -1104,6 +1116,20 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
                   <span className="text-[13px] font-medium text-[var(--text)] leading-tight truncate tracking-[-0.01em] flex-1 min-w-0">
                     {task.title}
                   </span>
+                  {(() => {
+                    const st = getDisplayStatus(task)
+                    if (st === 'todo') return null
+                    const meta = TASK_STATUSES.find((s) => s.value === st)
+                    if (!meta) return null
+                    return (
+                      <span
+                        className="shrink-0 rounded-full px-1.5 py-px text-[8px] font-bold leading-none tracking-wide select-none"
+                        style={{ background: `${meta.color}22`, color: meta.color, border: `1px solid ${meta.color}44` }}
+                      >
+                        {meta.label}
+                      </span>
+                    )
+                  })()}
                   {tagsShown.map((tagKey, ti) => {
                     const pr = allProjects[tagKey] ?? { label: tagKey, color: '#8b93a5' }
                     return (
@@ -1205,7 +1231,13 @@ export function GanttTimeline({ onNewTask, onOpenTask }: { onNewTask: () => void
             <Dropdown.Item id="open">Открыть</Dropdown.Item>
             <Dropdown.Item id="edit">Редактировать</Dropdown.Item>
             <Dropdown.Item id="duplicate">Дублировать</Dropdown.Item>
-            <Dropdown.Item id="done">{ctxMenu && ctxMenu.task.progress >= 1 ? 'Снять выполнение' : 'Отметить выполненной'}</Dropdown.Item>
+            <Dropdown.Item id="done">{ctxMenu && getDisplayStatus(ctxMenu.task) === 'done' ? 'Снять выполнение' : 'Отметить выполненной'}</Dropdown.Item>
+            <Dropdown.Item id="header2" isDisabled style={{ opacity: 0.5, fontSize: 10, marginTop: 4 }}>Статус</Dropdown.Item>
+            {TASK_STATUSES.map((st) => (
+              <Dropdown.Item key={st.value} id={`status-${st.value}`} style={{ color: st.color }}>
+                {st.label}
+              </Dropdown.Item>
+            ))}
             <Dropdown.Item id="delete" style={{ color: '#ff6b8a' }}>
               Удалить
             </Dropdown.Item>

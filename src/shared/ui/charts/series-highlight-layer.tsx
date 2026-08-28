@@ -1,9 +1,9 @@
 "use client";
 
 import type { RefObject } from "react";
-import { useChartStable } from "./chart-context";
-import { HighlightSegment } from "./highlight-segment";
-import { useHighlightSegment } from "./use-highlight-segment";
+import { useChartStable } from "@/shared/ui/charts/chart-context";
+import { HighlightSegment } from "@/shared/ui/charts/highlight-segment";
+import { useHighlightSegment } from "@/shared/ui/charts/use-highlight-segment";
 
 interface SeriesHighlightLayerProps {
   /** Caller already gated `showHighlight && showLine`; this just routes through. */

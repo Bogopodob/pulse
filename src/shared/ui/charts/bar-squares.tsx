@@ -4,16 +4,16 @@ import type { scaleBand } from "@visx/scale";
 import type { Transition } from "motion/react";
 import { motion } from "motion/react";
 import { memo, useId, useMemo } from "react";
-import { computeSquareColumn } from "./bar-squares-layout";
+import { computeSquareColumn } from "@/shared/ui/charts/bar-squares-layout";
 import {
   chartCssVars,
   useChart,
   useChartStable,
   useYScale,
-} from "./chart-context";
-import { useChartLegendHover } from "./chart-legend-hover";
-import { transitionWithDelay } from "./motion-utils";
-import { type PatternPresetId, renderPatternPreset } from "./pattern-preset";
+} from "@/shared/ui/charts/chart-context";
+import { useChartLegendHover } from "@/shared/ui/charts/chart-legend-hover";
+import { transitionWithDelay } from "@/shared/ui/charts/motion-utils";
+import { type PatternPresetId, renderPatternPreset } from "@/shared/ui/charts/pattern-preset";
 
 type ScaleBand<Domain extends { toString(): string }> = ReturnType<
   typeof scaleBand<Domain>

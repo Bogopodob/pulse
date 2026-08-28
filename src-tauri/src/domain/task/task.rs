@@ -1,6 +1,6 @@
 //! Сущность задачи — корень агрегата.
 
-use super::value_objects::{Minutes, TaskValidationError, TimeRange};
+use super::value_objects::{Minutes, TaskStatus, TaskValidationError, TimeRange};
 
 #[derive(Debug, Clone)]
 pub struct Task {
@@ -10,6 +10,7 @@ pub struct Task {
     pub start_minute: Minutes,
     pub end_minute: Minutes,
     pub progress: f64,
+    pub status: TaskStatus,
     pub responsible_id: Option<String>,
     pub assignees: Vec<String>,
     pub tags: Vec<String>,
@@ -26,6 +27,7 @@ impl Task {
         start_minute: i32,
         end_minute: i32,
         progress: f64,
+        status: Option<TaskStatus>,
         responsible_id: Option<String>,
         assignees: Vec<String>,
         tags: Vec<String>,
@@ -45,6 +47,7 @@ impl Task {
             start_minute: Minutes::new(start_minute)?,
             end_minute: Minutes::new(end_minute)?,
             progress,
+            status: status.unwrap_or(TaskStatus::Todo),
             responsible_id,
             assignees,
             tags,
@@ -73,6 +76,7 @@ impl Task {
         start_minute: Option<i32>,
         end_minute: Option<i32>,
         progress: Option<f64>,
+        status: Option<TaskStatus>,
         responsible_id: Option<Option<String>>,
         assignees: Option<Vec<String>>,
         tags: Option<Vec<String>>,
@@ -105,6 +109,9 @@ impl Task {
         self.start_minute = next_start;
         self.end_minute = next_end;
         self.progress = next_progress;
+        if let Some(s) = status {
+            self.status = s;
+        }
         if let Some(r) = responsible_id {
             self.responsible_id = r;
         }
@@ -137,6 +144,7 @@ mod tests {
             18 * 60,
             0.0,
             None,
+            None,
             vec![],
             vec![],
             1_700_000_000_000,
@@ -154,10 +162,10 @@ mod tests {
     #[test]
     fn rejects_empty_title() {
         let mut t = valid("t2").unwrap();
-        let err = t.apply_update(Some("   ".to_string()), None, None, None, None, None, None, None, None);
+        let err = t.apply_update(Some("   ".to_string()), None, None, None, None, None, None, None, None, None);
         assert!(matches!(err, Err(TaskValidationError::EmptyTitle)));
         let err = Task::new(
-            "t3".into(), String::new(), 1, 2, 0, 60, 0.0, None, vec![], vec![], 0, 0,
+            "t3".into(), String::new(), 1, 2, 0, 60, 0.0, None, None, vec![], vec![], 0, 0,
         );
         assert!(matches!(err, Err(TaskValidationError::EmptyTitle)));
         let _ = &mut t;
@@ -166,7 +174,7 @@ mod tests {
     #[test]
     fn rejects_inverted_period() {
         let err = Task::new(
-            "t4".into(), "Задача".into(), 200, 100, 0, 60, 0.0, None, vec![], vec![], 0, 0,
+            "t4".into(), "Задача".into(), 200, 100, 0, 60, 0.0, None, None, vec![], vec![], 0, 0,
         );
         assert!(matches!(err, Err(TaskValidationError::InvalidPeriod { .. })));
     }
@@ -174,11 +182,11 @@ mod tests {
     #[test]
     fn rejects_out_of_range_minutes() {
         let err = Task::new(
-            "t5".into(), "Задача".into(), 100, 200, -5, 60, 0.0, None, vec![], vec![], 0, 0,
+            "t5".into(), "Задача".into(), 100, 200, -5, 60, 0.0, None, None, vec![], vec![], 0, 0,
         );
         assert!(matches!(err, Err(TaskValidationError::InvalidMinutes(-5))));
         let err = Task::new(
-            "t6".into(), "Задача".into(), 100, 200, 0, 1500, 0.0, None, vec![], vec![], 0, 0,
+            "t6".into(), "Задача".into(), 100, 200, 0, 1500, 0.0, None, None, vec![], vec![], 0, 0,
         );
         assert!(matches!(err, Err(TaskValidationError::InvalidMinutes(1500))));
     }
@@ -186,7 +194,7 @@ mod tests {
     #[test]
     fn rejects_out_of_range_progress() {
         let err = Task::new(
-            "t7".into(), "Задача".into(), 100, 200, 0, 60, 1.5, None, vec![], vec![], 0, 0,
+            "t7".into(), "Задача".into(), 100, 200, 0, 60, 1.5, None, None, vec![], vec![], 0, 0,
         );
         assert!(matches!(err, Err(TaskValidationError::InvalidProgress(_))));
         let t = valid("t8").unwrap();
@@ -198,10 +206,10 @@ mod tests {
     #[test]
     fn update_keeps_validation() {
         let mut t = valid("t9").unwrap();
-        t.apply_update(Some("Новое".into()), Some(500), Some(300), None, None, None, None, None, None)
+        t.apply_update(Some("Новое".into()), Some(500), Some(300), None, None, None, None, None, None, None)
             .expect_err("inverted period must fail");
         assert_eq!(t.title, "Задача");
-        t.apply_update(Some("Новое".into()), Some(300), Some(500), None, None, None, None, None, None)
+        t.apply_update(Some("Новое".into()), Some(300), Some(500), None, None, None, None, None, None, None)
             .unwrap();
         assert_eq!(t.title, "Новое");
         assert_eq!(t.period.start, 300);

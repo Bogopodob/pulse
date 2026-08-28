@@ -13,12 +13,15 @@ export interface Reminder {
   status: ReminderStatus
 }
 
+export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'overdue' | 'cancelled'
+
 export interface GanttTask {
   id: string
   title: string
   startDate: Date
   endDate: Date
   progress: number
+  status: TaskStatus
   assignees: string[]
   startMinute: number
   endMinute: number

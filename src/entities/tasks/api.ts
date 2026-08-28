@@ -12,6 +12,7 @@ export interface TaskView {
   start_minute: number
   end_minute: number
   progress: number
+  status: string
   responsible_id: string | null
   assignees: string[]
   tags: string[]
@@ -25,6 +26,7 @@ export interface CreateTaskInput {
   end_date: number
   start_minute: number
   end_minute: number
+  status?: string | null
   responsible_id?: string | null
   assignees: string[]
   tags: string[]
@@ -37,6 +39,7 @@ export interface UpdateTaskInput {
   start_minute?: number
   end_minute?: number
   progress?: number
+  status?: string | null
   responsible_id?: string | null
   assignees?: string[]
   tags?: string[]
@@ -64,6 +67,7 @@ export function toTask(v: TaskView): Task {
     startMinute: v.start_minute,
     endMinute: v.end_minute,
     progress: v.progress,
+    status: (v.status as Task['status']) ?? 'todo',
     assignees: v.assignees,
     tags: v.tags,
     responsible: v.responsible_id ?? undefined,
@@ -77,6 +81,7 @@ export function toCreateInput(t: Omit<Task, 'id' | 'progress'> & { progress?: nu
     end_date: t.endDate.getTime(),
     start_minute: t.startMinute,
     end_minute: t.endMinute,
+    status: (t as unknown as { status?: string }).status ?? 'todo',
     responsible_id: t.responsible ?? null,
     assignees: t.assignees,
     tags: t.tags,
@@ -91,6 +96,7 @@ export function toUpdateInput(patch: Partial<Task>): UpdateTaskInput {
   if (patch.startMinute !== undefined) input.start_minute = patch.startMinute
   if (patch.endMinute !== undefined) input.end_minute = patch.endMinute
   if (patch.progress !== undefined) input.progress = patch.progress
+  if ((patch as unknown as { status?: string }).status !== undefined) input.status = (patch as unknown as { status?: string }).status ?? null
   if (patch.responsible !== undefined) input.responsible_id = patch.responsible ?? null
   if (patch.assignees !== undefined) input.assignees = patch.assignees
   if (patch.tags !== undefined) input.tags = patch.tags

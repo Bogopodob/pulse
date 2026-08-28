@@ -1,20 +1,20 @@
 "use client";
 
 import { type ReactNode, useCallback, useMemo } from "react";
-import { clipRevealTransition } from "./animation";
+import { clipRevealTransition } from "@/shared/ui/charts/animation";
 import {
   defaultScatterColors,
   useChartHover,
   useChartStable,
   useYScale,
-} from "./chart-context";
-import { useChartLegendHover } from "./chart-legend-hover";
+} from "@/shared/ui/charts/chart-context";
+import { useChartLegendHover } from "@/shared/ui/charts/chart-legend-hover";
 import {
   getSeriesMarkerVisualExtent,
   SeriesPointMarker,
   type SeriesPointMarkerStyle,
   StaticSeriesPointMarker,
-} from "./series-point-marker";
+} from "@/shared/ui/charts/series-point-marker";
 
 export interface SeriesMarkersProps extends SeriesPointMarkerStyle {
   dataKey: string;
