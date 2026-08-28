@@ -674,7 +674,7 @@ const RulerLayer = memo(function RulerLayer({ visualXOf }: { visualXOf: (min: nu
                 {isFirst ? 'Начало дня' : 'Конец дня'}
               </div>
             )}
-            {isFirst ? '00:00' : isLast ? '24' : fmtHM(m)}
+            {isFirst ? '00:00' : isLast ? '24:00' : fmtHM(m)}
           </div>
         )
       })}
