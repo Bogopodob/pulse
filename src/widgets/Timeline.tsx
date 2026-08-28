@@ -661,10 +661,17 @@ const RulerLayer = memo(function RulerLayer({ visualXOf }: { visualXOf: (min: nu
             />
             {(isFirst || isLast) && (
               <div
-                className="absolute bottom-[27px] left-0 right-0 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-[var(--text-dim)] whitespace-nowrap"
-                style={{ fontFamily: 'var(--font-display)' }}
+                className="absolute bottom-[27px] text-[9.5px] font-semibold uppercase tracking-[0.12em] text-[var(--text-dim)] whitespace-nowrap max-w-none"
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  left: isFirst ? '0' : 'auto',
+                  right: isLast ? '0' : 'auto',
+                  transform: isFirst ? 'translateX(3px)' : isLast ? 'translateX(-3px)' : 'translateX(-50%)',
+                  width: 'max-content',
+                  textAlign: isFirst ? 'left' : 'right',
+                }}
               >
-                {isFirst ? 'Начало нового дня' : 'Конец дня'}
+                {isFirst ? 'Начало дня' : 'Конец дня'}
               </div>
             )}
             {isFirst ? '00:00' : isLast ? '24' : fmtHM(m)}
