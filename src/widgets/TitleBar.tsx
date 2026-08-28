@@ -12,6 +12,14 @@ export function TitleBar() {
       </div>
 
       <div className="flex items-center gap-2 text-[13px] text-[var(--text-dim)] font-medium">
+        <img
+          src="/logo.svg"
+          alt="Pulse"
+          width={20}
+          height={20}
+          className="shrink-0"
+          style={{ objectFit: 'contain' }}
+        />
         <span
           className="w-[6px] h-[6px] rounded-full transition-all duration-300"
           style={{ background: '#5c6068', boxShadow: '0 0 0 3px #5c606833' }}

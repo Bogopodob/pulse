@@ -49,7 +49,8 @@ const items = [
 
 export function Sidebar({ page, onPageChange }: SidebarProps) {
   return (
-    <nav className="w-[76px] flex-shrink-0 flex flex-col items-center py-[22px] gap-[6px] border-r border-[var(--stroke-soft)]">
+    <nav className="w-[76px] flex-shrink-0 flex flex-col items-center py-[14px] gap-[6px] border-r border-[var(--stroke-soft)]">
+      <img src="/logo.svg" alt="Pulse" width={36} height={36} className="shrink-0 mb-2" style={{ objectFit: 'contain' }} />
       {items.map((item) => (
         <button
           key={item.key}
