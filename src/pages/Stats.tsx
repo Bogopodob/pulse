@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AreaChart } from '../shared/ui/charts/area-chart'
 import { Area } from '../shared/ui/charts/area'
@@ -18,10 +18,13 @@ import { Ring } from '../shared/ui/charts/ring'
 import { RingCenter } from '../shared/ui/charts/ring-center'
 import { ACCENTS, DEFAULT_RULES } from '../entities/rhythm/activities'
 import { useSettings } from '../shared/hooks/useSettings'
-import { useTemplates } from '../entities/templates/useTemplates'
+import { useTemplates, dateKeyOf } from '../entities/templates/useTemplates'
 import { CalendarDate } from '@internationalized/date'
 import { DatePicker } from '@heroui/react/date-picker'
 import { Calendar } from '@heroui/react/calendar'
+import { useTasks } from '../entities/tasks/useTasks'
+import { apiListTasks, isTauri } from '../entities/tasks/api'
+import type { Task } from '../entities/tasks/useTasks'
 
 type Period = 'day' | 'week' | 'month' | 'year' | 'custom'
 
@@ -61,38 +64,56 @@ function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function mockDaily(days: number): { date: Date; minutes: number }[] {
-  const now = new Date()
+function dayKey(d: Date): string {
+  return dateKeyOf(d)
+}
+
+// Реальные задачи → daily фокус (сумма длительностей с учётом прогресса, фильтр по дате)
+function buildDailyFromTasks(tasks: Task[], from: Date, to: Date): { date: Date; minutes: number }[] {
+  const byDay = new Map<string, number>()
+  for (const t of tasks) {
+    // распределяем задачу по дням периода (для многодневных — пропорционально)
+    const s = new Date(t.startDate)
+    const e = new Date(t.endDate)
+    const sKey = dayKey(s)
+    const eKey = dayKey(e)
+    const dur = Math.max(1, t.endMinute - t.startMinute)
+    const weighted = Math.round(dur * Math.max(0.1, t.progress || 0.5))
+    if (sKey === eKey) {
+      byDay.set(sKey, (byDay.get(sKey) ?? 0) + weighted)
+    } else {
+      // многодневная — делим поровну (упрощённо)
+      const start = new Date(s.getFullYear(), s.getMonth(), s.getDate())
+      const end = new Date(e.getFullYear(), e.getMonth(), e.getDate())
+      const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1)
+      const perDay = Math.round(weighted / days)
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const k = dayKey(d)
+        byDay.set(k, (byDay.get(k) ?? 0) + perDay)
+      }
+    }
+  }
   const out: { date: Date; minutes: number }[] = []
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
-    const weekend = d.getDay() === 0 || d.getDay() === 6
-    const j = days - 1 - i
-    const trend = 330 + j * 0.9
-    const wave = Math.sin(j * 0.9) * 50 + Math.cos(j * 0.45) * 30
-    out.push({ date: d, minutes: Math.max(90, Math.round((weekend ? 230 : trend) + wave)) })
+  for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+    const k = dayKey(d)
+    out.push({ date: new Date(d), minutes: byDay.get(k) ?? 0 })
   }
   return out
 }
 
-const HOUR_CURVE = [0, 35, 55, 70, 45, 30, 65, 80, 55, 40, 25, 10, 0]
-
-function mockHours() {
-  return HOUR_CURVE.map((minutes, i) => ({
-    label: `${String(9 + i).padStart(2, '0')}:00`,
-    minutes,
-  }))
+function buildHourlyFromTasks(tasks: Task[], day: Date): { label: string; minutes: number }[] {
+  const buckets = new Array(13).fill(0) // 09:00-21:00 как в HOUR_CURVE
+  for (const t of tasks) {
+    if (!isSameDay(t.startDate, day)) continue
+    const h = t.startDate.getHours()
+    const idx = h - 9
+    if (idx >= 0 && idx < 13) buckets[idx] += Math.max(1, t.endMinute - t.startMinute) * Math.max(0.3, t.progress || 0.5)
+  }
+  return buckets.map((v, i) => ({ label: `${String(9 + i).padStart(2, '0')}:00`, minutes: Math.round(v) }))
 }
 
-function dayDistribution() {
-  const sums = { focus: 0, break: 0, food: 0 }
-  for (const r of DEFAULT_RULES) {
-    if (r.type === 'focus') sums.focus += r.minutes
-    else if (['break', 'smoke', 'rest'].includes(r.type)) sums.break += r.minutes
-    else if (['lunch', 'breakfast', 'dinner'].includes(r.type)) sums.food += r.minutes
-  }
-  const off = 1440 - sums.focus - sums.break - sums.food
-  return { ...sums, off }
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
 }
 
 function aggregateWeekdays(daily: { date: Date; minutes: number }[]) {
@@ -109,14 +130,24 @@ function aggregateWeekdays(daily: { date: Date; minutes: number }[]) {
   }))
 }
 
-function rulesWithTimes(chainStart: number) {
-  let t = chainStart
+// @ts-ignore - kept for fallback
+function rulesWithTimes(_chainStart: number) {
+  let t = _chainStart
   return DEFAULT_RULES.map((r) => {
     const start = t
     t += r.minutes
     return { ...r, start, end: t }
   })
 }
+function rulesWithTimesFor(rules: { id: string; name: string; minutes: number; color: string }[], chainStart: number) {
+  let t = chainStart
+  return rules.map((r) => {
+    const start = t
+    t += r.minutes
+    return { ...r, start, end: t }
+  })
+}
+void rulesWithTimes
 
 function heatColor(minutes: number): string {
   if (minutes === 0) return 'var(--surface-3)'
@@ -334,6 +365,7 @@ export function Stats() {
 
   const { dailyGoalMin: settingsGoal, chainStartMin: settingsChainStart } = useSettings()
   const { activeTemplate } = useTemplates()
+  const { tasks: allTasks } = useTasks()
   const goal =
     activeTemplate && !activeTemplate.inheritSettings && activeTemplate.dailyGoalMin != null
       ? activeTemplate.dailyGoalMin
@@ -342,30 +374,113 @@ export function Stats() {
     activeTemplate && !activeTemplate.inheritSettings && activeTemplate.chainStartMin != null
       ? activeTemplate.chainStartMin
       : settingsChainStart
-  const pool = useMemo(() => mockDaily(400), [])
-  const hours = useMemo(() => mockHours(), [])
-  const day = useMemo(() => dayDistribution(), [])
-  const rules = useMemo(() => rulesWithTimes(chainStartMin), [chainStartMin])
 
-  const activeDaily = useMemo(() => {
+  // --- Реальные данные из БД (tasks) ---
+  const [rangeTasks, setRangeTasks] = useState<Task[]>([])
+  const [loadingRange, setLoadingRange] = useState(false)
+
+  // диапазон дат для текущего периода
+  const range = useMemo(() => {
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+    let start: Date
     switch (period) {
       case 'day':
-        return pool.slice(-1)
-      case 'week':
-        return pool.slice(-7)
+        start = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+        break
+      case 'week': {
+        const d = new Date(today)
+        const day = (d.getDay() + 6) % 7
+        d.setDate(d.getDate() - day)
+        start = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+        break
+      }
       case 'month':
-        return pool.slice(-30)
+        start = new Date(today.getFullYear(), today.getMonth(), 1)
+        break
       case 'year':
-        return pool.slice(-365)
+        start = new Date(today.getFullYear(), 0, 1)
+        break
       case 'custom': {
-        const from = new Date(`${customFrom}T00:00:00`)
-        const to = new Date(`${customTo}T00:00:00`)
-        if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) return []
-        const days = Math.min(400, Math.round((to.getTime() - from.getTime()) / 86400000) + 1)
-        return pool.slice(-days)
+        const f = new Date(`${customFrom}T00:00:00`)
+        const t = new Date(`${customTo}T23:59:59`)
+        if (Number.isNaN(f.getTime()) || Number.isNaN(t.getTime()) || t < f) return null
+        start = f
+        return { start: f, end: t }
       }
     }
-  }, [period, pool, customFrom, customTo])
+    return { start, end }
+  }, [period, today, customFrom, customTo])
+
+  useEffect(() => {
+    if (!range) return
+    let cancelled = false
+    setLoadingRange(true)
+    const fetchForRange = async () => {
+      try {
+        let list: Task[] = []
+        if (isTauri()) {
+          const views = await apiListTasks({ start_after: range.start.getTime(), start_before: range.end.getTime() })
+          const { toTask } = await import('../entities/tasks/api')
+          list = views.map(toTask)
+        } else {
+          // браузер: фильтруем уже загруженные + localStorage
+          const all = allTasks.length ? allTasks : (() => {
+            try {
+              const raw = localStorage.getItem('pulse-tasks')
+              if (!raw) return []
+              const arr = JSON.parse(raw) as { startDate: string; endDate: string; startMinute: number; endMinute: number; title: string; progress: number; tags: string[] }[]
+              return arr.map((t) => ({ ...t, startDate: new Date(t.startDate), endDate: new Date(t.endDate) } as unknown as Task))
+            } catch { return [] }
+          })()
+          list = all.filter((t) => t.startDate.getTime() <= range.end.getTime() && t.endDate.getTime() >= range.start.getTime())
+        }
+        if (!cancelled) setRangeTasks(list)
+      } catch (e) {
+        console.error('stats load failed', e)
+        if (!cancelled) setRangeTasks([])
+      } finally {
+        if (!cancelled) setLoadingRange(false)
+      }
+    }
+    void fetchForRange()
+    return () => { cancelled = true }
+  }, [range, allTasks])
+
+  const pool = useMemo(() => {
+    if (!range) return []
+    return buildDailyFromTasks(rangeTasks, range.start, range.end)
+  }, [rangeTasks, range])
+
+  const hours = useMemo(() => {
+    if (!range) return []
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    return buildHourlyFromTasks(rangeTasks, day)
+  }, [rangeTasks, today])
+
+  const day = useMemo(() => {
+    if (rangeTasks.length === 0) return { focus: 0, break: 0, food: 0, off: 1440 }
+    let focus = 0, brk = 0, food = 0
+    for (const t of rangeTasks) {
+      const dur = Math.max(1, t.endMinute - t.startMinute) * Math.max(0.2, t.progress || 0.5)
+      const tag = t.tags[0] ?? 'report'
+      if (['report', 'research', 'design', 'backend'].includes(tag)) focus += dur
+      else if (['break', 'smoke', 'rest', 'ritual'].includes(tag)) brk += dur
+      else if (['lunch', 'breakfast', 'dinner'].includes(tag)) food += dur
+      else focus += dur
+    }
+    const total = focus + brk + food
+    const off = Math.max(0, 1440 * Math.max(1, pool.length) - total)
+    const denom = Math.max(1, pool.length)
+    return { focus: Math.round(focus / denom), break: Math.round(brk / denom), food: Math.round(food / denom), off: Math.round(off / denom) }
+  }, [rangeTasks, pool])
+  const dayRules = useMemo(() => {
+    const tplRules = activeTemplate?.rules ?? []
+    if (tplRules.length) return rulesWithTimesFor(tplRules, chainStartMin)
+    return []
+  }, [activeTemplate, chainStartMin])
+  const rules = dayRules
+
+  const activeDaily = pool // pool уже отфильтрован под выбранный период (day/week/month/year/custom)
 
   const yearMonthly = useMemo(() => {
     if (period !== 'year') return []
@@ -384,9 +499,9 @@ export function Stats() {
   const stats = useMemo(() => {
     if (period === 'day') {
       const total = hours.reduce((s, h) => s + h.minutes, 0)
-      const peak = hours.reduce((m, h) => (h.minutes > m.minutes ? h : m), hours[0])
-      const avg30 = Math.round(pool.slice(-30).reduce((s, d) => s + d.minutes, 0) / 30)
-      return { total, avg: avg30, best: peak.minutes, bestLabel: peak.label }
+      const peak = hours.length ? hours.reduce((m, h) => (h.minutes > m.minutes ? h : m), hours[0]) : { minutes: 0, label: '—' }
+      const avg = activeDaily.length ? Math.round(activeDaily.reduce((s, d) => s + d.minutes, 0) / activeDaily.length) : total
+      return { total, avg, best: peak.minutes, bestLabel: peak.label }
     }
     const total = activeDaily.reduce((s, d) => s + d.minutes, 0)
     const avg = activeDaily.length ? Math.round(total / activeDaily.length) : 0
@@ -478,6 +593,12 @@ export function Stats() {
 
   return (
     <div className="w-full flex flex-col gap-5">
+      {loadingRange && (
+        <div className="flex items-center gap-2 text-[11px] text-[var(--text-faint)]">
+          <span className="size-3 rounded-full border-2 border-[var(--text-faint)] border-t-transparent animate-spin" />
+          Загрузка статистики из БД…
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1.5 p-1 rounded-xl border border-[var(--surface-3)] bg-[var(--surface-2)]/60">
           {PERIODS.map((p) => {
@@ -704,7 +825,7 @@ export function Stats() {
             </div>
             <div className="flex flex-col gap-2">
               {rules.map((r, ri) => {
-                const acc = ACCENTS[r.color]
+                const acc = ACCENTS[r.color as keyof typeof ACCENTS] ?? ACCENTS.blue
                 const pct = Math.round((r.minutes / goal) * 100)
                 const glow = `rgb(${acc.glow})`
                 return (
