@@ -70,6 +70,7 @@ const MemoTemplates = memo(Templates)
 function App() {
   const mainRef = useRef<HTMLElement>(null)
   const [page, setPage] = useState<Page>('today')
+  const [isWindowExpanded, setIsWindowExpanded] = useState(false)
   const [visited, setVisited] = useState<Record<Page, boolean>>({ today: true, schedule: false, stats: false, settings: false, templates: false })
   const [layoutWarm, setLayoutWarm] = useState(false)
   /* Счётчик визитов: для Статистики используется как key — при каждом заходе
@@ -258,9 +259,28 @@ function App() {
 
   const handleViewingDateChange = useCallback((k: string) => setViewingDateKey(k), [])
 
+  // Discord-like: показываем TitleBar только после расширения окна
+  useEffect(() => {
+    let cancelled = false
+    import('../shared/lib/boot').then(({ appWarm, dataReady }) => {
+      Promise.all([appWarm, dataReady]).then(() => {
+        if (!cancelled) setIsWindowExpanded(true)
+      })
+      // Fallback: если что-то зависло, всё равно показываем через 3с
+      setTimeout(() => { if (!cancelled) setIsWindowExpanded(true) }, 3000)
+    })
+    // также слушаем событие от hideBootSplash
+    const onExpanded = () => setIsWindowExpanded(true)
+    window.addEventListener('pulse:window-expanded', onExpanded as EventListener)
+    return () => {
+      cancelled = true
+      window.removeEventListener('pulse:window-expanded', onExpanded as EventListener)
+    }
+  }, [])
+
   return (
-    <div className="h-dvh w-screen flex flex-col">
-      <TitleBar />
+    <div className="h-dvh w-screen flex flex-col" style={{ background: isWindowExpanded ? '#0a0b0e' : 'transparent' }}>
+      {isWindowExpanded && <TitleBar />}
 
       <div className="flex-1 flex min-h-0">
         <Sidebar page={page} onPageChange={openPage} />

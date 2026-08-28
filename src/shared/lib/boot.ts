@@ -20,11 +20,22 @@ export function markAppWarm() {
   resolveAppWarm = null
 }
 
-export function hideBootSplash() {
+export async function hideBootSplash() {
   const el = document.getElementById('boot-splash')
   if (!el || el.classList.contains('done')) return
   el.classList.add('done')
+  // Discord-like: расширяем окно из маленького frameless в нормальное
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('expand_window')
+  } catch {
+    /* браузерный dev — игнорируем */
+  }
   window.setTimeout(() => el.remove(), 700)
+  // Снимаем прозрачный фон у html/body после расширения
+  document.documentElement.style.background = '#0a0b0e'
+  document.body.style.background = '#0a0b0e'
+  window.dispatchEvent(new CustomEvent('pulse:window-expanded'))
 }
 
 /* ── Плавный прогресс сплэша ────────────────────────────────────────────

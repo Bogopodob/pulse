@@ -4,3 +4,4 @@
 pub mod settings_commands;
 pub mod task_commands;
 pub mod template_commands;
+pub mod window_commands;

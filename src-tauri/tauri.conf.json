@@ -12,10 +12,17 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Pulse",
-        "width": 800,
-        "height": 600,
-        "resizable": true,
+        "width": 380,
+        "height": 380,
+        "minWidth": 380,
+        "minHeight": 380,
+        "center": true,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true,
         "fullscreen": false
       }
     ],

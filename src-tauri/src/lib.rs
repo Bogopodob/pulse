@@ -74,6 +74,8 @@ pub fn run() {
       presentation::commands::template_commands::duplicate_template,
       presentation::commands::settings_commands::list_settings,
       presentation::commands::settings_commands::save_settings,
+      presentation::commands::window_commands::expand_window,
+      presentation::commands::window_commands::shrink_to_splash,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

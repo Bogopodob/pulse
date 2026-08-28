@@ -10,6 +10,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Pulse</title>
     <style>
+      html, body { background: transparent !important; }
       #boot-splash {
         position: fixed;
         inset: 0;
@@ -18,8 +19,15 @@
         align-items: center;
         justify-content: center;
         background: #0a0b0e;
-        transition: opacity 0.55s ease, transform 0.55s ease;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+        transition: opacity 0.55s ease, transform 0.55s ease, border-radius 0.4s ease;
         user-select: none;
+      }
+      #boot-splash.done {
+        border-radius: 0;
+        box-shadow: none;
       }
       #boot-splash.done {
         opacity: 0;
@@ -79,7 +87,7 @@
   </head>
   <body>
     <div id="root"></div>
-    <div id="boot-splash" aria-hidden="true">
+    <div id="boot-splash" aria-hidden="true" data-tauri-drag-region>
       <div class="splash-inner">
         <svg class="splash-logo" viewBox="0 0 1268 1241" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pulse logo">
           <defs>
