@@ -259,9 +259,13 @@ function App() {
 
   const handleViewingDateChange = useCallback((k: string) => setViewingDateKey(k), [])
 
-  // Discord-like: показываем TitleBar только после расширения окна
+  // Discord-like: показываем TitleBar только после расширения окна + прячем скроллы на старте
   useEffect(() => {
     let cancelled = false
+    // сразу прячем скроллы, пока окно маленькое 380×380
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+    if (mainRef.current) mainRef.current.style.overflow = 'hidden'
     import('../shared/lib/boot').then(({ appWarm, dataReady }) => {
       Promise.all([appWarm, dataReady]).then(() => {
         if (!cancelled) setIsWindowExpanded(true)
@@ -270,7 +274,12 @@ function App() {
       setTimeout(() => { if (!cancelled) setIsWindowExpanded(true) }, 3000)
     })
     // также слушаем событие от hideBootSplash
-    const onExpanded = () => setIsWindowExpanded(true)
+    const onExpanded = () => {
+      setIsWindowExpanded(true)
+      document.documentElement.style.overflow = ''
+      document.body.style.overflow = ''
+      if (mainRef.current) mainRef.current.style.overflow = ''
+    }
     window.addEventListener('pulse:window-expanded', onExpanded as EventListener)
     return () => {
       cancelled = true
@@ -278,14 +287,58 @@ function App() {
     }
   }, [])
 
+  const [showScroll, setShowScroll] = useState(false)
+  useEffect(() => {
+    // На время сплэша и прогрева — полностью прячем скроллы, иначе на 380×380 видны вертикальные/горизонтальные
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+    document.body.style.background = isWindowExpanded ? '#0a0b0e' : 'transparent'
+    document.documentElement.style.background = isWindowExpanded ? '#0a0b0e' : 'transparent'
+    if (mainRef.current) {
+      mainRef.current.style.overflowY = 'hidden'
+      mainRef.current.style.overflowX = 'hidden'
+    }
+    // После расширения и прогрева — плавно показываем скролл
+    if (isWindowExpanded && !layoutWarm) {
+      const t = setTimeout(() => {
+        setShowScroll(true)
+        if (mainRef.current) {
+          mainRef.current.style.overflowY = 'auto'
+          mainRef.current.style.overflowX = 'hidden'
+        }
+      }, 600)
+      return () => clearTimeout(t)
+    } else {
+      setShowScroll(false)
+      if (mainRef.current) {
+        mainRef.current.style.overflowY = 'hidden'
+        mainRef.current.style.overflowX = 'hidden'
+      }
+    }
+  }, [isWindowExpanded, layoutWarm])
+
   return (
-    <div className="h-dvh w-screen flex flex-col" style={{ background: isWindowExpanded ? '#0a0b0e' : 'transparent' }}>
+    <div
+      className="h-dvh w-screen flex flex-col overflow-hidden"
+      style={{
+        background: isWindowExpanded ? '#0a0b0e' : 'transparent',
+        borderRadius: isWindowExpanded ? 0 : 20,
+        overflow: 'hidden',
+        boxShadow: isWindowExpanded ? 'none' : '0 20px 60px rgba(0,0,0,0.5)',
+        // Плавное увеличение углов до стандартных при расширении (Discord-like)
+        transition: 'border-radius 0.45s ease, box-shadow 0.45s ease, background 0.3s ease',
+      }}
+    >
       {isWindowExpanded && <TitleBar />}
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
         <Sidebar page={page} onPageChange={openPage} />
 
-        <main ref={mainRef} className="flex-1 min-w-0 flex flex-col p-6 sm:p-8 md:p-10 overflow-y-auto gap-5">
+        <main
+          ref={mainRef}
+          className={`flex-1 min-w-0 flex flex-col p-6 sm:p-8 md:p-10 gap-5 ${!isWindowExpanded ? 'hidden' : ''}`}
+          style={{ overflowY: (showScroll ? 'auto' : 'hidden') as React.CSSProperties['overflowY'], overflowX: 'hidden' as const, opacity: isWindowExpanded ? 1 : 0, transition: 'opacity 0.35s ease' }}
+        >
           {PAGES.map((p) => (
             <div
               key={p}
