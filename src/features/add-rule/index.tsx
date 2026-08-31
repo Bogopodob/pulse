@@ -1,4 +1,4 @@
-import { memo, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { ACTIVITIES } from '../../entities/rhythm/activities'
 import type { Rule, RuleColor } from '../../entities/rhythm/activities'
@@ -61,7 +61,29 @@ export const RuleChips = memo(function RuleChips({
   const [flashId, setFlashId] = useState<string | null>(null)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const flashTimer = useRef<number | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const pickerBtnRef = useRef<HTMLButtonElement>(null)
+  const [pickerPos, setPickerPos] = useState<{ top: number; right: number } | null>(null)
   const ranges = ruleRanges(rules, chainStart)
+
+  useEffect(() => {
+    if (showAdd) requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }))
+  }, [showAdd])
+
+  useEffect(() => {
+    if (!showPicker) return
+    const upd = () => {
+      const r = pickerBtnRef.current?.getBoundingClientRect()
+      if (r) setPickerPos({ top: r.bottom + 6, right: window.innerWidth - r.right })
+    }
+    upd()
+    window.addEventListener('resize', upd)
+    window.addEventListener('scroll', upd, true)
+    return () => {
+      window.removeEventListener('resize', upd)
+      window.removeEventListener('scroll', upd, true)
+    }
+  }, [showPicker])
 
   /* Бюджет суток: сумма всех блоков не может превысить 24:00 − начало цепочки. */
   const budget = Math.max(0, DAY_LIMIT - chainStart)
@@ -101,8 +123,8 @@ export const RuleChips = memo(function RuleChips({
   const canClear = isWithoutTemplate && rules.length > 0
 
   return (
-    <div className="card card-lift relative z-[1] flex flex-col max-h-[560px]">
-      <div className="flex items-center gap-2 px-5 pt-4 pb-3">
+    <div className="card card-lift relative z-[1] flex flex-col max-h-[min(560px,calc(100vh-140px))] overflow-hidden">
+      <div className="flex items-center gap-2 px-5 pt-4 pb-3 shrink-0">
         <div className="flex items-center gap-2">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--focus)]">
             <rect x="3" y="4" width="18" height="17" rx="2" />
@@ -114,6 +136,7 @@ export const RuleChips = memo(function RuleChips({
 
         <div className="relative ml-auto">
           <button
+            ref={pickerBtnRef}
             onClick={() => setShowPicker((v) => !v)}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold transition-colors"
             style={{
@@ -147,8 +170,10 @@ export const RuleChips = memo(function RuleChips({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.12, ease: 'easeOut' }}
-                  className="absolute right-0 top-full mt-1.5 z-[41] rounded-xl p-1.5 will-change-transform"
+                  className="fixed z-[41] rounded-xl p-1.5 will-change-transform"
                   style={{
+                    top: pickerPos?.top ?? 64,
+                    right: pickerPos?.right ?? 24,
                     background: 'var(--surface-2)',
                     border: '1px solid var(--stroke)',
                     boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
@@ -212,7 +237,7 @@ export const RuleChips = memo(function RuleChips({
       </div>
 
       {isWithoutTemplate && (
-        <div className="mx-3 mb-2 rounded-lg px-3 py-2 flex items-center gap-2 text-[11px] leading-[1.4]" style={{ background: 'rgba(76,141,255,0.08)', border: '1px solid rgba(76,141,255,0.18)', color: 'var(--text-dim)' }}>
+        <div className="mx-3 mb-2 shrink-0 rounded-lg px-3 py-2 flex items-center gap-2 text-[11px] leading-[1.4]" style={{ background: 'rgba(76,141,255,0.08)', border: '1px solid rgba(76,141,255,0.18)', color: 'var(--text-dim)' }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--focus)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
             <circle cx="12" cy="12" r="9" />
             <path d="M12 8v5M12 16h.01" />
@@ -223,37 +248,66 @@ export const RuleChips = memo(function RuleChips({
         </div>
       )}
 
-      {rules.length === 0 && isWithoutTemplate ? (
-        <div className="mx-3 rounded-xl px-4 py-6 text-center" style={{ background: 'var(--surface-2)', border: '1px dashed var(--stroke)' }}>
-          <div className="text-[13px] font-medium text-[var(--text-dim)]">Пока нет ни одного блока</div>
-          <div className="text-[11.5px] text-[var(--text-faint)] mt-1">Нажмите «Блок» или «Добавить блок», чтобы собрать свой день — это не шаблон, а текущие правила на сегодня</div>
-        </div>
-      ) : (
-        <Reorder.Group
-          axis="y"
-          values={rules}
-          onReorder={save}
-          className="flex flex-col gap-1 px-3 flex-1 min-h-0 overflow-y-auto"
-        >
-          {rules.map((r, i) => (
-            <RuleRow
-              key={r.id}
-              rule={r}
-              range={ranges[i]}
-              dragging={dragging}
-              flash={flashId === r.id}
-              maxMinutes={maxMinutesFor(r.id)}
-              onDragState={setDragging}
-              edit={edit}
-              setEdit={setEdit}
-              onUpdate={update}
-              onRemove={remove}
-            />
-          ))}
-        </Reorder.Group>
-      )}
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-1 px-3 py-1 [scrollbar-width:thin] [scrollbar-color:var(--stroke)_transparent]"
+      >
+        {rules.length === 0 && isWithoutTemplate ? (
+          <div className="rounded-xl px-4 py-6 text-center" style={{ background: 'var(--surface-2)', border: '1px dashed var(--stroke)' }}>
+            <div className="text-[13px] font-medium text-[var(--text-dim)]">Пока нет ни одного блока</div>
+            <div className="text-[11.5px] text-[var(--text-faint)] mt-1">Нажмите «Блок» или «Добавить блок», чтобы собрать свой день — это не шаблон, а текущие правила на сегодня</div>
+          </div>
+        ) : (
+          <Reorder.Group
+            axis="y"
+            values={rules}
+            onReorder={save}
+            className="flex flex-col gap-1"
+          >
+            {rules.map((r, i) => (
+              <RuleRow
+                key={r.id}
+                rule={r}
+                range={ranges[i]}
+                dragging={dragging}
+                flash={flashId === r.id}
+                maxMinutes={maxMinutesFor(r.id)}
+                onDragState={setDragging}
+                edit={edit}
+                setEdit={setEdit}
+                onUpdate={update}
+                onRemove={remove}
+              />
+            ))}
+          </Reorder.Group>
+        )}
 
-      <div className="px-3 pt-1.5 pb-3 shrink-0 flex flex-col gap-1.5">
+        <div
+          className="grid transition-[grid-template-rows] duration-[160ms] ease-out"
+          style={{ gridTemplateRows: showAdd ? '1fr' : '0fr' }}
+        >
+          <div className="overflow-hidden">
+            <div className="pt-1.5">
+              <BlockCreator
+                rules={rules}
+                onClose={() => setShowAdd(false)}
+                presetType={presetType}
+                setPresetType={setPresetType}
+                presetMin={presetMin}
+                setPresetMin={setPresetMin}
+                custom={custom}
+                setCustom={setCustom}
+                customMin={customMin}
+                setCustomMin={setCustomMin}
+                chainStart={chainStart}
+                onAdd={addRule}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-3 pt-2 pb-3 shrink-0 flex flex-col gap-1.5 border-t border-[var(--stroke)]/60">
         {canClear && (
           <button
             onClick={() => setShowClearConfirm(true)}
@@ -278,35 +332,8 @@ export const RuleChips = memo(function RuleChips({
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M12 5v14M5 12h14" />
           </svg>
-          Добавить блок в конец
+          {showAdd ? 'Свернуть' : 'Добавить блок в конец'}
         </motion.button>
-        <AnimatePresence initial={false}>
-          {showAdd && (
-            <motion.div
-              key="creator"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: 'easeInOut' }}
-              className="overflow-hidden pt-1.5"
-            >
-              <BlockCreator
-                rules={rules}
-                onClose={() => setShowAdd(false)}
-                presetType={presetType}
-                setPresetType={setPresetType}
-                presetMin={presetMin}
-                setPresetMin={setPresetMin}
-                custom={custom}
-                setCustom={setCustom}
-                customMin={customMin}
-                setCustomMin={setCustomMin}
-                chainStart={chainStart}
-                onAdd={addRule}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       <AnimatePresence>
