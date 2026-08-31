@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { fmtHM, fmtHMS, DAY_START, DAY_END, STEP_MIN, PITCH, type Segment } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
+import { useTheme } from '../shared/hooks/useTheme'
 
 const BREAK_GROUP = new Set(['break', 'smoke', 'rest'])
 const FOOD_GROUP = new Set(['lunch', 'breakfast', 'dinner'])
@@ -35,10 +36,10 @@ const ZONE_SUNRISE = 'M12 3v5M8.5 6.5L12 3l3.5 3.5M4 19h16M7.5 19a4.5 4.5 0 0 1 
 const ZONE_SUNSET = 'M12 8V3M8.5 4.5L12 8l3.5-3.5M4 19h16M7.5 19a4.5 4.5 0 0 1 9 0'
 
 const DAY_ZONES = [
-  { from: 0, to: 360, label: 'Ночь', icon: ICON_PATHS.moon, color: '#a79bff', tint: 'rgba(124,107,255,0.07)' },
-  { from: 360, to: 720, label: 'Утро', icon: ZONE_SUNRISE, color: '#ffc15e', tint: 'rgba(255,157,92,0.06)' },
-  { from: 720, to: 1080, label: 'День', icon: ICON_PATHS.sun, color: '#bcd4ff', tint: 'rgba(76,141,255,0.06)' },
-  { from: 1080, to: 1440, label: 'Вечер', icon: ZONE_SUNSET, color: '#f9a8d4', tint: 'rgba(244,114,182,0.05)' },
+  { from: 0, to: 360, label: 'Ночь', icon: ICON_PATHS.moon, color: '#a79bff', lightColor: '#6b5bff', tint: 'rgba(124,107,255,0.07)', lightTint: 'rgba(124,107,255,0.14)' },
+  { from: 360, to: 720, label: 'Утро', icon: ZONE_SUNRISE, color: '#ffc15e', lightColor: '#e67e22', tint: 'rgba(255,157,92,0.06)', lightTint: 'rgba(255,157,92,0.12)' },
+  { from: 720, to: 1080, label: 'День', icon: ICON_PATHS.sun, color: '#bcd4ff', lightColor: '#2b6bff', tint: 'rgba(76,141,255,0.06)', lightTint: 'rgba(76,141,255,0.13)' },
+  { from: 1080, to: 1440, label: 'Вечер', icon: ZONE_SUNSET, color: '#f9a8d4', lightColor: '#d63384', tint: 'rgba(244,114,182,0.05)', lightTint: 'rgba(244,114,182,0.11)' },
 ]
 
 export interface TimelineProps {
@@ -498,7 +499,7 @@ const FutureFog = memo(function FutureFog({ nowPx, totalWidth }: { nowPx: number
         willChange: 'transform',
       }}
     >
-      <div className="absolute inset-0" style={{ width: w, background: 'rgba(21, 23, 28, 0.82)' }} />
+      <div className="absolute inset-0" style={{ width: w, background: 'var(--future-fog)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }} />
     </div>
   )
 })
@@ -617,14 +618,14 @@ const MarkersLayer = memo(function MarkersLayer({ visualMap, totalWidth }: { vis
               left: x,
               top: row === 0 ? 0 : 18,
               transform: 'translateX(-50%) translateZ(0)',
-              color: a.color,
-              background: 'var(--surface-2)',
+              color: a.dot,
+              background: 'var(--surface)',
               border: '1px solid var(--stroke)',
-              opacity: row === 0 ? 0.62 : 0.9,
+              opacity: row === 0 ? 0.9 : 1,
               maxWidth: 132,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              boxShadow: row === 1 ? '0 2px 10px rgba(0,0,0,0.3)' : undefined,
+              boxShadow: row === 1 ? '0 4px 12px rgba(0,0,0,0.08)' : '0 1px 4px rgba(0,0,0,0.06)',
             }}
             title={`${s.label} · ${fmtHM(s.start)}`}
           >
@@ -648,7 +649,7 @@ const RulerLayer = memo(function RulerLayer({ visualXOf }: { visualXOf: (min: nu
         return (
           <div
             key={m}
-            className="absolute bottom-0 font-mono text-[10.5px] text-[var(--text-faint)]"
+            className="absolute bottom-0 font-mono text-[10.5px] text-[var(--timeline-faint)]"
             style={{
               left: x,
               transform: isFirst ? 'translateX(3px) translateZ(0)' : isLast ? 'translateX(calc(-100% - 3px)) translateZ(0)' : 'translateX(-50%) translateZ(0)',
@@ -656,7 +657,7 @@ const RulerLayer = memo(function RulerLayer({ visualXOf }: { visualXOf: (min: nu
             }}
           >
             <div
-              className="absolute bottom-[16px] w-px h-[6px] bg-[var(--stroke)]"
+              className="absolute bottom-[16px] w-px h-[6px] bg-[var(--timeline-grid)]"
               style={{ left: isFirst ? 0 : isLast ? undefined : '50%', right: isLast ? 0 : undefined }}
             />
             {(isFirst || isLast) && (
@@ -698,10 +699,8 @@ const BarsLayer = memo(function BarsLayer({ bars, pitch }: { bars: Bar[]; pitch:
               marginRight: 1,
               height: bar.height,
               borderRadius: '3px 3px 2px 2px',
-              background: isOff
-                ? 'rgba(88,93,104,0.5)'
-                : acc!.dot,
-              opacity: isOff ? 0.45 : 1,
+              background: isOff ? 'var(--off)' : acc!.dot,
+              opacity: isOff ? 0.35 : 1,
               transform: 'translateZ(0)',
               contain: 'paint',
               contentVisibility: 'auto' as const,
@@ -723,6 +722,8 @@ const ZonesLayer = memo(function ZonesLayer({
   totalWidth: number
   visualXOf: (min: number) => number
 }) {
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
   // координаты маркеров для анти-коллизии с подписями зон — хук до early return
   const markerXs = useMemo(
     () => visualMap.filter((s) => s.type !== 'focus' && s.type !== 'off').map((s) => s.visualX),
@@ -739,6 +740,8 @@ const ZonesLayer = memo(function ZonesLayer({
         // подпись зоны "День" прячем если рядом ( < 72px ) есть плашка Перерыв 11:55 — иначе наслаиваются
         const labelCenter = x0 + 38 // left 12 + ~26/2 ширины "День"
         const nearMarker = markerXs.some((mx) => Math.abs(mx - labelCenter) < 72)
+        const tint = isLight ? (z as unknown as { lightTint: string }).lightTint ?? z.tint : z.tint
+        const col = isLight ? (z as unknown as { lightColor: string }).lightColor ?? z.color : z.color
         return (
           <div
             key={z.label}
@@ -746,16 +749,24 @@ const ZonesLayer = memo(function ZonesLayer({
             style={{
               left: x0,
               width: w,
-              background: `linear-gradient(180deg, ${z.tint}, transparent 46%)`,
+              background: `linear-gradient(180deg, ${tint}, transparent 46%)`,
               contain: 'paint',
             }}
           >
             {!nearMarker && (
-              <div className="absolute top-[7px] left-[12px] flex items-center gap-1" style={{ color: z.color, opacity: 0.45 }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <div
+                className="absolute top-[7px] left-[12px] flex items-center gap-1"
+                style={{
+                  color: col,
+                  opacity: isLight ? 1 : 0.52,
+                  filter: isLight ? 'drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 0 6px rgba(255,255,255,0.7))' : undefined,
+                  fontWeight: 800,
+                }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                   <path d={z.icon} />
                 </svg>
-                <span className="text-[9px] font-semibold uppercase tracking-[0.14em]" style={{ fontFamily: 'var(--font-display)' }}>
+                <span className="text-[9px] uppercase tracking-[0.14em]" style={{ fontFamily: 'var(--font-display)', fontWeight: isLight ? 700 : 600 }}>
                   {z.label}
                 </span>
               </div>

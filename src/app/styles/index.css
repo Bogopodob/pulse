@@ -29,6 +29,10 @@
   --lunch-2: #7fe8b8;
   --off: #d2d2d7;
 
+  --future-fog: rgba(255, 255, 255, 0.82);
+  --timeline-grid: rgba(0, 0, 0, 0.06);
+  --timeline-faint: #6e6e73;
+
   --success: rgba(52, 199, 89, 0.9);
   --danger: rgba(255, 59, 48, 0.9);
 
@@ -76,6 +80,10 @@ html.dark {
   --text-faint: #5c6068;
 
   --off: #4a4d55;
+
+  --future-fog: rgba(21, 23, 28, 0.82);
+  --timeline-grid: rgba(255, 255, 255, 0.06);
+  --timeline-faint: #5c6068;
 
   --success: rgba(120, 200, 120, 0.6);
   --danger: rgba(255, 100, 100, 0.6);
