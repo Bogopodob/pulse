@@ -11,7 +11,7 @@ import type { Rule } from '../entities/rhythm/activities'
 import { fmtClock } from '../shared/lib/date'
 import { useSettings } from '../shared/hooks/useSettings'
 import { useTemplates, dateKeyOf } from '../entities/templates/useTemplates'
-import { markAppWarm } from '../shared/lib/boot'
+import { markAppWarm, markDataReady } from '../shared/lib/boot'
 
 const CUSTOM_DAY_RULES_KEY = 'pulse-custom-day-rules'
 
@@ -81,6 +81,11 @@ function App() {
   const [viewingDateKey, setViewingDateKey] = useState<string>(() => dateKeyOf(new Date()))
   const { timezone, timeFormat, dateFormat, chainStartMin } = useSettings()
   const { templates, overrides, selectForToday, assignWeekday, setDayOverride, updateTemplate, createTemplate, getTemplateForDate, isOverriddenForDate } = useTemplates()
+
+  // данные (templates, settings) загружаются в хуках — помечаем ready после первого рендера
+  useEffect(() => {
+    markDataReady()
+  }, [])
 
   const pageRef = useRef(page)
   pageRef.current = page
@@ -292,8 +297,9 @@ function App() {
     // На время сплэша и прогрева — полностью прячем скроллы, иначе на 380×380 видны вертикальные/горизонтальные
     document.documentElement.style.overflow = 'hidden'
     document.body.style.overflow = 'hidden'
-    document.body.style.background = isWindowExpanded ? '#0a0b0e' : 'transparent'
-    document.documentElement.style.background = isWindowExpanded ? '#0a0b0e' : 'transparent'
+    // сбрасываем inline background — пусть CSS переменные (--bg) рулят темой
+    document.body.style.background = isWindowExpanded ? '' : 'transparent'
+    document.documentElement.style.background = isWindowExpanded ? '' : 'transparent'
     if (mainRef.current) {
       mainRef.current.style.overflowY = 'hidden'
       mainRef.current.style.overflowX = 'hidden'

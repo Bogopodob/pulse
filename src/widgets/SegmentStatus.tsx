@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion'
-import { useRhythm, fmtHM, fmtMS } from '../entities/rhythm/useRhythm'
+import { useRhythmTime, fmtHM, fmtMS } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
-export function SegmentStatus({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
-  const { cur, resting, remain, total, nextSegment } = rhythm
+export function SegmentStatus() {
+  const { cur, resting, remain, total, nextSegment } = useRhythmTime()
   const cfg = ACCENTS[cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
   const progress = 1 - remain / Math.max(1, total)
   const nextLabel = nextSegment ? nextSegment.label : '—'

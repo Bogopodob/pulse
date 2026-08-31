@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { useRhythm } from '../entities/rhythm/useRhythm'
+import { useRhythm, useRhythmTime } from '../entities/rhythm/useRhythm'
 import { ACCENTS } from '../entities/rhythm/activities'
 import type { Rule } from '../entities/rhythm/activities'
 import type { DayTemplate } from '../entities/templates/useTemplates'
@@ -52,12 +52,14 @@ export function Today({
   onOpenTemplates: () => void
 }) {
   const rhythm = useRhythm(rules, chainStart)
+  const { cur } = useRhythmTime()
+
   const todayStatus = useMemo(() => {
-    const a = ACCENTS[rhythm.cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
-    if (rhythm.cur.type === 'off')
+    const a = ACCENTS[cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
+    if (cur.type === 'off')
       return { label: 'Вне графика', color: 'var(--text-faint)', bg: 'var(--surface-2)', border: 'var(--stroke)' } as const
-    return { label: rhythm.cur.label, color: a.color, bg: a.bg, border: a.border } as const
-  }, [rhythm.cur.color, rhythm.cur.label, rhythm.cur.type])
+    return { label: cur.label, color: a.color, bg: a.bg, border: a.border } as const
+  }, [cur.color, cur.label, cur.type])
 
   const isViewingOtherDay = viewingDateKey !== todayKey
   const viewingLabel = useMemo(() => {
@@ -112,13 +114,9 @@ export function Today({
           <div className="aurora-blob a1" />
           <div className="aurora-blob a2" />
         </div>
-        <div className="relative z-[1] min-w-0 order-1"><NextUp rhythm={rhythm} /></div>
+        <div className="relative z-[1] min-w-0 order-1"><NextUp segments={rhythm.segments} /></div>
         <div className="relative z-[1] min-w-0 order-2">
-          <Timeline
-            segments={rhythm.segments}
-            nowMinutes={rhythm.nowMinutes}
-            cur={rhythm.cur}
-          />
+          <Timeline segments={rhythm.segments} />
         </div>
         <div className="relative z-[1] min-w-0 order-3"><TodayTasks /></div>
         <div className="relative z-[1] min-w-0 order-4">

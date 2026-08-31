@@ -1,11 +1,12 @@
 import { memo, useMemo, useRef } from 'react'
-import { useRhythm, fmtHM, fmtMS } from '../entities/rhythm/useRhythm'
+import { useRhythmTime, fmtHM, fmtMS } from '../entities/rhythm/useRhythm'
+import type { Segment } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 const CIRC = 2 * Math.PI * 43
 
-export const NextUp = memo(function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
-  const { cur, resting, remain, segments, progress } = rhythm
+export const NextUp = memo(function NextUp({ segments }: { segments: Segment[] }) {
+  const { cur, resting, remain, progress } = useRhythmTime()
   const remainText = fmtMS(remain)
   const numTextRef = useRef<HTMLDivElement>(null)
 

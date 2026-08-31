@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
-import { fmtHM, fmtHMS, DAY_START, DAY_END, STEP_MIN, PITCH, type Segment } from '../entities/rhythm/useRhythm'
+import { fmtHM, fmtHMS, DAY_START, DAY_END, STEP_MIN, PITCH, type Segment, useRhythmTime } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 const BREAK_GROUP = new Set(['break', 'smoke', 'rest'])
@@ -43,8 +43,6 @@ const DAY_ZONES = [
 
 export interface TimelineProps {
   segments: Segment[]
-  nowMinutes: number
-  cur: Segment
 }
 
 function findSegment(min: number, segments: Segment[]): Segment | undefined {
@@ -164,7 +162,8 @@ function useVisualLayout(segments: Segment[]) {
   return { visualMap, totalWidth, visualXOf, minuteAtVisualX, visualBars }
 }
 
-export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
+export function Timeline({ segments }: TimelineProps) {
+  const { nowMinutes, cur } = useRhythmTime()
   const viewportRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
   const [showJump, setShowJump] = useState(false)
@@ -177,7 +176,6 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
   const wheelRafRef = useRef(0)
   const wheelDeltaRef = useRef(0)
   const draggingRef = useRef(false)
-  const [viewportRange, setViewportRange] = useState<{ start: number; end: number }>({ start: 0, end: 260 })
   const [visibleX, setVisibleX] = useState<{ left: number; right: number }>({ left: 0, right: 900 })
 
   const { visualMap, totalWidth, visualXOf, minuteAtVisualX, visualBars } = useVisualLayout(segments)
@@ -198,19 +196,13 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
 
   const updateViewportRange = useCallback(() => {
     const vp = viewportRef.current
-    if (!vp || visualBars.length === 0) return
+    if (!vp) return
     const left = vp.scrollLeft
     const vw = vp.clientWidth
-    const startIdx = Math.max(0, Math.floor(left / PITCH) - 40)
-    const endIdx = Math.min(visualBars.length, Math.ceil((left + vw) / PITCH) + 40)
-    setViewportRange((prev) => {
-      if (Math.abs(prev.start - startIdx) < 12 && Math.abs(prev.end - endIdx) < 12) return prev
-      return { start: startIdx, end: endIdx }
-    })
-    const l = left - 120
-    const r = left + vw + 120
+    const l = left - 240
+    const r = left + vw + 240
     setVisibleX((prev) => (Math.abs(prev.left - l) < 24 && Math.abs(prev.right - r) < 24 ? prev : { left: l, right: r }))
-  }, [visualBars.length])
+  }, [])
 
   useEffect(() => {
     const vp = viewportRef.current
@@ -354,6 +346,26 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
 
   const nowPx = visualXOf(nowMinutes)
 
+  const HoverTooltip = useMemo(() => {
+    if (!hv) return null
+    const a = ACCENTS[hv.color as keyof typeof ACCENTS] ?? ACCENTS.blue
+    const trunc = truncateLabel(hv.label)
+    return (
+      <div className="absolute z-[8] pointer-events-none" style={{ left: hv.x, top: 26, transform: 'translateX(-50%) translateZ(0)' }}>
+        <div
+          className="flex items-center gap-1.5 px-2 py-1 rounded-md whitespace-nowrap"
+          style={{ background: 'var(--surface-3)', border: '1px solid var(--stroke)', boxShadow: '0 6px 18px rgba(0,0,0,0.4)' }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d={ICON_PATHS[hv.type] ?? ICON_PATHS.clock} />
+          </svg>
+          <span className="text-[10.5px] font-semibold" style={{ color: a.color }}>{trunc}</span>
+          <span className="text-[10px] text-[var(--text-dim)] font-mono">{fmtHM(hv.min)}</span>
+        </div>
+      </div>
+    )
+  }, [hv])
+
   return (
     <div className="card card-lift relative z-[1] h-full flex flex-col p-0 overflow-hidden">
       <div className="flex items-center justify-between px-6 pt-5 pb-1">
@@ -428,7 +440,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
             className="absolute left-0 bottom-[62px] h-[96px] flex items-end"
             style={{ width: totalWidth, contain: 'paint' }}
           >
-            <BarsLayer bars={visualBars} pitch={PITCH} start={viewportRange.start} end={viewportRange.end} />
+            <BarsLayer bars={visualBars} pitch={PITCH} />
           </div>
 
           <FutureFog nowPx={nowPx} totalWidth={totalWidth} />
@@ -459,24 +471,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
 
           <Playhead nowPx={nowPx} nowMinutes={nowMinutes} />
 
-          {hv && (() => {
-            const a = ACCENTS[hv.color as keyof typeof ACCENTS] ?? ACCENTS.blue
-            const trunc = truncateLabel(hv.label)
-            return (
-              <div className="absolute z-[8] pointer-events-none" style={{ left: hv.x, top: 26, transform: 'translateX(-50%) translateZ(0)' }}>
-                <div
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-md whitespace-nowrap"
-                  style={{ background: 'var(--surface-3)', border: '1px solid var(--stroke)', boxShadow: '0 6px 18px rgba(0,0,0,0.4)' }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d={ICON_PATHS[hv.type] ?? ICON_PATHS.clock} />
-                  </svg>
-                  <span className="text-[10.5px] font-semibold" style={{ color: a.color }}>{trunc}</span>
-                  <span className="text-[10px] text-[var(--text-dim)] font-mono">{fmtHM(hv.min)}</span>
-                </div>
-              </div>
-            )
-          })()}
+          {HoverTooltip}
         </div>
       </div>
 
@@ -530,6 +525,9 @@ function fmtDur(min: number): string {
 const FutureFog = memo(function FutureFog({ nowPx, totalWidth }: { nowPx: number; totalWidth: number }) {
   const left = Math.min(totalWidth, Math.max(0, nowPx))
   const w = Math.max(0, totalWidth - left)
+  // в светлой теме будущий фог почти невидимый — отключаем чтобы не держать 3600px composited layer
+  const isLight = document.documentElement.classList.contains('dark') === false
+  if (isLight && w < totalWidth * 0.95) return null
   return (
     <div
       className="absolute top-0 bottom-[58px] pointer-events-none"
@@ -550,7 +548,7 @@ const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; 
   return (
     <div
       className="absolute top-0 bottom-[58px] z-[5] pointer-events-none"
-      style={{ transform: `translate3d(${nowPx}px,0,0)`, willChange: 'transform' }}
+      style={{ transform: `translate3d(${nowPx}px,0,0)` }}
     >
       {/* вертикальный ореол — без blur-фильтра, только radial-gradient, дешевле */}
       <div
@@ -562,7 +560,7 @@ const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; 
       {/* бейдж */}
       <div
         className="absolute top-[2px] left-1/2 z-[3]"
-        style={{ transform: 'translateX(-50%) translateZ(0)', animation: 'tl-fade-in 0.5s ease-out 0.2s both' }}
+        style={{ transform: 'translateX(-50%)', animation: 'tl-fade-in 0.5s ease-out 0.2s both' }}
       >
         <div className="relative flex items-center gap-2 pl-[7px] pr-[10px] py-[5px] rounded-full bg-[rgba(28,31,38,0.96)] border border-white/[0.09] shadow-[0_8px_24px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.07)_inset]">
           <span className="relative flex size-[7px] shrink-0 items-center justify-center">
@@ -577,7 +575,7 @@ const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; 
         <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] size-[8px] rotate-45 bg-[rgba(28,31,38,0.96)] border-r border-b border-white/[0.09]" />
       </div>
       {/* точка — центр строго на оси */}
-      <div className="absolute left-1/2 top-[32px] size-[12px] z-[2]" style={{ transform: 'translateX(-50%) translateZ(0)' }}>
+      <div className="absolute left-1/2 top-[32px] size-[12px] z-[2]" style={{ transform: 'translateX(-50%)' }}>
         <span className="absolute inset-[3px] rounded-full bg-[#ff3b30] border-[1.5px] border-white/90 shadow-[0_0_10px_rgba(255,59,48,0.85)]" />
         <span className="absolute inset-[-7px] rounded-full border border-[#ff3b30]/30" style={{ animation: 'tl-ping 2s ease-out infinite' }} />
         <span className="absolute left-[3px] top-[3px] size-[2px] rounded-full bg-white/80" />
@@ -585,7 +583,7 @@ const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; 
       {/* линия — стартует ровно от нижнего края точки (32+12=44), идёт до 4px над низом, ровно под центром точки */}
       <div
         className="absolute left-1/2 top-[44px] bottom-[8px] w-[1.5px] -translate-x-1/2 rounded-full overflow-hidden"
-        style={{ transform: 'translateX(-50%) translateZ(0)' }}
+        style={{ transform: 'translateX(-50%)' }}
       >
         <div
           className="absolute inset-0 rounded-full"
@@ -596,7 +594,7 @@ const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; 
         />
       </div>
       {/* нижний ромб — центр на той же оси */}
-      <div className="absolute left-1/2 bottom-[2px] size-[6px] bg-[#ff3b30] border border-white/20 shadow-[0_0_8px_rgba(255,59,48,0.7)]" style={{ transform: 'translateX(-50%) rotate(45deg) translateZ(0)' }} />
+      <div className="absolute left-1/2 bottom-[2px] size-[6px] bg-[#ff3b30] border border-white/20 shadow-[0_0_8px_rgba(255,59,48,0.7)]" style={{ transform: 'translateX(-50%) rotate(45deg)' }} />
     </div>
   )
 })
@@ -620,10 +618,7 @@ const MarkersLayer = memo(function MarkersLayer({ visualMap, totalWidth, visible
     for (const it of raw) {
       const left = it.x - it.wEst / 2
       const right = it.x + it.wEst / 2
-      // защита от выхода за границы ленты
-      if (it.x < 8 || it.x > totalWidth - 8) {
-        // у краёв всё равно центрируем, но не даём выйти за 0/totalWidth
-      }
+      if (it.x < 8 || it.x > totalWidth - 8) {}
       if (left > last0 + GAP) {
         placed.push({ ...it, row: 0 })
         last0 = right
@@ -631,16 +626,11 @@ const MarkersLayer = memo(function MarkersLayer({ visualMap, totalWidth, visible
         placed.push({ ...it, row: 1 })
         last1 = right
       } else {
-        // обе строки заняты — прячем наименее важную (короткую паузу), но 11:55 и День — обе важны,
-        // поэтому сдвигаем текущую вправо до ближайшего свободного слота на верхней строке
-        // вместо скрытия — сдвигаем визуально, сохраняя привязку линией к x
         const shiftedX = Math.max(last0 + GAP + it.wEst / 2, it.x)
-        // если сдвиг < 40px, считаем приемлемым, иначе прячем
         if (shiftedX - it.x < 40) {
           placed.push({ ...it, x: shiftedX, row: 0 })
           last0 = shiftedX + it.wEst / 2
         }
-        // иначе пропускаем — плейсхолдер останется невидимым, но данные не потеряются (видно в Карте дня)
       }
     }
     return placed
@@ -657,7 +647,7 @@ const MarkersLayer = memo(function MarkersLayer({ visualMap, totalWidth, visible
             style={{
               left: x,
               top: row === 0 ? 0 : 18,
-              transform: 'translateX(-50%) translateZ(0)',
+              transform: 'translateX(-50%)',
               color: a.dot,
               background: 'var(--surface)',
               border: '1px solid var(--stroke)',
@@ -693,7 +683,7 @@ const RulerLayer = memo(function RulerLayer({ visualXOf, visibleLeft, visibleRig
             className="absolute bottom-0 font-mono text-[10.5px] text-[var(--timeline-faint)]"
             style={{
               left: x,
-              transform: isFirst ? 'translateX(3px) translateZ(0)' : isLast ? 'translateX(calc(-100% - 3px)) translateZ(0)' : 'translateX(-50%) translateZ(0)',
+              transform: isFirst ? 'translateX(3px)' : isLast ? 'translateX(calc(-100% - 3px))' : 'translateX(-50%)',
               textAlign: isFirst ? 'left' : isLast ? 'right' : 'center',
             }}
           >
@@ -724,18 +714,15 @@ const RulerLayer = memo(function RulerLayer({ visualXOf, visibleLeft, visibleRig
   )
 })
 
-const BarsLayer = memo(function BarsLayer({ bars, pitch, start, end }: { bars: Bar[]; pitch: number; start: number; end: number }) {
-  const slice = bars.slice(start, end)
-  const offset = start * pitch
+const BarsLayer = memo(function BarsLayer({ bars, pitch }: { bars: Bar[]; pitch: number }) {
   return (
-    <div className="absolute bottom-0 flex items-end" style={{ left: offset, contain: 'paint' }}>
-      {slice.map((bar, i) => {
+    <div className="absolute bottom-0 flex items-end" style={{ left: 0, contain: 'paint' }}>
+      {bars.map((bar, i) => {
         const isOff = bar.type === 'off'
         const acc = isOff ? null : (ACCENTS[bar.color as keyof typeof ACCENTS] ?? ACCENTS.blue)
-        const idx = start + i
         return (
           <div
-            key={idx}
+            key={i}
             aria-hidden
             style={{
               width: pitch - 1,
@@ -745,6 +732,8 @@ const BarsLayer = memo(function BarsLayer({ bars, pitch, start, end }: { bars: B
               background: isOff ? 'var(--off)' : acc!.dot,
               opacity: isOff ? 0.35 : 1,
               contain: 'paint',
+              contentVisibility: 'auto' as const,
+              containIntrinsicSize: '5px 96px',
             }}
           />
         )
@@ -781,6 +770,8 @@ const ZonesLayer = memo(function ZonesLayer({
         if (w <= 1) return null
         const labelCenter = x0 + 38
         const nearMarker = markerXs.some((mx) => Math.abs(mx - labelCenter) < 72)
+        // в светлой теме тинты очень бледные — пропускаем градиент, оставляем только лейбл
+        const isLight = document.documentElement.classList.contains('dark') === false
         return (
           <div
             key={z.label}
@@ -788,7 +779,7 @@ const ZonesLayer = memo(function ZonesLayer({
             style={{
               left: x0,
               width: w,
-              background: `linear-gradient(180deg, ${z.tint}, transparent 46%)`,
+              background: isLight ? 'transparent' : `linear-gradient(180deg, ${z.tint}, transparent 46%)`,
               contain: 'paint',
             }}
           >
@@ -797,7 +788,7 @@ const ZonesLayer = memo(function ZonesLayer({
                 className="absolute top-[7px] left-[12px] flex items-center gap-1"
                 style={{
                   color: z.color,
-                  opacity: 0.62,
+                  opacity: isLight ? 0.7 : 0.62,
                   fontWeight: 700,
                 }}
               >

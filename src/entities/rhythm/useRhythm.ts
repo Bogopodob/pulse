@@ -1,8 +1,6 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useSyncExternalStore } from 'react'
 import { RESTING_TYPES } from './activities'
 import type { Rule } from './activities'
-import { useSettings } from '../../shared/hooks/useSettings'
-import { notify } from '../../shared/lib/notify'
 
 export const DAY_START = 0
 export const DAY_END = 1440
@@ -71,6 +69,64 @@ export function fmtMS(min: number): string {
   return h > 0 ? `${h}:${core}` : core
 }
 
+// ── External store для тикающего времени (секундная точность) ─────────────
+// Компоненты подписываются через useSyncExternalStore — без ре-рендера родителей.
+type RhythmTimeSnapshot = {
+  nowMinutes: number
+  cur: Segment
+  resting: boolean
+  remain: number
+  total: number
+  progress: number
+  nextSegment: Segment | undefined
+}
+
+function createRhythmTimeStore() {
+  let snapshot: RhythmTimeSnapshot = {
+    nowMinutes: 0,
+    cur: { start: 0, end: 1440, type: 'off', label: '', color: 'gray' },
+    resting: true,
+    remain: 0,
+    total: 1440,
+    progress: 0,
+    nextSegment: undefined,
+  }
+  const listeners = new Set<() => void>()
+
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener)
+    return () => listeners.delete(listener)
+  }
+
+  const notifyListeners = () => {
+    listeners.forEach((l) => l())
+  }
+
+  const setSegments = (segments: Segment[]) => {
+    const recalc = () => {
+      const now = new Date()
+      const nowMinutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60
+      const cur = segAt(nowMinutes, segments)
+      const resting = RESTING_TYPES.has(cur.type)
+      const remain = Math.max(0, cur.end - nowMinutes)
+      const total = Math.max(1, cur.end - cur.start)
+      const progress = 1 - remain / total
+      const nextSegment = segments.find((s) => s.start > cur.start)
+      snapshot = { nowMinutes, cur, resting, remain, total, progress, nextSegment }
+      notifyListeners()
+    }
+    recalc()
+    return recalc
+  }
+
+  const getSnapshot = () => snapshot
+  const getServerSnapshot = () => snapshot
+
+  return { subscribe, getSnapshot, getServerSnapshot, setSegments }
+}
+
+export const rhythmTimeStore = createRhythmTimeStore()
+
 function segAt(min: number, segs: Segment[]): Segment {
   for (const s of segs) {
     if (min >= s.start && min < s.end) return s
@@ -100,95 +156,54 @@ export function buildBars(segments: Segment[]): { type: string; height: number; 
 }
 
 export function useRhythm(rules: Rule[], chainStart = CHAIN_START) {
-  const [nowClock, setNowClock] = useState(() => new Date())
   const [toast, setToast] = useState<{ title: string; text: string } | null>(null)
-  const lastTypeRef = useRef<string>('focus')
-
-  /** Часы: реальное время, пауза во вкладке hidden экономит CPU. */
-  useEffect(() => {
-    let id: number | null = null
-    const sync = () => setNowClock(new Date())
-    const start = () => {
-      sync()
-      if (id) clearInterval(id)
-      id = window.setInterval(() => {
-        if (document.hidden) return
-        sync()
-      }, 1000)
-    }
-    const onVis = () => {
-      if (!document.hidden) sync()
-    }
-    start()
-    document.addEventListener('visibilitychange', onVis)
-    return () => {
-      if (id) clearInterval(id)
-      document.removeEventListener('visibilitychange', onVis)
-    }
-  }, [])
-
-  const nowMinutes = useMemo(
-    () => nowClock.getHours() * 60 + nowClock.getMinutes() + nowClock.getSeconds() / 60,
-    [nowClock],
-  )
 
   const segments = useMemo(() => buildSegments(rules, chainStart), [rules, chainStart])
 
-  /* Смена блока: системное уведомление через ОС (Win11 toast / macOS / Linux),
-     при недоступности — внутренний тост. Управляется тумблером в Настройках. */
-  const { systemNotifications } = useSettings()
-  const showToast = useCallback((title: string, text: string) => {
-    setToast({ title, text })
-    window.setTimeout(() => setToast(null), 4200)
-  }, [])
-
+  // инициализируем стор сегментами при их изменении
   useEffect(() => {
-    const cur = segAt(nowMinutes, segments)
-    if (cur.type === lastTypeRef.current) return
-    lastTypeRef.current = cur.type
-    const resting = RESTING_TYPES.has(cur.type)
-    const title = resting ? 'Время отдохнуть' : 'Возвращаемся к работе'
-    const text = resting
-      ? 'Встань, разомнись, посмотри вдаль'
-      : `Блок начался — ${cur.label} до ${fmtHM(cur.end)}`
-    if (!systemNotifications) {
-      showToast(title, text)
-      return
+    const recalc = rhythmTimeStore.setSegments(segments)
+    // запускаем интервал пересчёта (1с) — стор сам уведомит подписчиков
+    let id: number | null = null
+    const start = () => {
+      recalc()
+      if (id) clearInterval(id)
+      id = window.setInterval(() => {
+        if (document.hidden) return
+        recalc()
+      }, 1000)
     }
-    void notify(title, text).then((sent) => {
-      if (!sent) showToast(title, text)
-    })
-  }, [nowMinutes, segments, systemNotifications, showToast])
+    const onVis = () => { if (!document.hidden) recalc() }
+    start()
+    document.addEventListener('visibilitychange', onVis)
+    return () => { if (id) clearInterval(id); document.removeEventListener('visibilitychange', onVis) }
+  }, [segments])
 
-  const cur = useMemo(() => segAt(nowMinutes, segments), [nowMinutes, segments])
-  const resting = useMemo(() => RESTING_TYPES.has(cur.type), [cur.type])
-  const remain = useMemo(() => Math.max(0, cur.end - nowMinutes), [cur.end, nowMinutes])
-  const total = useMemo(() => Math.max(1, cur.end - cur.start), [cur])
-  const progress = useMemo(() => 1 - remain / total, [remain, total])
-
+  // stable values — не меняются каждую секунду
   const totalBars = useMemo(() => Math.ceil((DAY_END - DAY_START) / STEP_MIN), [])
   const rowWidth = useMemo(() => totalBars * PITCH, [totalBars])
-  const nextSegment = useMemo(() => segments.find((s) => s.start > cur.start), [segments, cur.start])
+  const nextSegment = useMemo(() => segments.find((s) => s.start > rhythmTimeStore.getSnapshot().cur.start), [segments])
 
-  return useMemo(
-    () => ({
-      nowMinutes,
-      segments,
-      cur,
-      resting,
-      remain,
-      total,
-      progress,
-      totalBars,
-      rowWidth,
-      toast,
-      setToast,
-      DAY_START,
-      DAY_END,
-      STEP_MIN,
-      PITCH,
-      nextSegment,
-    }),
-    [nowMinutes, segments, cur, resting, remain, total, progress, totalBars, rowWidth, toast, nextSegment],
+  return {
+    segments,
+    toast,
+    setToast,
+    DAY_START,
+    DAY_END,
+    STEP_MIN,
+    PITCH,
+    totalBars,
+    rowWidth,
+    nextSegment,
+  }
+}
+
+/** Хук для получения тикающих значений (nowMinutes, cur, remain, progress) без ре-рендера родителя.
+    Использовать в Timeline, NextUp, TodayTasks вместо деструктуризации useRhythm. */
+export function useRhythmTime() {
+  return useSyncExternalStore(
+    rhythmTimeStore.subscribe,
+    rhythmTimeStore.getSnapshot,
+    rhythmTimeStore.getServerSnapshot,
   )
 }

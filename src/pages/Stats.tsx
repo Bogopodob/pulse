@@ -25,6 +25,7 @@ import { Calendar } from '@heroui/react/calendar'
 import { useTasks } from '../entities/tasks/useTasks'
 import { apiListTasks, isTauri } from '../entities/tasks/api'
 import type { Task } from '../entities/tasks/useTasks'
+import { useTheme } from '../shared/hooks/useTheme'
 
 type Period = 'day' | 'week' | 'month' | 'year' | 'custom'
 
@@ -161,10 +162,12 @@ function HeatmapCard({
   daily,
   title,
   sub,
+  isLight,
 }: {
   daily: { date: Date; minutes: number }[]
   title: string
   sub: string
+  isLight?: boolean
 }) {
   const { weeks, grid, monthCols } = useMemo(() => {
     if (daily.length === 0) {
@@ -230,14 +233,14 @@ function HeatmapCard({
                 {Array.from({ length: 7 }, (_, r) => {
                   const cell = grid[r][c]
                   if (!cell) return <div key={r} className="size-[11px] rounded-[3px] bg-[var(--surface-3)]" />
-                  return (
+                    return (
                     <div
                       key={r}
                       title={`${cell.date.getDate()} ${MONTHS_SHORT[cell.date.getMonth()]} — ${cell.minutes === 0 ? 'нет фокуса' : fmtDur(cell.minutes)}`}
                       className="size-[11px] rounded-[3px]"
                       style={{
                         background: heatColor(cell.minutes),
-                        boxShadow: cell.minutes >= 360 ? '0 0 6px rgba(76,141,255,0.6)' : undefined,
+                        boxShadow: !isLight && cell.minutes >= 360 ? '0 0 6px rgba(76,141,255,0.6)' : undefined,
                       }}
                     />
                   )
@@ -261,9 +264,11 @@ function HeatmapCard({
 function TopDaysCard({
   daily,
   goal,
+  isLight,
 }: {
   daily: { date: Date; minutes: number }[]
   goal: number
+  isLight?: boolean
 }) {
   const top = useMemo(() => [...daily].sort((a, b) => b.minutes - a.minutes).slice(0, 5), [daily])
   const max = top[0]?.minutes ?? 1
@@ -283,7 +288,7 @@ function TopDaysCard({
               className="font-mono text-[11px] font-bold w-[16px] text-right tabular-nums"
               style={{
                 color: i === 0 ? '#ffd76a' : i === 1 ? '#b8c4d4' : i === 2 ? '#d08a5a' : 'var(--text-faint)',
-                textShadow: i === 0 ? '0 0 8px rgba(255,215,106,0.5)' : undefined,
+                textShadow: !isLight && i === 0 ? '0 0 8px rgba(255,215,106,0.5)' : undefined,
               }}
             >
               {i + 1}
@@ -295,7 +300,7 @@ function TopDaysCard({
                 style={{
                   width: `${Math.max(4, (d.minutes / max) * 100)}%`,
                   background: `linear-gradient(90deg, rgba(76,141,255,0.5), ${d.minutes >= goal ? '#4fd4c4' : '#4c8dff'})`,
-                  boxShadow: `0 0 8px rgba(76,141,255,0.35)`,
+                  boxShadow: isLight ? undefined : `0 0 8px rgba(76,141,255,0.35)`,
                 }}
               />
             </div>
@@ -313,7 +318,7 @@ function TopDaysCard({
   )
 }
 
-function GoalProgressCard({ avg, goal }: { avg: number; goal: number }) {
+function GoalProgressCard({ avg, goal, isLight }: { avg: number; goal: number; isLight?: boolean }) {
   const pct = Math.min(100, Math.round((avg / goal) * 100))
   return (
     <div className="card card-lift p-6 flex flex-col">
@@ -325,7 +330,7 @@ function GoalProgressCard({ avg, goal }: { avg: number; goal: number }) {
         <div className="flex items-baseline gap-2">
           <span
             className="font-[var(--font-display)] text-[40px] font-bold tabular-nums leading-none"
-            style={{ color: pct >= 100 ? C_FOOD : C_FOCUS, textShadow: pct >= 100 ? '0 0 24px rgba(79,212,196,0.45)' : '0 0 24px rgba(76,141,255,0.35)' }}
+            style={{ color: pct >= 100 ? C_FOOD : C_FOCUS, textShadow: isLight ? undefined : pct >= 100 ? '0 0 24px rgba(79,212,196,0.45)' : '0 0 24px rgba(76,141,255,0.35)' }}
           >
             {pct}%
           </span>
@@ -339,7 +344,7 @@ function GoalProgressCard({ avg, goal }: { avg: number; goal: number }) {
               background: pct >= 100
                 ? 'linear-gradient(90deg, #4c8dff, #4fd4c4)'
                 : 'linear-gradient(90deg, rgba(76,141,255,0.4), #4c8dff)',
-              boxShadow: `0 0 12px ${pct >= 100 ? 'rgba(79,212,196,0.5)' : 'rgba(76,141,255,0.4)'}`,
+              boxShadow: isLight ? undefined : `0 0 12px ${pct >= 100 ? 'rgba(79,212,196,0.5)' : 'rgba(76,141,255,0.4)'}`,
             }}
           />
         </div>
@@ -354,9 +359,11 @@ function GoalProgressCard({ avg, goal }: { avg: number; goal: number }) {
 }
 
 export function Stats() {
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
   const [period, setPeriod] = useState<Period>('day')
   const [hoveredRing, setHoveredRing] = useState<number | null>(null)
-  const today = useMemo(() => new Date(), [])
+  const today = useMemo(() => new Date(), [period])
   const [customFrom, setCustomFrom] = useState(() => {
     const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29)
     return isoDate(d)
@@ -513,7 +520,7 @@ export function Stats() {
       streak = Math.max(streak, cur)
     }
     return { total, avg, best, streak, bestLabel: '' }
-  }, [period, hours, pool, activeDaily])
+  }, [period, hours, activeDaily])
 
   const pieData = useMemo(
     () => [
@@ -531,7 +538,7 @@ export function Stats() {
       { label: 'Паузы', value: day.break, maxValue: 150, color: C_REST },
       { label: 'Еда', value: day.food, maxValue: 120, color: C_FOOD },
     ],
-    [day],
+    [day, goal],
   )
 
   const pills = useMemo(() => {
@@ -614,7 +621,7 @@ export function Stats() {
                         background: 'rgba(76,141,255,0.15)',
                         color: 'var(--focus)',
                         borderColor: 'rgba(76,141,255,0.45)',
-                        boxShadow: '0 0 16px rgba(76,141,255,0.22)',
+                        boxShadow: isLight ? undefined : '0 0 16px rgba(76,141,255,0.22)',
                       }
                     : {
                         background: 'transparent',
@@ -719,34 +726,35 @@ export function Stats() {
         {pills.map((p, pi) => (
           <motion.div
             key={p.label}
-            initial={{ opacity: 0, y: 18, scale: 0.95 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ delay: 0.07 * pi, type: 'spring', stiffness: 300, damping: 26 }}
+            transition={{ delay: isLight ? 0 : 0.05 * pi, duration: 0.25, ease: 'easeOut' }}
             className="card card-lift relative overflow-hidden p-5"
           >
-            <motion.div
-              className="absolute -top-10 -right-10 w-36 h-36 rounded-full pointer-events-none"
-              style={{ background: `radial-gradient(circle, rgba(${p.glow},0.14), transparent 70%)` }}
-              initial={{ opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.25 + 0.07 * pi, duration: 0.7, ease: 'easeOut' }}
-            />
-            <motion.span
-              className="absolute inset-y-0 w-16 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent pointer-events-none"
-              initial={{ x: '-120%' }}
-              animate={{ x: '950%' }}
-              transition={{ delay: 0.55 + 0.09 * pi, duration: 0.7, ease: 'easeInOut' }}
-            />
+            {!isLight && (
+              <motion.div
+                className="absolute -top-10 -right-10 w-36 h-36 rounded-full pointer-events-none"
+                style={{ background: `radial-gradient(circle, rgba(${p.glow},0.14), transparent 70%)` }}
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.25 + 0.07 * pi, duration: 0.7, ease: 'easeOut' }}
+              />
+            )}
+            {!isLight && (
+              <motion.span
+                className="absolute inset-y-0 w-16 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent pointer-events-none"
+                initial={{ x: '-120%' }}
+                animate={{ x: '950%' }}
+                transition={{ delay: 0.55 + 0.09 * pi, duration: 0.7, ease: 'easeInOut' }}
+              />
+            )}
             <div className="text-[10.5px] uppercase tracking-[0.1em] font-semibold text-[var(--text-faint)]">{p.label}</div>
-            <motion.div
+            <div
               className="font-[var(--font-display)] text-[24px] font-semibold mt-2 tabular-nums"
-              style={{ color: p.color }}
-              initial={{ textShadow: `0 0 0px rgba(${p.glow},0)` }}
-              animate={{ textShadow: `0 0 24px rgba(${p.glow},0.45)` }}
-              transition={{ delay: 0.35 + 0.07 * pi, duration: 0.8, ease: 'easeOut' }}
+              style={{ color: p.color, textShadow: isLight ? undefined : `0 0 24px rgba(${p.glow},0.35)` }}
             >
               {p.value}
-            </motion.div>
+            </div>
           </motion.div>
         ))}
       </div>
@@ -807,7 +815,7 @@ export function Stats() {
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
             {pieData.map((p) => (
               <span key={p.label} className="flex items-center gap-1.5 text-[11px] text-[var(--text-dim)]">
-                <span className="size-[7px] rounded-full" style={{ background: p.color, boxShadow: `0 0 6px ${p.color}` }} />
+                <span className="size-[7px] rounded-full" style={{ background: p.color, boxShadow: isLight ? undefined : `0 0 6px ${p.color}` }} />
                 {p.label}
                 <span className="font-mono font-semibold" style={{ color: p.color }}>{fmtDur(p.value)}</span>
               </span>
@@ -838,7 +846,7 @@ export function Stats() {
                   >
                     <span
                       className="size-2 rounded-full shrink-0 transition-transform duration-200 group-hover:scale-150"
-                      style={{ background: glow, boxShadow: `0 0 6px ${glow}` }}
+                      style={{ background: glow, boxShadow: isLight ? undefined : `0 0 6px ${glow}` }}
                     />
                     <span className="text-[12px] text-[var(--text)] w-[110px] truncate shrink-0">{r.name}</span>
                     <div className="flex-1 h-[6px] rounded-full bg-[var(--surface-3)] overflow-hidden">
@@ -846,15 +854,17 @@ export function Stats() {
                         className="relative h-full rounded-full overflow-hidden"
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min(100, pct)}%` }}
-                        transition={{ delay: 0.3 + 0.07 * ri, duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-                        style={{ background: glow, boxShadow: `0 0 8px ${glow}aa` }}
+                        transition={{ delay: isLight ? 0 : 0.3 + 0.07 * ri, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                        style={{ background: glow, boxShadow: isLight ? undefined : `0 0 8px ${glow}aa` }}
                       >
-                        <motion.span
-                          className="absolute inset-y-0 w-10 bg-gradient-to-r from-transparent via-white/45 to-transparent"
-                          initial={{ x: '-120%' }}
-                          animate={{ x: '900%' }}
-                          transition={{ delay: 1.15 + 0.09 * ri, duration: 0.65, ease: 'easeInOut' }}
-                        />
+                        {!isLight && (
+                          <motion.span
+                            className="absolute inset-y-0 w-10 bg-gradient-to-r from-transparent via-white/45 to-transparent"
+                            initial={{ x: '-120%' }}
+                            animate={{ x: '900%' }}
+                            transition={{ delay: 1.15 + 0.09 * ri, duration: 0.65, ease: 'easeInOut' }}
+                          />
+                        )}
                       </motion.div>
                     </div>
                     <span className="font-mono text-[11px] text-[var(--text-dim)] tabular-nums w-[86px] text-right shrink-0 transition-colors duration-200 group-hover:text-[var(--text)]">
@@ -921,7 +931,7 @@ export function Stats() {
                     onMouseLeave={() => setHoveredRing(null)}
                     animate={{
                       backgroundColor: hot ? `${r.color}14` : 'rgba(255,255,255,0)',
-                      scale: hot ? 1.03 : 1,
+                      scale: hot && !isLight ? 1.03 : 1,
                     }}
                     transition={{ type: 'spring', stiffness: 420, damping: 30 }}
                     className="relative flex items-center gap-2.5 rounded-xl px-2 py-1.5 -mx-2 cursor-default"
@@ -930,8 +940,8 @@ export function Stats() {
                       className="w-[7px] h-[7px] rounded-full shrink-0"
                       style={{ background: r.color }}
                       animate={{
-                        scale: hot ? 1.5 : 1,
-                        boxShadow: hot ? `0 0 14px ${r.color}, 0 0 4px ${r.color}` : `0 0 6px ${r.color}66`,
+                        scale: hot && !isLight ? 1.5 : 1,
+                        boxShadow: isLight ? undefined : hot ? `0 0 14px ${r.color}, 0 0 4px ${r.color}` : `0 0 6px ${r.color}66`,
                       }}
                       transition={{ type: 'spring', stiffness: 420, damping: 22 }}
                     />
@@ -946,15 +956,15 @@ export function Stats() {
                     <motion.div
                       className="w-[40px] shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums"
                       style={{ color: pct >= 100 ? r.color : 'var(--text-faint)' }}
-                      animate={hot ? { textShadow: [`0 0 0px ${r.color}00`, `0 0 10px ${r.color}`, `0 0 5px ${r.color}`] } : { textShadow: '0 0 0px transparent' }}
-                      transition={hot ? { duration: 0.9, repeat: Infinity } : { duration: 0.2 }}
+                      animate={hot && !isLight ? { textShadow: [`0 0 0px ${r.color}00`, `0 0 10px ${r.color}`, `0 0 5px ${r.color}`] } : { textShadow: '0 0 0px transparent' }}
+                      transition={hot && !isLight ? { duration: 0.9, repeat: Infinity } : { duration: 0.2 }}
                     >
                       {pct}%
                     </motion.div>
                     <motion.span
                       className="w-[74px] shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums"
                       style={{ color: r.color }}
-                      animate={{ textShadow: hot ? `0 0 12px ${r.color}cc` : '0 0 0px rgba(0,0,0,0)' }}
+                      animate={{ textShadow: hot && !isLight ? `0 0 12px ${r.color}cc` : '0 0 0px rgba(0,0,0,0)' }}
                       transition={{ duration: 0.25 }}
                     >
                       {fmtDur(r.value)}
@@ -986,11 +996,12 @@ export function Stats() {
               daily={activeDaily}
               title={period === 'year' ? 'Активность за год' : 'Активность за период'}
               sub={period === 'year' ? '365 дней' : `${activeDaily.length} дн`}
+              isLight={isLight}
             />
           ) : (
-            <GoalProgressCard avg={stats.avg} goal={goal} />
+            <GoalProgressCard avg={stats.avg} goal={goal} isLight={isLight} />
           )}
-          <TopDaysCard daily={activeDaily} goal={goal} />
+          <TopDaysCard daily={activeDaily} goal={goal} isLight={isLight} />
         </div>
       )}
     </div>

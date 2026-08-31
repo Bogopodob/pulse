@@ -1,5 +1,7 @@
 let resolveDataReady: (() => void) | null = null
 let resolveAppWarm: (() => void) | null = null
+let dataReadyResolved = false
+let appWarmResolved = false
 
 export const dataReady = new Promise<void>((resolve) => {
   resolveDataReady = resolve
@@ -11,14 +13,24 @@ export const appWarm = new Promise<void>((resolve) => {
 })
 
 export function markDataReady() {
+  if (dataReadyResolved) return
+  dataReadyResolved = true
   resolveDataReady?.()
   resolveDataReady = null
 }
 
 export function markAppWarm() {
+  if (appWarmResolved) return
+  appWarmResolved = true
   resolveAppWarm?.()
   resolveAppWarm = null
 }
+
+// Fallback: force resolve after timeout
+setTimeout(() => {
+  markDataReady()
+  markAppWarm()
+}, 8000)
 
 export async function hideBootSplash() {
   const el = document.getElementById('boot-splash')
