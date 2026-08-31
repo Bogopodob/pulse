@@ -15,7 +15,7 @@ const pad2 = (n: number) => String(n).padStart(2, '0')
 const calDateOf = (key: string) =>
   new CalendarDate(Number(key.slice(0, 4)), Number(key.slice(5, 7)), Number(key.slice(8, 10)))
 
-function SimpleMacCalendar({ value, minValue, onChange }: { value: CalendarDate; minValue?: CalendarDate; onChange: (d: CalendarDate) => void }) {
+function SimpleMacCalendar({ value, minValue, overrides, onChange }: { value: CalendarDate; minValue?: CalendarDate; overrides?: Record<string, string | null>; onChange: (d: CalendarDate) => void }) {
   const [month, setMonth] = useState(() => new Date(value.year, value.month - 1, 1))
   const y = month.getFullYear()
   const m = month.getMonth()
@@ -48,9 +48,11 @@ function SimpleMacCalendar({ value, minValue, onChange }: { value: CalendarDate;
           const isToday = d.getDate()===today.getDate() && d.getMonth()===today.getMonth() && d.getFullYear()===today.getFullYear()
           const weekend = d.getDay()===0 || d.getDay()===6
           const disabled = minValue ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() < new Date(minValue.year, minValue.month-1, minValue.day).getTime() : false
+          const hasOverride = overrides ? !!overrides[`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`] : false
           return (
             <button key={i} type="button" disabled={disabled} className="mac-cal-day" style={{ opacity: disabled?0.35:1 }} onClick={() => !disabled && onChange(new CalendarDate(d.getFullYear(), d.getMonth()+1, d.getDate()))}>
               <span className={`mac-cal-num${isSel?' sel':''}${isToday?' today':''}${out?' out':''}${weekend?' we':''}`}>{d.getDate()}</span>
+              {hasOverride && <span className="mac-cal-dots on-sel"><span className="mac-cal-dot" style={{ background: '#4c8dff' }} /></span>}
             </button>
           )
         })}
@@ -305,7 +307,7 @@ export const WeekPicker = memo(function WeekPicker({
             <span className="ml-auto text-[10px] text-white/40">на дату</span>
           </div>
 
-          <SimpleMacCalendar value={calDateOf(pickedDate || todayK)} minValue={calDateOf(todayK)} onChange={(d) => {
+          <SimpleMacCalendar value={calDateOf(pickedDate || todayK)} minValue={calDateOf(todayK)} overrides={overrides} onChange={(d) => {
                   const k = `${d.year}-${pad2(d.month)}-${pad2(d.day)}`
                   setPickedDate(k)
                   setPane({ kind: 'date', key: k })
@@ -364,8 +366,8 @@ export const WeekPicker = memo(function WeekPicker({
         </div>
       </div>
 
-      {/* Низ: общие действия — sticky чтобы конец всегда виден */}
-      <div className="border-t border-white/[0.06] mt-2 pt-2 mx-0.5 sticky bottom-0 bg-[#1c1f26]/90 backdrop-blur-md z-[1] -mx-1.5 px-1.5 -mb-1.5 pb-1.5 rounded-b-xl">
+      {/* Низ: общие действия */}
+      <div className="border-t border-white/[0.06] mt-2 pt-3 flex flex-col gap-1.5 shrink-0">
         {isOverridden && (
           <button
             onClick={onResetToday}
