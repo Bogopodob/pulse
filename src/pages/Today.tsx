@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { useRhythm } from '../entities/rhythm/useRhythm'
 import { ACCENTS } from '../entities/rhythm/activities'
@@ -51,18 +52,18 @@ export function Today({
   onOpenTemplates: () => void
 }) {
   const rhythm = useRhythm(rules, chainStart)
-  const todayStatus = (() => {
+  const todayStatus = useMemo(() => {
     const a = ACCENTS[rhythm.cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
     if (rhythm.cur.type === 'off')
-      return { label: 'Вне графика', color: 'var(--text-faint)', bg: 'var(--surface-2)', border: 'var(--stroke)' }
-    return { label: rhythm.cur.label, color: a.color, bg: a.bg, border: a.border }
-  })()
+      return { label: 'Вне графика', color: 'var(--text-faint)', bg: 'var(--surface-2)', border: 'var(--stroke)' } as const
+    return { label: rhythm.cur.label, color: a.color, bg: a.bg, border: a.border } as const
+  }, [rhythm.cur.color, rhythm.cur.label, rhythm.cur.type])
 
   const isViewingOtherDay = viewingDateKey !== todayKey
-  const viewingLabel = (() => {
+  const viewingLabel = useMemo(() => {
     const d = new Date(viewingDateKey + 'T12:00:00')
     return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  })()
+  }, [viewingDateKey])
 
   return (
     <>

@@ -339,50 +339,70 @@ function App() {
           className={`flex-1 min-w-0 flex flex-col p-6 sm:p-8 md:p-10 gap-5 ${!isWindowExpanded ? 'hidden' : ''}`}
           style={{ overflowY: (showScroll ? 'auto' : 'hidden') as React.CSSProperties['overflowY'], overflowX: 'hidden' as const, opacity: isWindowExpanded ? 1 : 0, transition: 'opacity 0.35s ease' }}
         >
-          {PAGES.map((p) => (
-            <div
-              key={p}
-              className={`${paneClass[p]} page-pane${page === p ? ' active' : ''}${page === p || layoutWarm ? '' : ' hidden'}`}
-            >
-              {visited[p] && p === 'today' && (
-                <MemoToday
-                  title={viewingTitle}
-                  desc={viewingDesc}
-                  viewingDateKey={viewingDateKey}
-                  todayKey={todayKey}
-                  onSelectViewingDate={handleViewingDateChange}
-                  rules={viewingRules}
-                  chainStart={viewingChainStart}
-                  onRulesChange={setActiveRules}
-                  onClearDayRules={clearActiveDayRules}
-                  onCreateTemplateFromCurrent={handleCreateTemplateFromCurrent}
-                  clockStr={clockStr}
-                  templates={templates}
-                  activeTemplateId={viewingActiveTemplate?.id ?? null}
-                  isOverridden={viewingIsOverridden}
-                  overrides={overrides}
-                  onSelectTemplate={handleSelectTemplateForViewing}
-                  onAssignWeekday={assignWeekday}
-                  onSetDateOverride={(k, v) => {
-                    setDayOverride(k, v)
-                    // сразу переключаем просмотр на выбранную дату
-                    setViewingDateKey(k)
-                  }}
-                  onOpenTemplates={openTemplates}
-                />
-              )}
-              {visited[p] && p === 'schedule' && (
-                <MemoSchedule title={pageMeta[p].title} desc={pageMeta[p].desc} clockStr={clockStr} />
-              )}
-              {visited[p] && p === 'stats' && <MemoStats key={`stats-${visitSeq.stats}`} />}
-              {visited[p] && p === 'settings' && <MemoSettings />}
-              {visited[p] && p === 'templates' && <MemoTemplates onBack={backToToday} />}
+          {/* Активна только текущая вкладка — фоновые таймеры today (1с, timeline, TodayTasks) не тратят CPU */}
+          {page === 'today' && visited.today && (
+            <div className={`${paneClass.today} page-pane active`}>
+              <MemoToday
+                title={viewingTitle}
+                desc={viewingDesc}
+                viewingDateKey={viewingDateKey}
+                todayKey={todayKey}
+                onSelectViewingDate={handleViewingDateChange}
+                rules={viewingRules}
+                chainStart={viewingChainStart}
+                onRulesChange={setActiveRules}
+                onClearDayRules={clearActiveDayRules}
+                onCreateTemplateFromCurrent={handleCreateTemplateFromCurrent}
+                clockStr={clockStr}
+                templates={templates}
+                activeTemplateId={viewingActiveTemplate?.id ?? null}
+                isOverridden={viewingIsOverridden}
+                overrides={overrides}
+                onSelectTemplate={handleSelectTemplateForViewing}
+                onAssignWeekday={assignWeekday}
+                onSetDateOverride={(k, v) => {
+                  setDayOverride(k, v)
+                  setViewingDateKey(k)
+                }}
+                onOpenTemplates={openTemplates}
+              />
             </div>
-          ))}
+          )}
+          {page === 'schedule' && visited.schedule && (
+            <div className={`${paneClass.schedule} page-pane active`}>
+              <MemoSchedule title={pageMeta.schedule.title} desc={pageMeta.schedule.desc} clockStr={clockStr} />
+            </div>
+          )}
+          {page === 'stats' && visited.stats && (
+            <div className={`${paneClass.stats} page-pane active`}>
+              <MemoStats key={`stats-${visitSeq.stats}`} />
+            </div>
+          )}
+          {page === 'settings' && visited.settings && (
+            <div className={`${paneClass.settings} page-pane active`}>
+              <MemoSettings />
+            </div>
+          )}
+          {page === 'templates' && visited.templates && (
+            <div className={`${paneClass.templates} page-pane active`}>
+              <MemoTemplates onBack={backToToday} />
+            </div>
+          )}
+          {/* Прогрев за сплэшем — кратковременно монтирует всё для замера layout, затем размонтирует */}
+          {layoutWarm &&
+            PAGES.filter((p) => p !== page).map((p) => (
+              <div key={`warm-${p}`} className={`${paneClass[p]} hidden`} aria-hidden>
+                {p === 'today' && visited.today && <MemoToday title={viewingTitle} desc={viewingDesc} viewingDateKey={viewingDateKey} todayKey={todayKey} onSelectViewingDate={handleViewingDateChange} rules={viewingRules} chainStart={viewingChainStart} onRulesChange={setActiveRules} onClearDayRules={clearActiveDayRules} onCreateTemplateFromCurrent={handleCreateTemplateFromCurrent} clockStr={clockStr} templates={templates} activeTemplateId={viewingActiveTemplate?.id ?? null} isOverridden={viewingIsOverridden} overrides={overrides} onSelectTemplate={handleSelectTemplateForViewing} onAssignWeekday={assignWeekday} onSetDateOverride={(k, v) => { setDayOverride(k, v); setViewingDateKey(k) }} onOpenTemplates={openTemplates} />}
+                {p === 'schedule' && visited.schedule && <MemoSchedule title={pageMeta.schedule.title} desc={pageMeta.schedule.desc} clockStr={clockStr} />}
+                {p === 'stats' && visited.stats && <MemoStats key={`warm-stats-${visitSeq.stats}`} />}
+                {p === 'settings' && visited.settings && <MemoSettings />}
+                {p === 'templates' && visited.templates && <MemoTemplates onBack={backToToday} />}
+              </div>
+            ))}
         </main>
       </div>
     </div>
   )
 }
 
-export default App
+export default memo(App)

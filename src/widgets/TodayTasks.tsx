@@ -21,10 +21,17 @@ export function TodayTasks() {
       .finally(() => setLoading(false))
   }, [loadDay])
 
-  /* Тикер: пересчитываем статусы каждые 15 секунд. */
+  /* Тикер: каждые 30с, пауза во hidden экономит CPU */
   useEffect(() => {
-    const id = window.setInterval(() => setNowMinutes(nowOfDay()), 15_000)
-    return () => window.clearInterval(id)
+    let id: number | null = null
+    const tick = () => {
+      if (document.hidden) return
+      setNowMinutes(nowOfDay())
+    }
+    id = window.setInterval(tick, 30_000)
+    const onVis = () => { if (!document.hidden) tick() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { if (id) clearInterval(id); document.removeEventListener('visibilitychange', onVis) }
   }, [])
 
   /* Границы сегодняшнего дня + задачи, пересекающиеся с ним. */
@@ -42,7 +49,7 @@ export function TodayTasks() {
       })
   }, [tasks])
 
-  const done = today.filter((t) => t.eMin <= nowMinutes).length
+  const done = useMemo(() => today.filter((t) => t.eMin <= nowMinutes).length, [today, nowMinutes])
 
   const goTo = (min: number) => {
     window.dispatchEvent(new CustomEvent('rhythm:go-to', { detail: { min } }))

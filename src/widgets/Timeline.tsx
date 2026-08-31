@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { fmtHM, fmtHMS, DAY_START, DAY_END, STEP_MIN, PITCH, type Segment } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
-import { useTheme } from '../shared/hooks/useTheme'
 
 const BREAK_GROUP = new Set(['break', 'smoke', 'rest'])
 const FOOD_GROUP = new Set(['lunch', 'breakfast', 'dinner'])
@@ -36,10 +35,10 @@ const ZONE_SUNRISE = 'M12 3v5M8.5 6.5L12 3l3.5 3.5M4 19h16M7.5 19a4.5 4.5 0 0 1 
 const ZONE_SUNSET = 'M12 8V3M8.5 4.5L12 8l3.5-3.5M4 19h16M7.5 19a4.5 4.5 0 0 1 9 0'
 
 const DAY_ZONES = [
-  { from: 0, to: 360, label: 'Ночь', icon: ICON_PATHS.moon, color: '#a79bff', lightColor: '#6b5bff', tint: 'rgba(124,107,255,0.07)', lightTint: 'rgba(124,107,255,0.14)' },
-  { from: 360, to: 720, label: 'Утро', icon: ZONE_SUNRISE, color: '#ffc15e', lightColor: '#e67e22', tint: 'rgba(255,157,92,0.06)', lightTint: 'rgba(255,157,92,0.12)' },
-  { from: 720, to: 1080, label: 'День', icon: ICON_PATHS.sun, color: '#bcd4ff', lightColor: '#2b6bff', tint: 'rgba(76,141,255,0.06)', lightTint: 'rgba(76,141,255,0.13)' },
-  { from: 1080, to: 1440, label: 'Вечер', icon: ZONE_SUNSET, color: '#f9a8d4', lightColor: '#d63384', tint: 'rgba(244,114,182,0.05)', lightTint: 'rgba(244,114,182,0.11)' },
+  { from: 0, to: 360, label: 'Ночь', icon: ICON_PATHS.moon, color: '#a79bff', tint: 'rgba(124,107,255,0.07)' },
+  { from: 360, to: 720, label: 'Утро', icon: ZONE_SUNRISE, color: '#ffc15e', tint: 'rgba(255,157,92,0.06)' },
+  { from: 720, to: 1080, label: 'День', icon: ICON_PATHS.sun, color: '#4c8dff', tint: 'rgba(76,141,255,0.07)' },
+  { from: 1080, to: 1440, label: 'Вечер', icon: ZONE_SUNSET, color: '#f472b6', tint: 'rgba(244,114,182,0.06)' },
 ]
 
 export interface TimelineProps {
@@ -178,6 +177,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
   const wheelRafRef = useRef(0)
   const wheelDeltaRef = useRef(0)
   const draggingRef = useRef(false)
+  const [viewportRange, setViewportRange] = useState<{ start: number; end: number }>({ start: 0, end: 260 })
 
   const { visualMap, totalWidth, visualXOf, minuteAtVisualX, visualBars } = useVisualLayout(segments)
 
@@ -195,12 +195,39 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
     draggingRef.current = dragging
   }, [dragging])
 
+  const updateViewportRange = useCallback(() => {
+    const vp = viewportRef.current
+    if (!vp || visualBars.length === 0) return
+    const left = vp.scrollLeft
+    const vw = vp.clientWidth
+    const startIdx = Math.max(0, Math.floor(left / PITCH) - 40)
+    const endIdx = Math.min(visualBars.length, Math.ceil((left + vw) / PITCH) + 40)
+    setViewportRange((prev) => {
+      // порог 12 баров — не дергаем React на каждый пиксель, буфер 40 скрывает задержку
+      if (Math.abs(prev.start - startIdx) < 12 && Math.abs(prev.end - endIdx) < 12) return prev
+      return { start: startIdx, end: endIdx }
+    })
+  }, [visualBars.length])
+
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
     vp.scrollLeft = Math.max(0, visualXOf(nowMinutes) - vp.clientWidth / 2)
+    updateViewportRange()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visualXOf])
+  }, [visualXOf, updateViewportRange])
+
+  useEffect(() => {
+    updateViewportRange()
+  }, [updateViewportRange, totalWidth])
+
+  useEffect(() => {
+    const vp = viewportRef.current
+    if (!vp) return
+    const ro = new ResizeObserver(() => updateViewportRange())
+    ro.observe(vp)
+    return () => ro.disconnect()
+  }, [updateViewportRange])
 
   useEffect(() => {
     const vp = viewportRef.current
@@ -216,6 +243,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
         const d = wheelDeltaRef.current
         wheelDeltaRef.current = 0
         vp.scrollLeft += d
+        updateViewportRange()
       })
     }
     vp.addEventListener('wheel', handler, { passive: false })
@@ -223,7 +251,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
       vp.removeEventListener('wheel', handler)
       if (wheelRafRef.current) cancelAnimationFrame(wheelRafRef.current)
     }
-  }, [])
+  }, [updateViewportRange])
 
   useEffect(() => {
     const vp = viewportRef.current
@@ -234,6 +262,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
         scrollRafRef.current = 0
         const shouldShow = vp.scrollLeft > 4 && !draggingRef.current
         setShowJump((prev) => (prev !== shouldShow ? shouldShow : prev))
+        updateViewportRange()
       })
     }
     vp.addEventListener('scroll', onScroll, { passive: true })
@@ -241,18 +270,30 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
       vp.removeEventListener('scroll', onScroll)
       if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current)
     }
-  }, [])
+  }, [updateViewportRange])
 
+  const dragRafRef = useRef(0)
+  const dragXRef = useRef(0)
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
     const onPointerMove = (e: PointerEvent) => {
       if (!dragRef.current || !draggingRef.current) return
-      vp.scrollLeft = dragRef.current.sl - (e.clientX - dragRef.current.x)
+      dragXRef.current = e.clientX
+      if (dragRafRef.current) return
+      dragRafRef.current = requestAnimationFrame(() => {
+        dragRafRef.current = 0
+        if (!dragRef.current) return
+        vp.scrollLeft = dragRef.current.sl - (dragXRef.current - dragRef.current.x)
+        updateViewportRange()
+      })
     }
     vp.addEventListener('pointermove', onPointerMove)
-    return () => vp.removeEventListener('pointermove', onPointerMove)
-  }, [])
+    return () => {
+      vp.removeEventListener('pointermove', onPointerMove)
+      if (dragRafRef.current) cancelAnimationFrame(dragRafRef.current)
+    }
+  }, [updateViewportRange])
 
   const jumpTo = useCallback(
     (min: number) => {
@@ -337,7 +378,6 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
         style={{
           contain: 'layout paint',
           scrollbarWidth: 'none',
-          willChange: 'scroll-position',
           overscrollBehaviorX: 'contain',
         }}
         onDragStart={(e) => e.preventDefault()}
@@ -376,8 +416,6 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
           className="relative h-full"
           style={{
             width: totalWidth,
-            transform: 'translateZ(0)',
-            willChange: 'transform',
             contain: 'paint',
           }}
         >
@@ -385,9 +423,9 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
 
           <div
             className="absolute left-0 bottom-[62px] h-[96px] flex items-end"
-            style={{ width: totalWidth, contain: 'strict', transform: 'translateZ(0)' }}
+            style={{ width: totalWidth, contain: 'paint' }}
           >
-            <BarsLayer bars={visualBars} pitch={PITCH} />
+            <BarsLayer bars={visualBars} pitch={PITCH} start={viewportRange.start} end={viewportRange.end} />
           </div>
 
           <FutureFog nowPx={nowPx} totalWidth={totalWidth} />
@@ -499,7 +537,7 @@ const FutureFog = memo(function FutureFog({ nowPx, totalWidth }: { nowPx: number
         willChange: 'transform',
       }}
     >
-      <div className="absolute inset-0" style={{ width: w, background: 'var(--future-fog)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }} />
+      <div className="absolute inset-0" style={{ width: w, background: 'var(--future-fog)' }} />
     </div>
   )
 })
@@ -523,7 +561,7 @@ const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; 
         className="absolute top-[2px] left-1/2 z-[3]"
         style={{ transform: 'translateX(-50%) translateZ(0)', animation: 'tl-fade-in 0.5s ease-out 0.2s both' }}
       >
-        <div className="relative flex items-center gap-2 pl-[7px] pr-[10px] py-[5px] rounded-full bg-[rgba(28,31,38,0.94)] border border-white/[0.09] shadow-[0_8px_24px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.07)_inset] backdrop-blur-[14px]">
+        <div className="relative flex items-center gap-2 pl-[7px] pr-[10px] py-[5px] rounded-full bg-[rgba(28,31,38,0.96)] border border-white/[0.09] shadow-[0_8px_24px_rgba(0,0,0,0.5),0_1px_0_rgba(255,255,255,0.07)_inset]">
           <span className="relative flex size-[7px] shrink-0 items-center justify-center">
             <span className="absolute inset-0 rounded-full bg-[#ff3b30]" style={{ animation: 'tl-ping 1.5s cubic-bezier(0,0,0.2,1) infinite', opacity: 0.45 }} />
             <span className="relative block size-[7px] rounded-full bg-[#ff3b30] border border-white/25 shadow-[0_0_8px_rgba(255,59,48,0.75)]" />
@@ -533,7 +571,7 @@ const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; 
           </span>
           <span className="text-[9px] font-semibold tracking-[0.09em] text-white/45 uppercase leading-none">сейчас</span>
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] size-[8px] rotate-45 bg-[rgba(28,31,38,0.94)] border-r border-b border-white/[0.09] backdrop-blur-[14px]" />
+        <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] size-[8px] rotate-45 bg-[rgba(28,31,38,0.96)] border-r border-b border-white/[0.09]" />
       </div>
       {/* точка — центр строго на оси */}
       <div className="absolute left-1/2 top-[32px] size-[12px] z-[2]" style={{ transform: 'translateX(-50%) translateZ(0)' }}>
@@ -683,16 +721,18 @@ const RulerLayer = memo(function RulerLayer({ visualXOf }: { visualXOf: (min: nu
   )
 })
 
-const BarsLayer = memo(function BarsLayer({ bars, pitch }: { bars: Bar[]; pitch: number }) {
-  // Статичные бары без JS-виртуализации и без stagger-анимации — скролл только композитором
+const BarsLayer = memo(function BarsLayer({ bars, pitch, start, end }: { bars: Bar[]; pitch: number; start: number; end: number }) {
+  const slice = bars.slice(start, end)
+  const offset = start * pitch
   return (
-    <>
-      {bars.map((bar, i) => {
+    <div className="absolute bottom-0 flex items-end" style={{ left: offset, contain: 'paint' }}>
+      {slice.map((bar, i) => {
         const isOff = bar.type === 'off'
         const acc = isOff ? null : (ACCENTS[bar.color as keyof typeof ACCENTS] ?? ACCENTS.blue)
+        const idx = start + i
         return (
           <div
-            key={i}
+            key={idx}
             aria-hidden
             style={{
               width: pitch - 1,
@@ -701,15 +741,12 @@ const BarsLayer = memo(function BarsLayer({ bars, pitch }: { bars: Bar[]; pitch:
               borderRadius: '3px 3px 2px 2px',
               background: isOff ? 'var(--off)' : acc!.dot,
               opacity: isOff ? 0.35 : 1,
-              transform: 'translateZ(0)',
               contain: 'paint',
-              contentVisibility: 'auto' as const,
-              containIntrinsicSize: '5px 96px',
             }}
           />
         )
       })}
-    </>
+    </div>
   )
 })
 
@@ -722,9 +759,6 @@ const ZonesLayer = memo(function ZonesLayer({
   totalWidth: number
   visualXOf: (min: number) => number
 }) {
-  const { theme } = useTheme()
-  const isLight = theme === 'light'
-  // координаты маркеров для анти-коллизии с подписями зон — хук до early return
   const markerXs = useMemo(
     () => visualMap.filter((s) => s.type !== 'focus' && s.type !== 'off').map((s) => s.visualX),
     [visualMap],
@@ -737,11 +771,8 @@ const ZonesLayer = memo(function ZonesLayer({
         const x1 = visualXOf(z.to)
         const w = Math.max(0, x1 - x0)
         if (w <= 1) return null
-        // подпись зоны "День" прячем если рядом ( < 72px ) есть плашка Перерыв 11:55 — иначе наслаиваются
-        const labelCenter = x0 + 38 // left 12 + ~26/2 ширины "День"
+        const labelCenter = x0 + 38
         const nearMarker = markerXs.some((mx) => Math.abs(mx - labelCenter) < 72)
-        const tint = isLight ? (z as unknown as { lightTint: string }).lightTint ?? z.tint : z.tint
-        const col = isLight ? (z as unknown as { lightColor: string }).lightColor ?? z.color : z.color
         return (
           <div
             key={z.label}
@@ -749,7 +780,7 @@ const ZonesLayer = memo(function ZonesLayer({
             style={{
               left: x0,
               width: w,
-              background: `linear-gradient(180deg, ${tint}, transparent 46%)`,
+              background: `linear-gradient(180deg, ${z.tint}, transparent 46%)`,
               contain: 'paint',
             }}
           >
@@ -757,16 +788,15 @@ const ZonesLayer = memo(function ZonesLayer({
               <div
                 className="absolute top-[7px] left-[12px] flex items-center gap-1"
                 style={{
-                  color: col,
-                  opacity: isLight ? 1 : 0.52,
-                  filter: isLight ? 'drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 0 6px rgba(255,255,255,0.7))' : undefined,
-                  fontWeight: 800,
+                  color: z.color,
+                  opacity: 0.62,
+                  fontWeight: 700,
                 }}
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                   <path d={z.icon} />
                 </svg>
-                <span className="text-[9px] uppercase tracking-[0.14em]" style={{ fontFamily: 'var(--font-display)', fontWeight: isLight ? 700 : 600 }}>
+                <span className="text-[9px] uppercase tracking-[0.14em]" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
                   {z.label}
                 </span>
               </div>

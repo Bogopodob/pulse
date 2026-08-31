@@ -128,6 +128,15 @@ html {
   background: var(--bg);
 }
 
+/* На время переключения темы отключаем transitions/animations глобально — иначе браузер
+   пересчитывает сотни var(--*) на каждом кадре и лагает особенно в светлой теме */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
 @keyframes page-in {
   from {
     opacity: 0;
@@ -176,8 +185,8 @@ body {
 
 .glass-surface {
   background: rgba(255, 255, 255, 0.015);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .card {
@@ -272,9 +281,9 @@ body {
 }
 
 .modal-glass {
-  background: rgba(30, 31, 38, 0.78);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
+  background: rgba(30, 31, 38, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 44px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -284,7 +293,7 @@ body {
   position: absolute;
   border-radius: 9999px;
   pointer-events: none;
-  filter: blur(46px);
+  filter: blur(24px);
 }
 
 /* ---------- date & time: macOS style ---------- */

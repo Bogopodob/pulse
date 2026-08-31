@@ -1,32 +1,20 @@
-import { useLayoutEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { memo, useMemo, useRef } from 'react'
 import { useRhythm, fmtHM, fmtMS } from '../entities/rhythm/useRhythm'
 import { ACCENTS, ICON_PATHS } from '../entities/rhythm/activities'
 
 const CIRC = 2 * Math.PI * 43
 
-/* Время никогда не обрезается: если строка шире внутреннего диаметра кольца,
-   она равномерно уменьшается transform'ом ровно до влезания. */
-const NUM_MAX_W = 116
-
-export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
+export const NextUp = memo(function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   const { cur, resting, remain, segments, progress } = rhythm
   const remainText = fmtMS(remain)
   const numTextRef = useRef<HTMLDivElement>(null)
-  const [numScale, setNumScale] = useState(1)
 
-  useLayoutEffect(() => {
-    const el = numTextRef.current
-    if (!el) return
-    const w = el.offsetWidth // layout-ширина, не зависит от transform
-    setNumScale(w > 0 ? Math.min(1, NUM_MAX_W / w) : 1)
-  }, [remainText])
-  const remainTotal = Math.max(1, cur.end - cur.start)
-  const offset = CIRC * (1 - remain / remainTotal)
+  const remainTotal = useMemo(() => Math.max(1, cur.end - cur.start), [cur.end, cur.start])
+  const offset = useMemo(() => CIRC * (1 - remain / remainTotal), [remain, remainTotal])
 
-  const curAccent = ACCENTS[cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue
+  const curAccent = useMemo(() => ACCENTS[cur.color as keyof typeof ACCENTS] ?? ACCENTS.blue, [cur.color])
 
-  const upcoming = segments.filter((s) => s.start > cur.start && s.type !== 'off').slice(0, 2)
+  const upcoming = useMemo(() => segments.filter((s) => s.start > cur.start && s.type !== 'off').slice(0, 2), [segments, cur.start])
 
   const urgent = !resting && remain < 600
 
@@ -43,22 +31,22 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
   return (
     <div className={`card card-lift relative z-[1] h-full overflow-hidden p-6 flex flex-col ${resting ? 'resting' : ''}`}>
       <div
-        className="absolute w-[460px] h-[460px] left-1/2 -translate-x-1/2 top-[-260px] pointer-events-none rounded-full transition-all duration-600"
+        className="absolute w-[460px] h-[460px] left-1/2 -translate-x-1/2 top-[-260px] pointer-events-none rounded-full will-change-transform"
         style={{
           background: `radial-gradient(circle, rgba(${curAccent.glow},0.12), transparent 65%)`,
         }}
       />
 
-      <div className="absolute top-0 left-0 right-0 h-[2px] z-[2]" style={{ background: 'rgba(255,255,255,0.05)' }}>
+      <div className="absolute top-0 left-0 right-0 h-[2px] z-[2] overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
         <div
-          className="h-full rounded-full"
+          className="h-full rounded-full origin-left"
           style={{
             background: resting
               ? `linear-gradient(90deg, ${curAccent.dot}, ${curAccent.dot})`
               : 'linear-gradient(90deg, var(--focus), var(--focus-2))',
             boxShadow: `0 0 8px rgba(${curAccent.glow},0.7)`,
-            width: `${Math.round(progress * 100)}%`,
-            transition: 'width 0.35s linear',
+            transform: `scaleX(${progress})`,
+            transition: 'transform 0.35s linear',
           }}
         />
       </div>
@@ -108,8 +96,6 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
                 className="font-[var(--font-display)] text-[23px] font-semibold tabular-nums leading-none tracking-[-0.02em] whitespace-nowrap inline-block"
                 style={{
                   color: urgent ? 'var(--rest)' : 'var(--text)',
-                  transform: `scale(${numScale})`,
-                  transformOrigin: 'center',
                 }}
               >
                 {remainText}
@@ -120,22 +106,14 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
         </div>
 
         <div className="relative min-h-[44px] mt-4">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`${cur.type}-${cur.start}`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              <div className="font-[var(--font-display)] text-[17px] font-semibold tracking-[-0.01em] text-[var(--text)]">
-                {title}
-              </div>
-              <div className="text-[12.5px] text-[var(--text-dim)] mt-1">
-                {subtitle}
-              </div>
-            </motion.div>
-          </AnimatePresence>
+          <div key={`${cur.type}-${cur.start}`}>
+            <div className="font-[var(--font-display)] text-[17px] font-semibold tracking-[-0.01em] text-[var(--text)]">
+              {title}
+            </div>
+            <div className="text-[12.5px] text-[var(--text-dim)] mt-1">
+              {subtitle}
+            </div>
+          </div>
         </div>
 
         {upcoming.length > 0 && (
@@ -161,4 +139,4 @@ export function NextUp({ rhythm }: { rhythm: ReturnType<typeof useRhythm> }) {
       </div>
     </div>
   )
-}
+})

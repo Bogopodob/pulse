@@ -104,16 +104,33 @@ export function useRhythm(rules: Rule[], chainStart = CHAIN_START) {
   const [toast, setToast] = useState<{ title: string; text: string } | null>(null)
   const lastTypeRef = useRef<string>('focus')
 
-  /** Часы идут по реальному времени, с точностью до секунды. */
+  /** Часы: реальное время, пауза во вкладке hidden экономит CPU. */
   useEffect(() => {
+    let id: number | null = null
     const sync = () => setNowClock(new Date())
-    sync()
-    const id = setInterval(sync, 1000)
-    return () => clearInterval(id)
+    const start = () => {
+      sync()
+      if (id) clearInterval(id)
+      id = window.setInterval(() => {
+        if (document.hidden) return
+        sync()
+      }, 1000)
+    }
+    const onVis = () => {
+      if (!document.hidden) sync()
+    }
+    start()
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      if (id) clearInterval(id)
+      document.removeEventListener('visibilitychange', onVis)
+    }
   }, [])
 
-  const nowMinutes =
-    nowClock.getHours() * 60 + nowClock.getMinutes() + nowClock.getSeconds() / 60
+  const nowMinutes = useMemo(
+    () => nowClock.getHours() * 60 + nowClock.getMinutes() + nowClock.getSeconds() / 60,
+    [nowClock],
+  )
 
   const segments = useMemo(() => buildSegments(rules, chainStart), [rules, chainStart])
 
@@ -143,31 +160,35 @@ export function useRhythm(rules: Rule[], chainStart = CHAIN_START) {
     })
   }, [nowMinutes, segments, systemNotifications, showToast])
 
-  const cur = segAt(nowMinutes, segments)
-  const resting = RESTING_TYPES.has(cur.type)
-  const remain = Math.max(0, cur.end - nowMinutes)
-  const total = Math.max(1, cur.end - cur.start)
-  const progress = 1 - remain / total
+  const cur = useMemo(() => segAt(nowMinutes, segments), [nowMinutes, segments])
+  const resting = useMemo(() => RESTING_TYPES.has(cur.type), [cur.type])
+  const remain = useMemo(() => Math.max(0, cur.end - nowMinutes), [cur.end, nowMinutes])
+  const total = useMemo(() => Math.max(1, cur.end - cur.start), [cur])
+  const progress = useMemo(() => 1 - remain / total, [remain, total])
 
-  const totalBars = Math.ceil((DAY_END - DAY_START) / STEP_MIN)
-  const rowWidth = totalBars * PITCH
+  const totalBars = useMemo(() => Math.ceil((DAY_END - DAY_START) / STEP_MIN), [])
+  const rowWidth = useMemo(() => totalBars * PITCH, [totalBars])
+  const nextSegment = useMemo(() => segments.find((s) => s.start > cur.start), [segments, cur.start])
 
-  return {
-    nowMinutes,
-    segments,
-    cur,
-    resting,
-    remain,
-    total,
-    progress,
-    totalBars,
-    rowWidth,
-    toast,
-    setToast,
-    DAY_START,
-    DAY_END,
-    STEP_MIN,
-    PITCH,
-    nextSegment: segments.find((s) => s.start > cur.start),
-  }
+  return useMemo(
+    () => ({
+      nowMinutes,
+      segments,
+      cur,
+      resting,
+      remain,
+      total,
+      progress,
+      totalBars,
+      rowWidth,
+      toast,
+      setToast,
+      DAY_START,
+      DAY_END,
+      STEP_MIN,
+      PITCH,
+      nextSegment,
+    }),
+    [nowMinutes, segments, cur, resting, remain, total, progress, totalBars, rowWidth, toast, nextSegment],
+  )
 }
