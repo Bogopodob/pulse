@@ -1,7 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import { WEEKDAYS, dateKeyOf, type DayTemplate } from '@/entities/templates/useTemplates'
 import { ACCENTS } from '@/entities/rhythm/activities'
-import { Calendar } from '@heroui/react/calendar'
 import { CalendarDate } from '@internationalized/date'
 
 const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
@@ -15,6 +14,50 @@ const pad2 = (n: number) => String(n).padStart(2, '0')
 
 const calDateOf = (key: string) =>
   new CalendarDate(Number(key.slice(0, 4)), Number(key.slice(5, 7)), Number(key.slice(8, 10)))
+
+function SimpleMacCalendar({ value, minValue, onChange }: { value: CalendarDate; minValue?: CalendarDate; onChange: (d: CalendarDate) => void }) {
+  const [month, setMonth] = useState(() => new Date(value.year, value.month - 1, 1))
+  const y = month.getFullYear()
+  const m = month.getMonth()
+  const offset = (new Date(y, m, 1).getDay() + 6) % 7
+  const dim = new Date(y, m + 1, 0).getDate()
+  const prevDim = new Date(y, m, 0).getDate()
+  const cells: { d: Date; out: boolean }[] = []
+  for (let i = 0; i < 42; i++) {
+    const n = i - offset + 1
+    if (n >= 1 && n <= dim) cells.push({ d: new Date(y, m, n), out: false })
+    else if (n < 1) cells.push({ d: new Date(y, m - 1, prevDim + n), out: true })
+    else cells.push({ d: new Date(y, m + 1, n - dim), out: true })
+  }
+  const isTodayMonth = y === new Date().getFullYear() && m === new Date().getMonth()
+  const today = new Date()
+  return (
+    <div className="mac-cal-wrap">
+      <div className="mac-cal-head">
+        <button type="button" className={`mac-cal-today${isTodayMonth ? ' on' : ''}`} onClick={() => setMonth(new Date(today.getFullYear(), today.getMonth(), 1))}>Сегодня</button>
+        <div className="mac-cal-title">{['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][m]} {y}</div>
+        <div className="mac-cal-nav">
+          <button type="button" className="mac-cal-nav-btn" onClick={() => setMonth(new Date(y, m - 1, 1))}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M15 18l-6-6 6-6" /></svg></button>
+          <button type="button" className="mac-cal-nav-btn" onClick={() => setMonth(new Date(y, m + 1, 1))}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M9 18l6-6-6-6" /></svg></button>
+        </div>
+      </div>
+      <div className="mac-cal-week">{['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map((w,i) => <div key={w} className={i>=5?'we':''}>{w}</div>)}</div>
+      <div className="mac-cal-grid">
+        {cells.map(({ d, out }, i) => {
+          const isSel = d.getFullYear()===value.year && d.getMonth()+1===value.month && d.getDate()===value.day
+          const isToday = d.getDate()===today.getDate() && d.getMonth()===today.getMonth() && d.getFullYear()===today.getFullYear()
+          const weekend = d.getDay()===0 || d.getDay()===6
+          const disabled = minValue ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() < new Date(minValue.year, minValue.month-1, minValue.day).getTime() : false
+          return (
+            <button key={i} type="button" disabled={disabled} className="mac-cal-day" style={{ opacity: disabled?0.35:1 }} onClick={() => !disabled && onChange(new CalendarDate(d.getFullYear(), d.getMonth()+1, d.getDate()))}>
+              <span className={`mac-cal-num${isSel?' sel':''}${isToday?' today':''}${out?' out':''}${weekend?' we':''}`}>{d.getDate()}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 type Pane = { kind: 'week'; day: number } | { kind: 'date'; key: string } | null
 
@@ -262,41 +305,12 @@ export const WeekPicker = memo(function WeekPicker({
             <span className="ml-auto text-[10px] text-white/40">на дату</span>
           </div>
 
-          <div className="rounded-xl border border-white/5 p-2 min-h-[280px]" style={{ background: 'rgba(0,0,0,0.2)' }}>
-            <Calendar.Root
-                value={calDateOf(pickedDate || todayK)}
-                minValue={calDateOf(todayK)}
-                onChange={(d) => {
-                  if (!d) return
+          <SimpleMacCalendar value={calDateOf(pickedDate || todayK)} minValue={calDateOf(todayK)} onChange={(d) => {
                   const k = `${d.year}-${pad2(d.month)}-${pad2(d.day)}`
                   setPickedDate(k)
                   setPane({ kind: 'date', key: k })
                   onSelectViewingDate?.(k)
-                }}
-              >
-              <Calendar.Header>
-                <Calendar.NavButton slot="previous">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M15 18l-6-6 6-6" />
-                  </svg>
-                </Calendar.NavButton>
-                <Calendar.Heading />
-                <Calendar.NavButton slot="next">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </Calendar.NavButton>
-              </Calendar.Header>
-              <Calendar.Grid>
-                <Calendar.GridHeader>
-                  {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
-                </Calendar.GridHeader>
-                <Calendar.GridBody>
-                  {(date) => <Calendar.Cell date={date}>{date.day}</Calendar.Cell>}
-                </Calendar.GridBody>
-              </Calendar.Grid>
-              </Calendar.Root>
-          </div>
+                }} />
 
           {pane?.kind === 'date' && (
             <div className="px-0.5">

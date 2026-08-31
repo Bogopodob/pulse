@@ -83,11 +83,19 @@ function App() {
   const [viewingDateKey, setViewingDateKey] = useState<string>(() => dateKeyOf(new Date()))
   const { timezone, timeFormat, dateFormat, chainStartMin } = useSettings()
   const { templates, overrides, selectForToday, assignWeekday, setDayOverride, updateTemplate, createTemplate, getTemplateForDate, isOverriddenForDate } = useTemplates()
+  const [modalsWarmed, setModalsWarmed] = useState(false)
 
   // данные (templates, settings) загружаются в хуках — помечаем ready после первого рендера
   useEffect(() => {
     markDataReady()
   }, [])
+
+  // держим скрытый прогрев модалок пока не загрузятся шаблоны и не пройдёт 2 сек после них — первый клик без 3с лага
+  useEffect(() => {
+    if (templates.length === 0) return
+    const id = window.setTimeout(() => setModalsWarmed(true), 2000)
+    return () => window.clearTimeout(id)
+  }, [templates.length])
 
   const pageRef = useRef(page)
   pageRef.current = page
@@ -401,8 +409,8 @@ function App() {
                 {p === 'templates' && visited.templates && <MemoTemplates onBack={backToToday} />}
               </div>
             ))}
-          {/* Прогрев тяжёлых модалок/календарей пока окно маленькое 380×380 — DOM строится за сплэшем с реальными данными, paint проходит за счёт opacity:0.01 */}
-          {(!isWindowExpanded || layoutWarm) && (
+          {/* Прогрев тяжёлых модалок/календарей — держим скрытый DOM с реальными данными 2 сек после загрузки шаблонов, первый клик без 3с лага */}
+          {!modalsWarmed && (
             <div aria-hidden style={{ position: 'fixed', inset: 0, opacity: 0.01, pointerEvents: 'none', overflow: 'hidden' }}>
               <div style={{ width: 640, height: 760, transform: 'scale(0.1)', transformOrigin: 'top left' }}>
                 <WeekPicker templates={templates} overrides={overrides} activeTemplateId={viewingActiveTemplate?.id ?? null} isOverridden={viewingIsOverridden} onAssignWeekday={() => {}} onSetDateOverride={() => {}} onResetToday={() => {}} onCreate={() => {}} onCreateFromCurrent={() => {}} onSelectViewingDate={() => {}} />
