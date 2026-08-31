@@ -32,9 +32,9 @@ export async function hideBootSplash() {
     /* браузерный dev — игнорируем */
   }
   window.setTimeout(() => el.remove(), 700)
-  // Снимаем прозрачный фон у html/body после расширения
-  document.documentElement.style.background = '#0a0b0e'
-  document.body.style.background = '#0a0b0e'
+  // Снимаем прозрачный фон у html/body после расширения — возвращаем управление CSS-переменным
+  document.documentElement.style.background = ''
+  document.body.style.background = ''
   window.dispatchEvent(new CustomEvent('pulse:window-expanded'))
 }
 

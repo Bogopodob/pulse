@@ -321,10 +321,10 @@ function App() {
     <div
       className="h-dvh w-screen flex flex-col overflow-hidden"
       style={{
-        background: isWindowExpanded ? '#0a0b0e' : 'transparent',
+        background: isWindowExpanded ? 'var(--bg)' : 'transparent',
         borderRadius: isWindowExpanded ? 0 : 20,
         overflow: 'hidden',
-        boxShadow: isWindowExpanded ? 'none' : '0 20px 60px rgba(0,0,0,0.5)',
+        boxShadow: isWindowExpanded ? 'none' : '0 20px 60px rgba(0,0,0,0.15)',
         // Плавное увеличение углов до стандартных при расширении (Discord-like)
         transition: 'border-radius 0.45s ease, box-shadow 0.45s ease, background 0.3s ease',
       }}

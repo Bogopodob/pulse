@@ -10,6 +10,60 @@
 }
 
 :root {
+  --bg: #f5f5f7;
+  --bg-2: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f5f5f7;
+  --surface-3: #e8e8ed;
+  --stroke: rgba(0, 0, 0, 0.08);
+  --stroke-soft: rgba(0, 0, 0, 0.04);
+  --text: #1d1d1f;
+  --text-dim: #6e6e73;
+  --text-faint: #86868b;
+
+  --focus: #4c8dff;
+  --focus-2: #7c6bff;
+  --rest: #ff9d5c;
+  --rest-2: #ffc15e;
+  --lunch: #4fd4c4;
+  --lunch-2: #7fe8b8;
+  --off: #d2d2d7;
+
+  --success: rgba(52, 199, 89, 0.9);
+  --danger: rgba(255, 59, 48, 0.9);
+
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+  --chart-1: oklch(0.55 0.2 255);
+  --chart-2: oklch(0.65 0.18 45);
+  --chart-3: oklch(0.6 0.15 172);
+  --chart-4: oklch(0.6 0.18 300);
+  --chart-5: oklch(0.62 0.14 90);
+  --chart-background: oklch(0.98 0.005 260);
+  --chart-foreground: oklch(0.35 0.02 260);
+  --chart-foreground-muted: oklch(0.55 0.015 260);
+  --chart-line-primary: var(--chart-1);
+  --chart-line-secondary: var(--chart-2);
+  --chart-crosshair: oklch(0.45 0.18 255);
+  --chart-grid: oklch(0.9 0.005 260);
+  --chart-brush-border: var(--chart-grid);
+  --chart-tooltip-background: oklch(1 0 0 / 0.96);
+  --chart-tooltip-foreground: oklch(0.2 0.01 260);
+  --chart-tooltip-muted: oklch(0.5 0.015 260);
+  --chart-marker-background: oklch(1 0 0);
+  --chart-marker-border: oklch(0.85 0.01 260);
+  --chart-marker-foreground: oklch(0.2 0.01 260);
+  --chart-label: oklch(0.45 0.015 260);
+  --chart-scale-01: oklch(0.9 0.02 255);
+  --chart-scale-02: oklch(0.8 0.04 255);
+  --chart-scale-03: oklch(0.7 0.06 255);
+  --chart-scale-04: oklch(0.6 0.08 255);
+  --chart-scale-05: oklch(0.5 0.1 255);
+  --chart-scale-pattern-color: oklch(0.9 0.02 255);
+}
+
+html.dark {
   --bg: #0a0b0e;
   --bg-2: #0d0f13;
   --surface: #15171c;
@@ -21,20 +75,11 @@
   --text-dim: #9a9ea7;
   --text-faint: #5c6068;
 
-  --focus: #4c8dff;
-  --focus-2: #7c6bff;
-  --rest: #ff9d5c;
-  --rest-2: #ffc15e;
-  --lunch: #4fd4c4;
-  --lunch-2: #7fe8b8;
   --off: #4a4d55;
 
   --success: rgba(120, 200, 120, 0.6);
   --danger: rgba(255, 100, 100, 0.6);
 
-  --radius-lg: 28px;
-  --radius-md: 18px;
-  --radius-sm: 12px;
   --chart-1: oklch(0.68 0.17 255);
   --chart-2: oklch(0.76 0.14 45);
   --chart-3: oklch(0.76 0.12 172);
