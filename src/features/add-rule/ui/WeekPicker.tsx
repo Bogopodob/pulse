@@ -1,5 +1,4 @@
-import { memo, useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { WEEKDAYS, dateKeyOf, type DayTemplate } from '@/entities/templates/useTemplates'
 import { ACCENTS } from '@/entities/rhythm/activities'
 import { Calendar } from '@heroui/react/calendar'
@@ -47,16 +46,15 @@ export const WeekPicker = memo(function WeekPicker({
   const [pane, setPane] = useState<Pane>(null)
   const [pickedDate, setPickedDate] = useState('')
   const [query, setQuery] = useState('')
-  const deferredQuery = useDeferredValue(query)
 
   /* Поиск сбрасывается при смене/закрытии панели выбора. */
   useEffect(() => setQuery(''), [pane])
 
   const filteredTemplates = useMemo(() => {
-    const q = deferredQuery.trim().toLowerCase()
+    const q = query.trim().toLowerCase()
     if (!q) return templates
     return templates.filter((t) => t.name.toLowerCase().includes(q))
-  }, [templates, deferredQuery])
+  }, [templates, query])
 
   /** День недели → шаблон (первый, кто им владеет). */
   const byDay = useMemo(() => {
@@ -135,7 +133,7 @@ export const WeekPicker = memo(function WeekPicker({
         </div>
       )}
       {/* Список ограничен по высоте: даже с ~40 шаблонами колонка не улетает вниз */}
-      <div className="flex flex-col gap-0.5 max-h-[168px] overflow-y-auto pr-1">
+      <div className="flex flex-col gap-0.5  pr-1">
         {filteredTemplates.map((t) => {
           const a = accentOf(t)
           const active = currentId === t.id
@@ -149,7 +147,7 @@ export const WeekPicker = memo(function WeekPicker({
             >
               <span
                 className="size-[7px] rounded-full shrink-0"
-                style={{ background: a?.dot ?? 'var(--text-faint)', boxShadow: a ? `0 0 5px ${a.dot}` : undefined }}
+                style={{ background: a?.dot ?? 'var(--text-faint)' }}
               />
               <span className="flex-1 min-w-0 truncate text-[12px] font-medium">{t.name}</span>
               {active && <CheckIcon />}
@@ -167,9 +165,9 @@ export const WeekPicker = memo(function WeekPicker({
   )
 
   return (
-    <div className="w-[720px] max-w-[calc(100vw-32px)] flex flex-col gap-4">
+    <div className="w-full flex flex-col gap-4">
       {onCreateFromCurrent && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.35, ease: 'easeOut' }} className="rounded-[20px] p-4" style={{ background: 'rgba(124,107,255,0.08)', border: '1px solid rgba(124,107,255,0.16)' }}>
+        <div className="rounded-[20px] p-4" style={{ background: 'rgba(124,107,255,0.08)', border: '1px solid rgba(124,107,255,0.16)' }}>
           <button
             onClick={() => {
               onCreateFromCurrent()
@@ -183,9 +181,9 @@ export const WeekPicker = memo(function WeekPicker({
             Новый шаблон из текущих блоков
           </button>
           <div className="text-[11px] text-white/50 text-center mt-2">Сохранит все блоки просматриваемого дня как новый шаблон</div>
-        </motion.div>
+        </div>
       )}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14, duration: 0.35, ease: 'easeOut' }} className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
         {/* Левая колонка: расписание недели */}
         <div className="rounded-[20px] p-4 flex flex-col min-h-0" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center gap-2 mb-3">
@@ -193,7 +191,7 @@ export const WeekPicker = memo(function WeekPicker({
             <span className="text-[11px] font-semibold tracking-[0.06em] uppercase text-white/80">Неделя</span>
             <span className="ml-auto text-[10px] text-white/40">шаблон за днём</span>
           </div>
-          <div className="flex flex-col min-h-0 max-h-[360px] overflow-y-auto pr-1 -mr-1 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]">
+          <div className="flex flex-col min-h-0  pr-1 -mr-1 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]">
             {WEEKDAYS.map((label, i) => {
               const dayNum = i + 1
               const assigned = byDay.get(dayNum)
@@ -309,7 +307,7 @@ export const WeekPicker = memo(function WeekPicker({
             </div>
           )}
 
-          <div className="mt-1 flex flex-col gap-0.5 max-h-[104px] overflow-y-auto px-0.5">
+          <div className="mt-1 flex flex-col gap-0.5  px-0.5">
             {specialDays.length === 0 && (
               <div className="px-1 py-1 text-[10.5px] text-[var(--text-faint)]">
                 Пока нет — выберите дату в календаре и назначьте шаблон
@@ -350,10 +348,10 @@ export const WeekPicker = memo(function WeekPicker({
             })}
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Низ: общие действия — sticky чтобы конец всегда виден */}
-      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22, duration: 0.28 }} className="border-t border-white/[0.06] mt-2 pt-2 mx-0.5 sticky bottom-0 bg-[#1c1f26]/90 backdrop-blur-md z-[1] -mx-1.5 px-1.5 -mb-1.5 pb-1.5 rounded-b-xl">
+      <div className="border-t border-white/[0.06] mt-2 pt-2 mx-0.5 sticky bottom-0 bg-[#1c1f26]/90 backdrop-blur-md z-[1] -mx-1.5 px-1.5 -mb-1.5 pb-1.5 rounded-b-xl">
         {isOverridden && (
           <button
             onClick={onResetToday}
@@ -375,7 +373,7 @@ export const WeekPicker = memo(function WeekPicker({
           </svg>
           Создать шаблон
         </button>
-      </motion.div>
+      </div>
     </div>
   )
 })
