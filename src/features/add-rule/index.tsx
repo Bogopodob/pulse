@@ -168,27 +168,16 @@ export const RuleChips = memo(function RuleChips({
                     boxShadow: '0 20px 50px rgba(0,0,0,0.45)',
                   }}
                 >
-                  <div className="relative shrink-0 flex items-center gap-3 px-5 pt-5 pb-3 border-b border-[var(--stroke)]/60">
-                    <div className="size-8 rounded-xl grid place-items-center shrink-0" style={{ background: 'linear-gradient(135deg, var(--focus-2), var(--focus))', boxShadow: '0 4px 14px rgba(76,141,255,0.3)' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="4" width="18" height="17" rx="2" />
-                        <path d="M3 9h18M8 2v4M16 2v4M8 13h3M8 17h6" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-[var(--font-display)] text-[14px] font-semibold">Шаблон дня</h3>
-                      <p className="text-[11px] text-[var(--text-faint)] leading-none mt-0.5">Настрой расписание за пару кликов</p>
-                    </div>
-                    <button
-                      onClick={() => setShowPicker(false)}
-                      className="size-7 grid place-items-center rounded-full text-[var(--text-faint)] hover:text-[var(--text)] hover:bg-[var(--surface-3)] transition-colors shrink-0"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <path d="M18 6L6 18M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 [scrollbar-width:thin] [scrollbar-color:var(--stroke)_transparent]">
+                  <button
+                    onClick={() => setShowPicker(false)}
+                    className="absolute top-3 right-3 size-7 grid place-items-center rounded-full bg-[var(--surface)] text-[var(--text-faint)] hover:text-[var(--text)] border border-[var(--stroke)] hover:bg-[var(--surface-3)] transition-colors z-10"
+                    aria-label="Закрыть"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                  <div className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 pt-10 [scrollbar-width:thin] [scrollbar-color:var(--stroke)_transparent]">
                   <WeekPicker
                     templates={templates}
                     overrides={overrides}

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react'
 
-import { TitleBar } from '../widgets/TitleBar'
 import { Sidebar } from '../widgets/Sidebar'
 import { Today } from '../pages/Today'
 import { Schedule } from '../pages/Schedule'
@@ -339,8 +338,6 @@ function App() {
         transition: 'border-radius 0.45s ease, box-shadow 0.45s ease, background 0.3s ease',
       }}
     >
-      {isWindowExpanded && <TitleBar />}
-
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <Sidebar page={page} onPageChange={openPage} />
 
