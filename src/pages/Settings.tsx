@@ -736,15 +736,14 @@ function AboutBody() {
     <div className="flex flex-col">
       <div className="flex items-center gap-4 py-5">
         <div
-          className="relative size-[58px] rounded-2xl grid place-items-center shrink-0"
+          className="relative size-[64px] rounded-2xl grid place-items-center shrink-0 p-2"
           style={{
-            background: 'linear-gradient(135deg, var(--focus-2), var(--focus))',
-            boxShadow: '0 0 24px rgba(76,141,255,0.35)',
+            background: 'var(--surface)',
+            border: '1px solid var(--stroke)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
           }}
         >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0b0e13" strokeWidth="2.2" strokeLinecap="round">
-            <path d="M3 12h4l2.5-6 5 12 2.5-6h4" />
-          </svg>
+          <img src="/logo.svg" alt="Pulse" width={40} height={40} style={{ objectFit: 'contain' }} />
         </div>
         <div>
           <div className="font-[var(--font-display)] text-[19px] font-semibold tracking-[-0.01em]">Pulse</div>
