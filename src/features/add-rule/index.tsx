@@ -67,7 +67,9 @@ export const RuleChips = memo(function RuleChips({
   const ranges = ruleRanges(rules, chainStart)
 
   useEffect(() => {
-    if (showAdd) requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }))
+    if (!showAdd) return
+    const id = window.setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 180)
+    return () => window.clearTimeout(id)
   }, [showAdd])
 
   useEffect(() => {
@@ -123,7 +125,7 @@ export const RuleChips = memo(function RuleChips({
   const canClear = isWithoutTemplate && rules.length > 0
 
   return (
-    <div className="card card-lift relative z-[1] flex flex-col max-h-[min(560px,calc(100vh-140px))] overflow-hidden">
+    <div className="card card-lift relative z-[1] flex flex-col">
       <div className="flex items-center gap-2 px-5 pt-4 pb-3 shrink-0">
         <div className="flex items-center gap-2">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--focus)]">
@@ -248,10 +250,7 @@ export const RuleChips = memo(function RuleChips({
         </div>
       )}
 
-      <div
-        ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-1 px-3 py-1 [scrollbar-width:thin] [scrollbar-color:var(--stroke)_transparent]"
-      >
+      <div ref={scrollRef} className="flex flex-col gap-1 px-3 py-1">
         {rules.length === 0 && isWithoutTemplate ? (
           <div className="rounded-xl px-4 py-6 text-center" style={{ background: 'var(--surface-2)', border: '1px dashed var(--stroke)' }}>
             <div className="text-[13px] font-medium text-[var(--text-dim)]">Пока нет ни одного блока</div>

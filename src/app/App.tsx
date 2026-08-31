@@ -294,26 +294,20 @@ function App() {
 
   const [showScroll, setShowScroll] = useState(false)
   useEffect(() => {
-    // На время сплэша и прогрева — полностью прячем скроллы, иначе на 380×380 видны вертикальные/горизонтальные
     document.documentElement.style.overflow = 'hidden'
     document.body.style.overflow = 'hidden'
-    // сбрасываем inline background — пусть CSS переменные (--bg) рулят темой
     document.body.style.background = isWindowExpanded ? '' : 'transparent'
     document.documentElement.style.background = isWindowExpanded ? '' : 'transparent'
     if (mainRef.current) {
-      mainRef.current.style.overflowY = 'hidden'
+      mainRef.current.style.overflowY = isWindowExpanded ? 'auto' : 'hidden'
       mainRef.current.style.overflowX = 'hidden'
     }
-    // После расширения и прогрева — плавно показываем скролл
-    if (isWindowExpanded && !layoutWarm) {
-      const t = setTimeout(() => {
-        setShowScroll(true)
-        if (mainRef.current) {
-          mainRef.current.style.overflowY = 'auto'
-          mainRef.current.style.overflowX = 'hidden'
-        }
-      }, 600)
-      return () => clearTimeout(t)
+    if (isWindowExpanded) {
+      setShowScroll(true)
+      if (mainRef.current) {
+        mainRef.current.style.overflowY = 'auto'
+        mainRef.current.style.overflowX = 'hidden'
+      }
     } else {
       setShowScroll(false)
       if (mainRef.current) {
@@ -321,7 +315,7 @@ function App() {
         mainRef.current.style.overflowX = 'hidden'
       }
     }
-  }, [isWindowExpanded, layoutWarm])
+  }, [isWindowExpanded])
 
   return (
     <div
@@ -342,7 +336,7 @@ function App() {
 
         <main
           ref={mainRef}
-          className={`flex-1 min-w-0 flex flex-col p-6 sm:p-8 md:p-10 gap-5 ${!isWindowExpanded ? 'hidden' : ''}`}
+          className={`flex-1 min-w-0 min-h-0 flex flex-col p-6 sm:p-8 md:p-10 gap-5 overflow-x-hidden ${!isWindowExpanded ? 'hidden' : ''}`}
           style={{ overflowY: (showScroll ? 'auto' : 'hidden') as React.CSSProperties['overflowY'], overflowX: 'hidden' as const, opacity: isWindowExpanded ? 1 : 0, transition: 'opacity 0.35s ease' }}
         >
           {/* Активна только текущая вкладка — фоновые таймеры today (1с, timeline, TodayTasks) не тратят CPU */}

@@ -171,7 +171,7 @@ export const WeekPicker = memo(function WeekPicker({
   )
 
   return (
-    <div className="w-[560px] max-w-[calc(100vw-80px)]">
+    <div className="w-[560px] max-w-[calc(100vw-80px)] max-h-[min(620px,calc(100vh-140px))] overflow-y-auto overscroll-contain pr-0.5 [scrollbar-width:thin] [scrollbar-color:var(--stroke)_transparent] flex flex-col">
       {onCreateFromCurrent && (
         <div className="mb-2 px-1">
           <button
@@ -358,8 +358,8 @@ export const WeekPicker = memo(function WeekPicker({
         </div>
       </div>
 
-      {/* Низ: общие действия */}
-      <div className="border-t border-[var(--stroke)] mt-1 pt-1 mx-0.5">
+      {/* Низ: общие действия — sticky чтобы не уезжал при скролле */}
+      <div className="border-t border-[var(--stroke)] mt-1 pt-1 mx-0.5 sticky bottom-0 bg-[var(--surface-2)] z-[1]">
         {isOverridden && (
           <button
             onClick={onResetToday}
