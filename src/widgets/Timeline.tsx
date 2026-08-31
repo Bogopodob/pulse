@@ -178,6 +178,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
   const wheelDeltaRef = useRef(0)
   const draggingRef = useRef(false)
   const [viewportRange, setViewportRange] = useState<{ start: number; end: number }>({ start: 0, end: 260 })
+  const [visibleX, setVisibleX] = useState<{ left: number; right: number }>({ left: 0, right: 900 })
 
   const { visualMap, totalWidth, visualXOf, minuteAtVisualX, visualBars } = useVisualLayout(segments)
 
@@ -203,10 +204,12 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
     const startIdx = Math.max(0, Math.floor(left / PITCH) - 40)
     const endIdx = Math.min(visualBars.length, Math.ceil((left + vw) / PITCH) + 40)
     setViewportRange((prev) => {
-      // порог 12 баров — не дергаем React на каждый пиксель, буфер 40 скрывает задержку
       if (Math.abs(prev.start - startIdx) < 12 && Math.abs(prev.end - endIdx) < 12) return prev
       return { start: startIdx, end: endIdx }
     })
+    const l = left - 120
+    const r = left + vw + 120
+    setVisibleX((prev) => (Math.abs(prev.left - l) < 24 && Math.abs(prev.right - r) < 24 ? prev : { left: l, right: r }))
   }, [visualBars.length])
 
   useEffect(() => {
@@ -419,7 +422,7 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
             contain: 'paint',
           }}
         >
-          <ZonesLayer visualMap={visualMap} totalWidth={totalWidth} visualXOf={visualXOf} />
+          <ZonesLayer visualMap={visualMap} totalWidth={totalWidth} visualXOf={visualXOf} visibleLeft={visibleX.left} visibleRight={visibleX.right} />
 
           <div
             className="absolute left-0 bottom-[62px] h-[96px] flex items-end"
@@ -431,11 +434,11 @@ export function Timeline({ segments, nowMinutes, cur }: TimelineProps) {
           <FutureFog nowPx={nowPx} totalWidth={totalWidth} />
 
           <div className="absolute left-0 top-[2px] h-[36px] z-[3] pointer-events-none" style={{ width: totalWidth }}>
-            <MarkersLayer visualMap={visualMap} totalWidth={totalWidth} />
+            <MarkersLayer visualMap={visualMap} totalWidth={totalWidth} visibleLeft={visibleX.left} visibleRight={visibleX.right} />
           </div>
 
           <div className="absolute left-0 bottom-[6px] h-[52px] pointer-events-none" style={{ width: totalWidth }}>
-            <RulerLayer visualXOf={visualXOf} />
+            <RulerLayer visualXOf={visualXOf} visibleLeft={visibleX.left} visibleRight={visibleX.right} />
           </div>
 
           {(() => {
@@ -598,14 +601,13 @@ const Playhead = memo(function Playhead({ nowPx, nowMinutes }: { nowPx: number; 
   )
 })
 
-const MarkersLayer = memo(function MarkersLayer({ visualMap, totalWidth }: { visualMap: VisualSegment[]; totalWidth: number }) {
-  // Коллизия плашек: двухрядная раскладка, чтобы Перерыв 11:55 и День не наслаивались
+const MarkersLayer = memo(function MarkersLayer({ visualMap, totalWidth, visibleLeft, visibleRight }: { visualMap: VisualSegment[]; totalWidth: number; visibleLeft: number; visibleRight: number }) {
   const items = useMemo(() => {
     const raw = visualMap
       .filter((s) => s.type !== 'focus' && s.type !== 'off')
+      .filter((s) => s.visualX >= visibleLeft - 160 && s.visualX <= visibleRight + 160)
       .map((s) => {
         const trunc = truncateLabel(s.label)
-        // оценка ширины pill: ~6px/char + " · hh:mm" (~42px) + паддинги 16
         const wEst = trunc.length * 6 + 58
         return { s, trunc, x: s.visualX, wEst }
       })
@@ -642,7 +644,7 @@ const MarkersLayer = memo(function MarkersLayer({ visualMap, totalWidth }: { vis
       }
     }
     return placed
-  }, [visualMap, totalWidth])
+  }, [visualMap, totalWidth, visibleLeft, visibleRight])
 
   return (
     <>
@@ -675,15 +677,16 @@ const MarkersLayer = memo(function MarkersLayer({ visualMap, totalWidth }: { vis
   )
 })
 
-const RulerLayer = memo(function RulerLayer({ visualXOf }: { visualXOf: (min: number) => number }) {
+const RulerLayer = memo(function RulerLayer({ visualXOf, visibleLeft, visibleRight }: { visualXOf: (min: number) => number; visibleLeft: number; visibleRight: number }) {
   const totalTicks = Math.ceil((DAY_END - DAY_START) / 60)
   return (
     <>
       {Array.from({ length: totalTicks + 1 }, (_, i) => {
         const m = DAY_START + i * 60
+        const x = visualXOf(m)
+        if (x < visibleLeft - 80 || x > visibleRight + 80) return null
         const isFirst = i === 0
         const isLast = i === totalTicks
-        const x = visualXOf(m)
         return (
           <div
             key={m}
@@ -754,10 +757,14 @@ const ZonesLayer = memo(function ZonesLayer({
   visualMap,
   totalWidth,
   visualXOf,
+  visibleLeft,
+  visibleRight,
 }: {
   visualMap: VisualSegment[]
   totalWidth: number
   visualXOf: (min: number) => number
+  visibleLeft: number
+  visibleRight: number
 }) {
   const markerXs = useMemo(
     () => visualMap.filter((s) => s.type !== 'focus' && s.type !== 'off').map((s) => s.visualX),
@@ -769,6 +776,7 @@ const ZonesLayer = memo(function ZonesLayer({
       {DAY_ZONES.map((z) => {
         const x0 = visualXOf(z.from)
         const x1 = visualXOf(z.to)
+        if (x1 < visibleLeft - 40 || x0 > visibleRight + 40) return null
         const w = Math.max(0, x1 - x0)
         if (w <= 1) return null
         const labelCenter = x0 + 38
