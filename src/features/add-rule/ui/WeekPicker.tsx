@@ -47,11 +47,6 @@ export const WeekPicker = memo(function WeekPicker({
   const [pickedDate, setPickedDate] = useState('')
   const [query, setQuery] = useState('')
   const deferredQuery = useDeferredValue(query)
-  const [calReady, setCalReady] = useState(false)
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setCalReady(true))
-    return () => cancelAnimationFrame(id)
-  }, [])
 
   /* Поиск сбрасывается при смене/закрытии панели выбора. */
   useEffect(() => setQuery(''), [pane])
@@ -171,7 +166,7 @@ export const WeekPicker = memo(function WeekPicker({
   )
 
   return (
-    <div className="w-[560px] max-w-[calc(100vw-80px)] max-h-[min(620px,calc(100vh-140px))] overflow-y-auto overscroll-contain pr-0.5 [scrollbar-width:thin] [scrollbar-color:var(--stroke)_transparent] flex flex-col">
+    <div className="w-[560px] max-w-[calc(100vw-80px)] flex flex-col">
       {onCreateFromCurrent && (
         <div className="mb-2 px-1">
           <button
@@ -267,8 +262,7 @@ export const WeekPicker = memo(function WeekPicker({
           </div>
 
           <div className="mx-0.5 rounded-lg border border-[var(--stroke)] p-2 min-h-[280px]" style={{ background: 'var(--surface)' }}>
-            {calReady ? (
-              <Calendar.Root
+            <Calendar.Root
                 value={calDateOf(pickedDate || todayK)}
                 minValue={calDateOf(todayK)}
                 onChange={(d) => {
@@ -300,10 +294,7 @@ export const WeekPicker = memo(function WeekPicker({
                   {(date) => <Calendar.Cell date={date}>{date.day}</Calendar.Cell>}
                 </Calendar.GridBody>
               </Calendar.Grid>
-            </Calendar.Root>
-              ) : (
-                <div className="h-[260px] grid place-items-center text-[11px] text-[var(--text-faint)]">Загрузка календаря…</div>
-              )}
+              </Calendar.Root>
           </div>
 
           {pane?.kind === 'date' && (
@@ -358,8 +349,8 @@ export const WeekPicker = memo(function WeekPicker({
         </div>
       </div>
 
-      {/* Низ: общие действия — sticky чтобы не уезжал при скролле */}
-      <div className="border-t border-[var(--stroke)] mt-1 pt-1 mx-0.5 sticky bottom-0 bg-[var(--surface-2)] z-[1]">
+      {/* Низ: общие действия — sticky чтобы конец всегда виден */}
+      <div className="border-t border-[var(--stroke)] mt-1 pt-1 mx-0.5 sticky bottom-0 bg-[var(--surface-2)] z-[1] -mx-1.5 px-1.5 -mb-1.5 pb-1.5 rounded-b-xl">
         {isOverridden && (
           <button
             onClick={onResetToday}

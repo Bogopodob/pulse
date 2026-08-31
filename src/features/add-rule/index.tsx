@@ -62,8 +62,6 @@ export const RuleChips = memo(function RuleChips({
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const flashTimer = useRef<number | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const pickerBtnRef = useRef<HTMLButtonElement>(null)
-  const [pickerPos, setPickerPos] = useState<{ top: number; right: number } | null>(null)
   const ranges = ruleRanges(rules, chainStart)
 
   useEffect(() => {
@@ -71,21 +69,6 @@ export const RuleChips = memo(function RuleChips({
     const id = window.setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 180)
     return () => window.clearTimeout(id)
   }, [showAdd])
-
-  useEffect(() => {
-    if (!showPicker) return
-    const upd = () => {
-      const r = pickerBtnRef.current?.getBoundingClientRect()
-      if (r) setPickerPos({ top: r.bottom + 6, right: window.innerWidth - r.right })
-    }
-    upd()
-    window.addEventListener('resize', upd)
-    window.addEventListener('scroll', upd, true)
-    return () => {
-      window.removeEventListener('resize', upd)
-      window.removeEventListener('scroll', upd, true)
-    }
-  }, [showPicker])
 
   /* Бюджет суток: сумма всех блоков не может превысить 24:00 − начало цепочки. */
   const budget = Math.max(0, DAY_LIMIT - chainStart)
@@ -138,7 +121,6 @@ export const RuleChips = memo(function RuleChips({
 
         <div className="relative ml-auto">
           <button
-            ref={pickerBtnRef}
             onClick={() => setShowPicker((v) => !v)}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold transition-colors"
             style={{
@@ -166,24 +148,48 @@ export const RuleChips = memo(function RuleChips({
           <AnimatePresence>
             {showPicker && (
               <>
-                <div className="fixed inset-0 z-[40]" onClick={() => setShowPicker(false)} />
                 <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.12, ease: 'easeOut' }}
-                  className="fixed z-[41] rounded-xl p-1.5 will-change-transform"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-[2px]"
+                  onClick={() => setShowPicker(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 12, filter: 'blur(6px)' }}
+                  animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, scale: 0.97, y: 8, filter: 'blur(4px)' }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 28, mass: 0.7 }}
+                  className="fixed left-1/2 top-1/2 z-[41] w-[min(640px,calc(100vw-24px))] max-h-[min(88vh,760px)] -translate-x-1/2 -translate-y-1/2 rounded-[20px] overflow-hidden flex flex-col"
                   style={{
-                    top: pickerPos?.top ?? 64,
-                    right: pickerPos?.right ?? 24,
-                    background: 'var(--surface-2)',
+                    background: 'linear-gradient(180deg, var(--surface-2) 0%, var(--surface) 100%)',
                     border: '1px solid var(--stroke)',
-                    boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-                    maxHeight: 'min(640px, calc(100vh - 120px))',
-                    overflowY: 'auto',
-                    contain: 'paint',
+                    boxShadow: '0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06) inset, 0 1px 0 rgba(255,255,255,0.08) inset',
                   }}
                 >
+                  <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none opacity-40" style={{ background: 'radial-gradient(circle, rgba(124,107,255,0.18), transparent 70%)' }} />
+                  <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full pointer-events-none opacity-30" style={{ background: 'radial-gradient(circle, rgba(76,141,255,0.14), transparent 70%)' }} />
+                  <div className="relative shrink-0 flex items-center gap-3 px-5 pt-5 pb-4 border-b border-[var(--stroke)]/60">
+                    <div className="size-8 rounded-xl grid place-items-center shrink-0" style={{ background: 'linear-gradient(135deg, var(--focus-2), var(--focus))', boxShadow: '0 4px 14px rgba(76,141,255,0.35)' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="17" rx="2" />
+                        <path d="M3 9h18M8 2v4M16 2v4M8 13h3M8 17h6" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-[var(--font-display)] text-[15px] font-semibold tracking-[-0.01em]">Шаблон дня</h3>
+                      <p className="text-[11.5px] text-[var(--text-faint)] leading-none mt-0.5">Настрой расписание за пару кликов</p>
+                    </div>
+                    <button
+                      onClick={() => setShowPicker(false)}
+                      className="size-8 grid place-items-center rounded-full text-[var(--text-faint)] hover:text-[var(--text)] hover:bg-[var(--surface-3)] border border-transparent hover:border-[var(--stroke)] transition-all shrink-0"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 [scrollbar-width:thin] [scrollbar-color:var(--stroke)_transparent]">
                   <WeekPicker
                     templates={templates}
                     overrides={overrides}
@@ -211,6 +217,7 @@ export const RuleChips = memo(function RuleChips({
                       onCreateTemplateFromCurrent()
                     }}
                   />
+                  </div>
                 </motion.div>
               </>
             )}
