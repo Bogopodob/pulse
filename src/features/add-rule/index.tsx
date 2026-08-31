@@ -152,44 +152,47 @@ export const RuleChips = memo(function RuleChips({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-[2px]"
+                  transition={{ duration: 0.2 }}
+                  className="fixed inset-0 z-[40] bg-[#050508]/60 backdrop-blur-[14px]"
                   onClick={() => setShowPicker(false)}
                 />
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.96, y: 12, filter: 'blur(6px)' }}
+                  initial={{ opacity: 0, scale: 0.92, y: 16, filter: 'blur(8px)' }}
                   animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, scale: 0.97, y: 8, filter: 'blur(4px)' }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 28, mass: 0.7 }}
-                  className="fixed left-1/2 top-1/2 z-[41] w-[min(640px,calc(100vw-24px))] max-h-[min(88vh,760px)] -translate-x-1/2 -translate-y-1/2 rounded-[20px] overflow-hidden flex flex-col"
+                  exit={{ opacity: 0, scale: 0.96, y: 10, filter: 'blur(6px)' }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.8, delayChildren: 0.08, staggerChildren: 0.06 }}
+                  className="fixed left-1/2 top-1/2 z-[41] w-[min(720px,calc(100vw-24px))] max-h-[min(88vh,800px)] -translate-x-1/2 -translate-y-1/2 rounded-[24px] overflow-hidden flex flex-col"
                   style={{
-                    background: 'linear-gradient(180deg, var(--surface-2) 0%, var(--surface) 100%)',
-                    border: '1px solid var(--stroke)',
-                    boxShadow: '0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06) inset, 0 1px 0 rgba(255,255,255,0.08) inset',
+                    background: 'linear-gradient(180deg, rgba(28,31,38,0.96) 0%, rgba(18,20,26,0.98) 100%)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    boxShadow: '0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06) inset, 0 1px 0 rgba(255,255,255,0.09) inset',
+                    backdropFilter: 'blur(20px)',
                   }}
                 >
-                  <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none opacity-40" style={{ background: 'radial-gradient(circle, rgba(124,107,255,0.18), transparent 70%)' }} />
-                  <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full pointer-events-none opacity-30" style={{ background: 'radial-gradient(circle, rgba(76,141,255,0.14), transparent 70%)' }} />
-                  <div className="relative shrink-0 flex items-center gap-3 px-5 pt-5 pb-4 border-b border-[var(--stroke)]/60">
-                    <div className="size-8 rounded-xl grid place-items-center shrink-0" style={{ background: 'linear-gradient(135deg, var(--focus-2), var(--focus))', boxShadow: '0 4px 14px rgba(76,141,255,0.35)' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full pointer-events-none opacity-30" style={{ background: 'radial-gradient(circle, rgba(124,107,255,0.2), transparent 70%)' }} />
+                  <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full pointer-events-none opacity-20" style={{ background: 'radial-gradient(circle, rgba(76,141,255,0.16), transparent 70%)' }} />
+                  <div className="absolute inset-0 rounded-[24px] pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)' }} />
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06, duration: 0.3 }} className="relative shrink-0 flex items-center gap-3 px-6 pt-6 pb-4 border-b border-white/[0.06]">
+                    <div className="size-9 rounded-xl grid place-items-center shrink-0" style={{ background: 'linear-gradient(135deg, #7c6bff, #4c8dff)', boxShadow: '0 6px 20px rgba(76,141,255,0.4), 0 0 0 1px rgba(255,255,255,0.12) inset' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="3" y="4" width="18" height="17" rx="2" />
                         <path d="M3 9h18M8 2v4M16 2v4M8 13h3M8 17h6" />
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-[var(--font-display)] text-[15px] font-semibold tracking-[-0.01em]">Шаблон дня</h3>
-                      <p className="text-[11.5px] text-[var(--text-faint)] leading-none mt-0.5">Настрой расписание за пару кликов</p>
+                      <h3 className="font-[var(--font-display)] text-[16px] font-semibold tracking-[-0.01em] text-white">Шаблон дня</h3>
+                      <p className="text-[11.5px] text-white/55 leading-none mt-0.5">Настрой расписание за пару кликов</p>
                     </div>
                     <button
                       onClick={() => setShowPicker(false)}
-                      className="size-8 grid place-items-center rounded-full text-[var(--text-faint)] hover:text-[var(--text)] hover:bg-[var(--surface-3)] border border-transparent hover:border-[var(--stroke)] transition-all shrink-0"
+                      className="size-8 grid place-items-center rounded-full text-white/50 hover:text-white hover:bg-white/[0.08] border border-white/0 hover:border-white/10 transition-all shrink-0"
                     >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                         <path d="M18 6L6 18M6 6l12 12" />
                       </svg>
                     </button>
-                  </div>
-                  <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 [scrollbar-width:thin] [scrollbar-color:var(--stroke)_transparent]">
+                  </motion.div>
+                  <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]">
                   <WeekPicker
                     templates={templates}
                     overrides={overrides}

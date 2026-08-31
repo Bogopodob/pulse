@@ -12,6 +12,8 @@ import { fmtClock } from '../shared/lib/date'
 import { useSettings } from '../shared/hooks/useSettings'
 import { useTemplates, dateKeyOf } from '../entities/templates/useTemplates'
 import { markAppWarm, markDataReady } from '../shared/lib/boot'
+import { WeekPicker } from '../features/add-rule/ui/WeekPicker'
+import { BlockCreator } from '../features/add-rule/ui/BlockCreator'
 
 const CUSTOM_DAY_RULES_KEY = 'pulse-custom-day-rules'
 
@@ -399,6 +401,15 @@ function App() {
                 {p === 'templates' && visited.templates && <MemoTemplates onBack={backToToday} />}
               </div>
             ))}
+          {/* Прогрев тяжёлых модалок/календарей пока окно маленькое 380×380 — DOM строится за сплэшем с реальными данными, paint проходит за счёт opacity:0.01 */}
+          {(!isWindowExpanded || layoutWarm) && (
+            <div aria-hidden style={{ position: 'fixed', inset: 0, opacity: 0.01, pointerEvents: 'none', overflow: 'hidden' }}>
+              <div style={{ width: 640, height: 760, transform: 'scale(0.1)', transformOrigin: 'top left' }}>
+                <WeekPicker templates={templates} overrides={overrides} activeTemplateId={viewingActiveTemplate?.id ?? null} isOverridden={viewingIsOverridden} onAssignWeekday={() => {}} onSetDateOverride={() => {}} onResetToday={() => {}} onCreate={() => {}} onCreateFromCurrent={() => {}} onSelectViewingDate={() => {}} />
+                <BlockCreator rules={viewingRules} onClose={() => {}} presetType={null} setPresetType={() => {}} presetMin={60} setPresetMin={() => {}} custom={{ name: '', icon: 'star', color: 'blue' }} setCustom={() => {}} customMin={60} setCustomMin={() => {}} chainStart={viewingChainStart} onAdd={() => {}} />
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
