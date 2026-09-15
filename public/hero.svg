@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 460" fill="none" role="img" aria-label="Pulse — дневник ритма дня">
+  <defs>
+    <linearGradient id="hTitle" x1="286" y1="0" x2="760" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8B49FD"/>
+      <stop offset="45%" stop-color="#6E5DFC"/>
+      <stop offset="80%" stop-color="#02C8F6"/>
+      <stop offset="100%" stop-color="#06E1C6"/>
+    </linearGradient>
+    <linearGradient id="hPulse" x1="80" y1="430" x2="1330" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06E1C6"/>
+      <stop offset="35%" stop-color="#02C8F6"/>
+      <stop offset="65%" stop-color="#0FE2C4"/>
+      <stop offset="100%" stop-color="#23F7A9"/>
+    </linearGradient>
+    <linearGradient id="hRingTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8B49FD"/>
+      <stop offset="45%" stop-color="#6E5DFC"/>
+      <stop offset="100%" stop-color="#4468FC"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1400" height="460" rx="26" fill="#0B0D12"/>
+  <rect width="1400" height="460" rx="26" stroke="#FFFFFF" stroke-opacity="0.07"/>
+
+  <circle cx="1200" cy="70" r="210" fill="#8B49FD" fill-opacity="0.10"/>
+  <circle cx="130" cy="430" r="230" fill="#06E1C6" fill-opacity="0.06"/>
+  <circle cx="700" cy="-120" r="260" fill="#4468FC" fill-opacity="0.06"/>
+
+  <g transform="translate(100,92) scale(0.12)">
+    <path d="M 185.13 625.42 A 457 457 0 0 1 797.80 172.06" fill="none" stroke="url(#hRingTop)" stroke-width="61" stroke-linecap="round"/>
+    <path d="M 217.78 772.70 A 457 457 0 0 0 1058.99 787.38" fill="none" stroke="url(#hRingTop)" stroke-width="61" stroke-linecap="round"/>
+    <path d="M 1091.55 680.84 A 457 457 0 0 0 1085.88 494.84" fill="none" stroke="#8B49FD" stroke-width="61" stroke-linecap="round"/>
+    <path d="M 106,707 L 405,703 L 535,383 L 725,888 L 830,707 L 1161,707" fill="none" stroke="url(#hPulse)" stroke-width="61" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 703,522 L 760,600 L 928,418" fill="none" stroke="url(#hPulse)" stroke-width="61" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <text x="286" y="240" font-family="Space Grotesk, Inter, -apple-system, system-ui, sans-serif" font-size="92" font-weight="700" letter-spacing="10" fill="url(#hTitle)">PULSE</text>
+
+  <text x="292" y="286" font-family="Inter, -apple-system, system-ui, sans-serif" font-size="30" font-weight="500" letter-spacing="2" fill="#EDEFF4">Дневник ритма дня</text>
+  <text x="292" y="322" font-family="Inter, -apple-system, system-ui, sans-serif" font-size="19" letter-spacing="0.5" fill="#8EA0BC">правила · расписание · статистика — в одном окне</text>
+
+  <rect x="292" y="344" width="218" height="42" rx="21" fill="#141922" stroke="#FFFFFF" stroke-opacity="0.10"/>
+  <circle cx="316" cy="365" r="6" fill="#8B49FD"/>
+  <text x="334" y="371" font-family="Inter, -apple-system, system-ui, sans-serif" font-size="17" fill="#DCE3EE">Веб · Vite</text>
+
+  <rect x="530" y="344" width="252" height="42" rx="21" fill="#141922" stroke="#FFFFFF" stroke-opacity="0.10"/>
+  <circle cx="556" cy="365" r="6" fill="#06E1C6"/>
+  <text x="574" y="371" font-family="Inter, -apple-system, system-ui, sans-serif" font-size="17" fill="#DCE3EE">Десктоп · Tauri</text>
+
+  <rect x="802" y="344" width="252" height="42" rx="21" fill="#141922" stroke="#FFFFFF" stroke-opacity="0.10"/>
+  <circle cx="828" cy="365" r="6" fill="#0FE2C4"/>
+  <text x="846" y="371" font-family="Inter, -apple-system, system-ui, sans-serif" font-size="17" fill="#DCE3EE">Локализация · RU/EN</text>
+
+  <path d="M 80 444 L 320 444 L 398 405 L 478 451 L 558 444 L 1330 444" fill="none" stroke="url(#hPulse)" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" opacity="0.16"/>
+  <path d="M 80 444 L 320 444 L 398 405 L 478 451 L 558 444 L 1330 444" fill="none" stroke="url(#hPulse)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
